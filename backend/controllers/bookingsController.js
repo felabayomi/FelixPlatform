@@ -28,6 +28,38 @@ exports.getBookings = async (req, res) => {
     }
 };
 
+exports.lookupBookings = async (req, res) => {
+    const contactPhone = toNullableText(req.query.phone || req.query.contact_phone);
+    const appName = toNullableText(req.query.app_name) || 'A & F Laundry';
+
+    if (!contactPhone) {
+        return res.status(400).send('Phone number is required');
+    }
+
+    const digitsOnly = contactPhone.replace(/\D/g, '');
+
+    try {
+        const result = await pool.query(
+            `SELECT b.*, p.name AS product_name
+             FROM bookings b
+             LEFT JOIN products p ON p.id = b.product_id
+             WHERE COALESCE(b.app_name, 'A & F Laundry') = $1
+               AND (
+                    ($2 <> '' AND regexp_replace(COALESCE(b.contact_phone, ''), '[^0-9]', '', 'g') = $2)
+                    OR COALESCE(b.contact_phone, '') ILIKE $3
+               )
+             ORDER BY b.created_at DESC
+             LIMIT 20`,
+            [appName, digitsOnly, `%${contactPhone}%`]
+        );
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error tracking bookings');
+    }
+};
+
 exports.addBooking = async (req, res) => {
     const {
         user_id,
