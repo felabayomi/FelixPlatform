@@ -44,6 +44,7 @@ CREATE TABLE products (
   unit text,
   min_order_weight numeric,
   subscription_interval text,
+  action_label text,
   image_url text,
   download_url text,
   booking_required boolean DEFAULT false,

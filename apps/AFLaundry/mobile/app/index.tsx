@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
+    Image,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -112,8 +113,10 @@ export default function HomeScreen() {
     const [trackingLoading, setTrackingLoading] = useState(false);
     const [trackingResults, setTrackingResults] = useState<LaundryBooking[]>([]);
     const [trackingError, setTrackingError] = useState('');
+    const [failedServiceImageIds, setFailedServiceImageIds] = useState<Record<string, boolean>>({});
 
     const loadServices = async () => {
+        setFailedServiceImageIds({});
         setLoading(true);
         setError('');
 
@@ -303,6 +306,24 @@ export default function HomeScreen() {
                                     key={service.id}
                                     style={[styles.serviceCard, selected ? styles.serviceCardActive : null]}
                                     onPress={() => handleSelectService(String(service.id))}>
+                                    {service.image_url && !failedServiceImageIds[String(service.id)] ? (
+                                        <Image
+                                            source={{ uri: service.image_url }}
+                                            style={styles.serviceImage}
+                                            resizeMode="cover"
+                                            onError={() => {
+                                                setFailedServiceImageIds((current) => ({
+                                                    ...current,
+                                                    [String(service.id)]: true,
+                                                }));
+                                            }}
+                                        />
+                                    ) : (
+                                        <View style={styles.serviceImageFallback}>
+                                            <Text style={styles.serviceImageFallbackText}>{service.name}</Text>
+                                        </View>
+                                    )}
+
                                     <View style={styles.serviceHeader}>
                                         <View style={styles.serviceTitleWrap}>
                                             <Text style={styles.serviceName}>{service.name}</Text>
@@ -623,6 +644,27 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E2E8F0',
         gap: 8,
+    },
+    serviceImage: {
+        width: '100%',
+        height: 160,
+        borderRadius: 14,
+        backgroundColor: '#E2E8F0',
+    },
+    serviceImageFallback: {
+        width: '100%',
+        height: 160,
+        borderRadius: 14,
+        backgroundColor: '#DBEAFE',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 16,
+    },
+    serviceImageFallbackText: {
+        color: '#1D4ED8',
+        fontSize: 16,
+        fontWeight: '700',
+        textAlign: 'center',
     },
     serviceCardActive: {
         borderColor: '#38BDF8',

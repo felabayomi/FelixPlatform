@@ -46,11 +46,42 @@ const toAbsoluteImageUrl = (value?: string | null) => {
         return null;
     }
 
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-        return value;
+    const rawValue = String(value).trim();
+    if (!rawValue) {
+        return null;
     }
 
-    const normalizedPath = value.startsWith('/') ? value : `/${value}`;
+    const protocolMatches = [...rawValue.matchAll(/https?:\/\//gi)];
+    if (protocolMatches.length) {
+        const urlCandidates = protocolMatches
+            .map((match, index) => {
+                const start = match.index ?? 0;
+                const end = protocolMatches[index + 1]?.index ?? rawValue.length;
+                return rawValue.slice(start, end).split(/\s+/)[0].replace(/["'),]+$/g, '');
+            })
+            .filter(Boolean);
+
+        const preferredCandidate = urlCandidates.find((candidate) => {
+            try {
+                const parsed = new URL(candidate);
+                return Boolean(parsed.hostname) && !/example\.com$/i.test(parsed.hostname);
+            } catch {
+                return false;
+            }
+        }) ?? urlCandidates.find((candidate) => {
+            try {
+                return Boolean(new URL(candidate));
+            } catch {
+                return false;
+            }
+        });
+
+        if (preferredCandidate) {
+            return preferredCandidate;
+        }
+    }
+
+    const normalizedPath = rawValue.startsWith('/') ? rawValue : `/${rawValue}`;
     return `${API_BASE_URL}${normalizedPath}`;
 };
 

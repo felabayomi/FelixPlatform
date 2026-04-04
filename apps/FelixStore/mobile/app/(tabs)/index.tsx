@@ -1,7 +1,7 @@
-import { Image } from 'expo-image';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -72,34 +72,12 @@ const formatPricing = (product: Product) => {
 const shortenText = (value: string, limit = 108) =>
   value.length > limit ? `${value.slice(0, limit).trim()}…` : value;
 
-const storeQuickActions = [
-  'Request Quote',
-  'Request Service',
-  'Request App Build',
-  'Request Consultation',
-  'Request Travel Plan',
-  'Request Digital Product',
-] as const;
-
-const getQuickActionSearch = (action: (typeof storeQuickActions)[number]) => {
-  switch (action) {
-    case 'Request Service':
-      return 'service';
-    case 'Request App Build':
-      return 'app software website build';
-    case 'Request Consultation':
-      return 'consultation consulting strategy';
-    case 'Request Travel Plan':
-      return 'travel trip visa hotel flight';
-    case 'Request Digital Product':
-      return 'digital ebook subscription template';
-    case 'Request Quote':
-    default:
-      return '';
-  }
-};
 
 const getPrimaryActionLabel = (product: Product) => {
+  if (product.action_label?.trim()) {
+    return product.action_label.trim();
+  }
+
   const searchableText = [
     product.name,
     product.description,
@@ -153,8 +131,10 @@ export default function HomeScreen() {
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
+  const [failedImageIds, setFailedImageIds] = useState<Record<string, boolean>>({});
 
   const loadProducts = async () => {
+    setFailedImageIds({});
     setLoading(true);
     setError('');
 
@@ -181,29 +161,27 @@ export default function HomeScreen() {
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return products
-      .filter((product) => {
-        if (selectedCollection !== 'All' && getCollectionLabel(product) !== selectedCollection) {
-          return false;
-        }
+    return products.filter((product) => {
+      if (selectedCollection !== 'All' && getCollectionLabel(product) !== selectedCollection) {
+        return false;
+      }
 
-        if (!query) {
-          return true;
-        }
+      if (!query) {
+        return true;
+      }
 
-        const searchableText = [
-          product.name,
-          product.description,
-          getCollectionLabel(product),
-          product.type,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
+      const searchableText = [
+        product.name,
+        product.description,
+        getCollectionLabel(product),
+        product.type,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
 
-        return searchableText.includes(query);
-      })
-      .slice(0, 6);
+      return searchableText.includes(query);
+    });
   }, [products, search, selectedCollection]);
 
   const cartItemCount = useMemo(
@@ -222,11 +200,6 @@ export default function HomeScreen() {
 
   const deliveryFee = cart.length ? (deliveryType === 'delivery' ? 7.5 : 0) : 0;
   const orderTotal = cartSubtotal + deliveryFee;
-
-  const handleQuickAction = (action: (typeof storeQuickActions)[number]) => {
-    setSelectedCollection('All');
-    setSearch(getQuickActionSearch(action));
-  };
 
   const addToCart = (product: Product) => {
     setCart((current) => {
@@ -331,17 +304,6 @@ export default function HomeScreen() {
           Explore essentials, standout services, and digital finds, then send a quote request for tailored pricing and fulfillment.
         </ThemedText>
 
-        <View style={styles.quickActionWrap}>
-          {storeQuickActions.map((action) => (
-            <Pressable
-              key={action}
-              style={styles.quickActionButton}
-              onPress={() => handleQuickAction(action)}>
-              <ThemedText style={styles.quickActionButtonText}>{action}</ThemedText>
-            </Pressable>
-          ))}
-        </View>
-
         <View style={styles.searchRow}>
           <TextInput
             value={search}
@@ -437,8 +399,18 @@ export default function HomeScreen() {
 
           return (
             <View key={product.id} style={styles.productCard}>
-              {product.image_url ? (
-                <Image source={{ uri: product.image_url }} style={styles.productImage} contentFit="cover" />
+              {product.image_url && !failedImageIds[String(product.id)] ? (
+                <Image
+                  source={{ uri: product.image_url }}
+                  style={styles.productImage}
+                  resizeMode="cover"
+                  onError={() => {
+                    setFailedImageIds((current) => ({
+                      ...current,
+                      [String(product.id)]: true,
+                    }));
+                  }}
+                />
               ) : (
                 <View style={styles.productImageFallback}>
                   <ThemedText style={styles.productImageFallbackText}>
@@ -685,22 +657,6 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 15,
     lineHeight: 22,
-  },
-  quickActionWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  quickActionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: '#1E3A8A',
-  },
-  quickActionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
   },
   searchRow: {
     gap: 10,

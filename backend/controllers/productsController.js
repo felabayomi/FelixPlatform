@@ -48,6 +48,7 @@ exports.addProduct = async (req, res) => {
         unit,
         min_order_weight,
         subscription_interval,
+        action_label,
         image_url,
         download_url
     } = req.body;
@@ -84,10 +85,11 @@ exports.addProduct = async (req, res) => {
                 unit,
                 min_order_weight,
                 subscription_interval,
+                action_label,
                 image_url,
                 download_url
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
             RETURNING *`,
             [
                 name.trim(),
@@ -99,6 +101,7 @@ exports.addProduct = async (req, res) => {
                 normalizeOptionalText(unit),
                 normalizedMinOrderWeight,
                 normalizeOptionalText(subscription_interval),
+                normalizeOptionalText(action_label),
                 normalizeOptionalText(image_url),
                 normalizeOptionalText(download_url)
             ]
@@ -123,6 +126,7 @@ exports.updateProduct = async (req, res) => {
         unit,
         min_order_weight,
         subscription_interval,
+        action_label,
         image_url,
         download_url
     } = req.body;
@@ -159,9 +163,10 @@ exports.updateProduct = async (req, res) => {
                  unit=$7,
                  min_order_weight=$8,
                  subscription_interval=$9,
-                 image_url=$10,
-                 download_url=$11
-             WHERE id=$12
+                 action_label=$10,
+                 image_url=$11,
+                 download_url=$12
+             WHERE id=$13
              RETURNING *`,
             [
                 name.trim(),
@@ -173,6 +178,7 @@ exports.updateProduct = async (req, res) => {
                 normalizeOptionalText(unit),
                 normalizedMinOrderWeight,
                 normalizeOptionalText(subscription_interval),
+                normalizeOptionalText(action_label),
                 normalizeOptionalText(image_url),
                 normalizeOptionalText(download_url),
                 id

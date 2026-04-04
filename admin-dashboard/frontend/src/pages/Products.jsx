@@ -11,6 +11,7 @@ function Products() {
     const [priceType, setPriceType] = useState('fixed');
     const [unit, setUnit] = useState('');
     const [subscriptionInterval, setSubscriptionInterval] = useState('');
+    const [actionLabel, setActionLabel] = useState('');
     const [imageUrl, setImageUrl] = useState('');
     const [imageUploading, setImageUploading] = useState(false);
     const [editingProductId, setEditingProductId] = useState(null);
@@ -21,6 +22,7 @@ function Products() {
     const [editPriceType, setEditPriceType] = useState('fixed');
     const [editUnit, setEditUnit] = useState('');
     const [editSubscriptionInterval, setEditSubscriptionInterval] = useState('');
+    const [editActionLabel, setEditActionLabel] = useState('');
     const [editImageUrl, setEditImageUrl] = useState('');
     const [editImageUploading, setEditImageUploading] = useState(false);
     const [editType, setEditType] = useState('service');
@@ -37,6 +39,17 @@ function Products() {
     ];
 
     const unitOptions = ['lb', 'item', 'load', 'panel', 'uniform', 'pair'];
+    const actionLabelOptions = [
+        'Request Quote',
+        'Request Service',
+        'Request App Build',
+        'Request Consultation',
+        'Request Travel Plan',
+        'Request Digital Product',
+        'Schedule Pickup',
+        'Request Laundry Service',
+        'Subscribe to Weekly Service'
+    ];
 
     const loadProducts = () => {
         API.get('/products').then((res) => {
@@ -151,6 +164,7 @@ function Products() {
                 price_type: normalizedPriceType,
                 unit: normalizedPriceType === 'subscription' || normalizedPriceType === 'fixed' ? null : (unit || null),
                 subscription_interval: normalizedPriceType === 'subscription' ? (subscriptionInterval || 'monthly') : null,
+                action_label: actionLabel || null,
                 image_url: imageUrl || null
             });
 
@@ -161,6 +175,7 @@ function Products() {
             setPriceType('fixed');
             setUnit('');
             setSubscriptionInterval('');
+            setActionLabel('');
             setImageUrl('');
             setMessage('Product added successfully.');
             loadProducts();
@@ -181,6 +196,7 @@ function Products() {
         setEditPriceType(product.price_type || 'fixed');
         setEditUnit(product.unit || '');
         setEditSubscriptionInterval(product.subscription_interval || '');
+        setEditActionLabel(product.action_label || '');
         setEditImageUrl(product.image_url || '');
         setEditType(product.type || 'service');
         setError('');
@@ -210,6 +226,7 @@ function Products() {
                 price_type: normalizedPriceType,
                 unit: normalizedPriceType === 'subscription' || normalizedPriceType === 'fixed' ? null : (editUnit || null),
                 subscription_interval: normalizedPriceType === 'subscription' ? (editSubscriptionInterval || 'monthly') : null,
+                action_label: editActionLabel || null,
                 image_url: editImageUrl || null
             });
 
@@ -302,6 +319,17 @@ function Products() {
                         <option value="yearly">yearly</option>
                     </select>
                 ) : null}
+                <input
+                    list="action-label-options"
+                    placeholder="Action Button Label (optional)"
+                    value={actionLabel}
+                    onChange={(e) => setActionLabel(e.target.value)}
+                />
+                <datalist id="action-label-options">
+                    {actionLabelOptions.map((option) => (
+                        <option key={option} value={option} />
+                    ))}
+                </datalist>
                 <div className="image-upload-block">
                     <label className="muted">Product image</label>
                     <input
@@ -382,6 +410,12 @@ function Products() {
                                         <option value="yearly">yearly</option>
                                     </select>
                                 ) : null}
+                                <input
+                                    list="action-label-options"
+                                    placeholder="Action Button Label (optional)"
+                                    value={editActionLabel}
+                                    onChange={(e) => setEditActionLabel(e.target.value)}
+                                />
                                 <div className="image-upload-block">
                                     <label className="muted">Product image</label>
                                     <input
@@ -418,6 +452,7 @@ function Products() {
                                 <p className="muted">Category: {getCategoryName(p.category_id)}</p>
                                 <p className="price">${p.price}</p>
                                 <p className="muted">Pricing: {formatPricingMeta(p)}</p>
+                                <p className="muted">Button label: {p.action_label || 'Auto / by product type'}</p>
                                 <div className="product-actions">
                                     <button
                                         type="button"

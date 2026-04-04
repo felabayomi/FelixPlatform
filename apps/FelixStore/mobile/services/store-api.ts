@@ -9,6 +9,7 @@ export type Product = {
     price_type?: string | null;
     unit?: string | null;
     subscription_interval?: string | null;
+    action_label?: string | null;
     image_url?: string | null;
     active?: boolean;
 };
@@ -41,16 +42,70 @@ const hostedApiUrl = 'https://felix-platform-backend.onrender.com';
 
 export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || hostedApiUrl).replace(/\/$/, '');
 
+const isLaundryProduct = (item: Partial<Product>) => {
+    const searchableText = [
+        item?.name,
+        item?.description,
+        item?.category_name,
+        item?.type,
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+    return searchableText.includes('laundry')
+        || searchableText.includes('dry cleaning')
+        || searchableText.includes('wash & fold')
+        || searchableText.includes('wash and fold')
+        || searchableText.includes('ironing')
+        || searchableText.includes('linen care')
+        || searchableText.includes('comforter cleaning')
+        || searchableText.includes('curtain cleaning')
+        || searchableText.includes('shoe cleaning')
+        || searchableText.includes('uniform cleaning');
+};
+
 const toAbsoluteImageUrl = (value?: string | null) => {
     if (!value) {
         return null;
     }
 
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-        return value;
+    const rawValue = String(value).trim();
+    if (!rawValue) {
+        return null;
     }
 
-    const normalizedPath = value.startsWith('/') ? value : `/${value}`;
+    const protocolMatches = [...rawValue.matchAll(/https?:\/\//gi)];
+    if (protocolMatches.length) {
+        const urlCandidates = protocolMatches
+            .map((match, index) => {
+                const start = match.index ?? 0;
+                const end = protocolMatches[index + 1]?.index ?? rawValue.length;
+                return rawValue.slice(start, end).split(/\s+/)[0].replace(/["'),]+$/g, '');
+            })
+            .filter(Boolean);
+
+        const preferredCandidate = urlCandidates.find((candidate) => {
+            try {
+                const parsed = new URL(candidate);
+                return Boolean(parsed.hostname) && !/example\.com$/i.test(parsed.hostname);
+            } catch {
+                return false;
+            }
+        }) ?? urlCandidates.find((candidate) => {
+            try {
+                return Boolean(new URL(candidate));
+            } catch {
+                return false;
+            }
+        });
+
+        if (preferredCandidate) {
+            return preferredCandidate;
+        }
+    }
+
+    const normalizedPath = rawValue.startsWith('/') ? rawValue : `/${rawValue}`;
     return `${API_BASE_URL}${normalizedPath}`;
 };
 
@@ -68,7 +123,7 @@ export async function fetchProducts(): Promise<Product[]> {
     }
 
     return data
-        .filter((item) => item?.active !== false)
+        .filter((item) => item?.active !== false && !isLaundryProduct(item))
         .map((item) => ({
             ...item,
             image_url: toAbsoluteImageUrl(item?.image_url),
