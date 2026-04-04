@@ -4,7 +4,10 @@ dist
 build
 coverage
 *.log
+*.p8
 .DS_Store
+.expo
+.expo/
 
 backend/node_modules/
 backend/.env

@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 export type LaundryProduct = {
     id: string;
     name: string;
@@ -10,6 +8,21 @@ export type LaundryProduct = {
     unit?: string | null;
     image_url?: string | null;
     active?: boolean;
+};
+
+export type LaundryBooking = {
+    id: string;
+    product_id?: string | null;
+    product_name?: string | null;
+    service_date?: string | null;
+    service_window?: string | null;
+    status?: string | null;
+    pickup_address?: string | null;
+    delivery_address?: string | null;
+    assigned_driver?: string | null;
+    contact_name?: string | null;
+    contact_phone?: string | null;
+    created_at?: string | null;
 };
 
 export type BookingPayload = {
@@ -24,14 +37,22 @@ export type BookingPayload = {
     special_instructions?: string;
 };
 
-const devFallbackUrl = Platform.select({
-    android: 'http://10.0.2.2:5000',
-    ios: 'http://localhost:5000',
-    default: 'http://localhost:5000',
-});
+const hostedApiUrl = 'https://felix-platform-backend.onrender.com';
 
-export const API_BASE_URL =
-    process.env.EXPO_PUBLIC_API_URL || (__DEV__ ? devFallbackUrl : 'https://replace-me-with-your-api-url.com');
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || hostedApiUrl).replace(/\/$/, '');
+
+const toAbsoluteImageUrl = (value?: string | null) => {
+    if (!value) {
+        return null;
+    }
+
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+        return value;
+    }
+
+    const normalizedPath = value.startsWith('/') ? value : `/${value}`;
+    return `${API_BASE_URL}${normalizedPath}`;
+};
 
 export async function fetchLaundryServices(): Promise<LaundryProduct[]> {
     const response = await fetch(`${API_BASE_URL}/products`);
@@ -46,37 +67,88 @@ export async function fetchLaundryServices(): Promise<LaundryProduct[]> {
         return [];
     }
 
-    return data.filter((item) => {
-        const type = String(item?.type || '').toLowerCase();
-        const name = String(item?.name || '').toLowerCase();
+    return data
+        .filter((item) => {
+            const type = String(item?.type || '').toLowerCase();
+            const name = String(item?.name || '').toLowerCase();
 
-        return item?.active !== false && (
-            type === 'laundry' ||
-            name.includes('laundry') ||
-            name.includes('cleaning') ||
-            name.includes('wash') ||
-            name.includes('ironing')
-        );
-    });
+            return item?.active !== false && (
+                type === 'laundry' ||
+                name.includes('laundry') ||
+                name.includes('cleaning') ||
+                name.includes('wash') ||
+                name.includes('ironing')
+            );
+        })
+        .map((item) => ({
+            ...item,
+            image_url: toAbsoluteImageUrl(item?.image_url),
+        }));
 }
 
-export async function createLaundryBooking(payload: BookingPayload) {
-    const response = await fetch(`${API_BASE_URL}/bookings`, {
+export async function createLaundryBooking(payload: BookingPayload): Promise<LaundryBooking> {
+    const response = await fetch(`${API_BASE_URL}/quote-requests`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            ...payload,
-            app_name: 'A & F Laundry',
+            product_id: payload.product_id,
+            quantity: payload.weight_estimate || 1,
             status: 'pending',
+            details: [
+                'Quote request submitted from A & F Laundry',
+                `Customer: ${payload.contact_name}`,
+                `Phone: ${payload.contact_phone}`,
+                `Service date: ${payload.service_date}`,
+                `Window: ${payload.service_window}`,
+                `Pickup address: ${payload.pickup_address}`,
+                payload.delivery_address ? `Delivery address: ${payload.delivery_address}` : null,
+                payload.weight_estimate ? `Weight estimate: ${payload.weight_estimate}` : null,
+                payload.special_instructions ? `Instructions: ${payload.special_instructions}` : null,
+            ]
+                .filter(Boolean)
+                .join('\n'),
         }),
     });
 
     if (!response.ok) {
         const message = await response.text();
-        throw new Error(message || `Booking request failed with ${response.status}`);
+        throw new Error(message || `Quote request failed with ${response.status}`);
     }
 
-    return response.json();
+    const quote = await response.json();
+    return {
+        ...quote,
+        product_id: payload.product_id,
+        contact_name: payload.contact_name,
+        contact_phone: payload.contact_phone,
+        service_date: payload.service_date,
+        service_window: payload.service_window,
+        pickup_address: payload.pickup_address,
+        delivery_address: payload.delivery_address,
+    };
+}
+
+export async function trackLaundryBookings(contactPhone: string): Promise<LaundryBooking[]> {
+    const normalizedPhone = String(contactPhone || '').trim();
+
+    if (!normalizedPhone) {
+        return [];
+    }
+
+    const params = new URLSearchParams({
+        phone: normalizedPhone,
+        app_name: 'A & F Laundry',
+    });
+
+    const response = await fetch(`${API_BASE_URL}/quote-requests/track?${params.toString()}`);
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Tracking request failed with ${response.status}`);
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
 }

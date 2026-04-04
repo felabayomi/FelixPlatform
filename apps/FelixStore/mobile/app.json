@@ -14,7 +14,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.felixstore.us",
-      "buildNumber": "3.0.0"
+      "buildNumber": "3.0.0",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.felixstore.us",
@@ -54,7 +57,11 @@
     "extra": {
       "bundleId": "com.felixstore.us",
       "sku": "com.felixstore.us",
-      "appStoreConnectAppId": "1567050617"
+      "appStoreConnectAppId": "1567050617",
+      "router": {},
+      "eas": {
+        "projectId": "a88d01ae-efc7-4d14-9fd6-d9567a1a0a7a"
+      }
     }
   }
 }

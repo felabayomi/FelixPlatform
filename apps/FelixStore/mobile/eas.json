@@ -11,13 +11,24 @@
         "preview": {
             "distribution": "internal",
             "env": {
-                "EXPO_PUBLIC_API_URL": "https://replace-me-with-your-railway-or-render-url.com"
+                "EXPO_PUBLIC_API_URL": "https://felix-platform-backend.onrender.com"
             }
         },
         "production": {
             "autoIncrement": true,
             "env": {
-                "EXPO_PUBLIC_API_URL": "https://replace-me-with-your-railway-or-render-url.com"
+                "EXPO_PUBLIC_API_URL": "https://felix-platform-backend.onrender.com"
+            }
+        }
+    },
+    "submit": {
+        "production": {
+            "ios": {
+                "ascApiKeyPath": "C:/Users/felix/Downloads/AuthKey_JX7QM96DY2.p8",
+                "ascApiKeyId": "JX7QM96DY2",
+                "ascApiKeyIssuerId": "d222a363-5fd3-43cb-90ef-3cf19e7f97b0",
+                "ascAppId": "1567050617",
+                "appleTeamId": "PWL5NRKZLG"
             }
         }
     }

@@ -130,6 +130,19 @@ CREATE TABLE bookings (
   created_at timestamp DEFAULT now()
 );
 
+-- QUOTE REQUESTS (unified quote-first workflow for products and services)
+CREATE TABLE quote_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(id),
+  product_id uuid REFERENCES products(id),
+  details text,
+  quantity numeric,
+  status text DEFAULT 'pending',
+  quoted_price numeric,
+  admin_notes text,
+  created_at timestamp DEFAULT now()
+);
+
 -- SUBSCRIPTIONS
 CREATE TABLE subscriptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

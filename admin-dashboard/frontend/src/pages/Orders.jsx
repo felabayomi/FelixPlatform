@@ -18,23 +18,60 @@ function Orders() {
     const [error, setError] = useState('');
 
     const statusActions = [
-        { label: 'Pending', status: 'pending', payment_status: 'pending' },
-        { label: 'Paid', status: 'processing', payment_status: 'paid' },
-        { label: 'Processing', status: 'processing', payment_status: 'paid' },
-        { label: 'Packed', status: 'packed', payment_status: 'paid' },
-        { label: 'Shipped / Mailed', status: 'shipped', payment_status: 'paid' },
-        { label: 'Delivered', status: 'delivered', payment_status: 'paid' },
-        { label: 'Completed', status: 'completed', payment_status: 'paid' },
+        { label: 'Pending', status: 'pending' },
+        { label: 'Reviewing', status: 'reviewing' },
+        { label: 'Quote Sent', status: 'quoted' },
+        { label: 'Accepted', status: 'accepted' },
+        { label: 'Payment Arranged', status: 'payment_arranged' },
+        { label: 'Processing', status: 'processing' },
+        { label: 'Completed', status: 'completed' },
         { label: 'Cancelled', status: 'cancelled' }
     ];
+
+    const buildActionPayload = (order, action) => {
+        const requiresQuoteDetails = ['reviewing', 'quoted', 'accepted', 'payment_arranged'].includes(action.status);
+
+        if (!requiresQuoteDetails || typeof window === 'undefined') {
+            return {
+                status: action.status,
+                quoted_price: order.quoted_price ?? null,
+                admin_notes: order.admin_notes || ''
+            };
+        }
+
+        const quotedPriceInput = window.prompt(
+            'Enter the quoted price for this request (leave blank to keep current value).',
+            order.quoted_price ?? ''
+        );
+
+        if (quotedPriceInput === null) {
+            return null;
+        }
+
+        const adminNotesInput = window.prompt(
+            'Add admin notes for this request (optional).',
+            order.admin_notes || ''
+        );
+
+        if (adminNotesInput === null) {
+            return null;
+        }
+
+        return {
+            status: action.status,
+            quoted_price: quotedPriceInput,
+            admin_notes: adminNotesInput
+        };
+    };
 
     const loadOrders = async () => {
         setLoading(true);
         setError('');
 
         try {
-            const res = await API.get('/orders');
-            setOrders(Array.isArray(res.data) ? res.data : []);
+            const res = await API.get('/quote-requests');
+            const allRequests = Array.isArray(res.data) ? res.data : [];
+            setOrders(allRequests.filter((order) => order.app_name !== 'A & F Laundry'));
         } catch (err) {
             console.error(err);
             setError(err.response?.data || 'Error loading orders.');
@@ -53,9 +90,13 @@ function Orders() {
         setMessage('');
 
         try {
-            const res = await API.patch(`/orders/${orderId}/status`, payload);
-            setOrders((current) => current.map((order) => (order.id === orderId ? res.data : order)));
-            setMessage(`Order updated to ${res.data.status}${res.data.payment_status ? ` / ${res.data.payment_status}` : ''}.`);
+            const res = await API.patch(`/quote-requests/${orderId}`, {
+                status: payload.status,
+                admin_notes: payload.admin_notes,
+                quoted_price: payload.quoted_price,
+            });
+            setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...res.data } : order)));
+            setMessage(`Quote request updated to ${res.data.status}.`);
         } catch (err) {
             console.error(err);
             setError(err.response?.data || 'Error updating order status.');
@@ -65,15 +106,15 @@ function Orders() {
     };
 
     const stats = useMemo(() => {
-        const totalRevenue = orders.reduce((sum, order) => {
-            return sum + Number(order.final_total ?? order.total ?? 0);
+        const referenceValue = orders.reduce((sum, order) => {
+            return sum + Number(order.quoted_price ?? 0);
         }, 0);
 
         return {
             totalOrders: orders.length,
-            storeOrders: orders.filter((order) => (order.app_name || 'Felix Store') === 'Felix Store').length,
-            laundryOrders: orders.filter((order) => order.app_name === 'A & F Laundry').length,
-            totalRevenue: formatMoney(totalRevenue)
+            quoteRequested: orders.filter((order) => ['pending', 'reviewing'].includes(order.status)).length,
+            quoteSent: orders.filter((order) => ['quoted', 'accepted', 'payment_arranged'].includes(order.status)).length,
+            referenceValue: formatMoney(referenceValue)
         };
     }, [orders]);
 
@@ -81,11 +122,11 @@ function Orders() {
         <div className="page-section">
             <div className="page-header section-actions">
                 <div>
-                    <h1>Orders</h1>
-                    <p className="muted">Track Felix Store purchases and platform order totals from `/orders`.</p>
+                    <h1>Felix Store Quotes</h1>
+                    <p className="muted">Review store quote requests, add pricing, and move approved jobs toward fulfillment.</p>
                 </div>
                 <button type="button" className="edit-button refresh-button" onClick={loadOrders}>
-                    Refresh Orders
+                    Refresh Quotes
                 </button>
             </div>
 
@@ -95,16 +136,16 @@ function Orders() {
                     <strong>{stats.totalOrders}</strong>
                 </div>
                 <div className="stat-card">
-                    <span className="muted">Felix Store</span>
-                    <strong>{stats.storeOrders}</strong>
+                    <span className="muted">Quote Requested</span>
+                    <strong>{stats.quoteRequested}</strong>
                 </div>
                 <div className="stat-card">
-                    <span className="muted">A &amp; F Laundry</span>
-                    <strong>{stats.laundryOrders}</strong>
+                    <span className="muted">Quote Sent / Awaiting Approval</span>
+                    <strong>{stats.quoteSent}</strong>
                 </div>
                 <div className="stat-card">
-                    <span className="muted">Revenue Snapshot</span>
-                    <strong>{stats.totalRevenue}</strong>
+                    <span className="muted">Reference Value</span>
+                    <strong>{stats.referenceValue}</strong>
                 </div>
             </div>
 
@@ -113,7 +154,7 @@ function Orders() {
             {loading ? <p className="empty-state">Loading orders...</p> : null}
 
             {!loading && !orders.length ? (
-                <p className="empty-state">No orders found yet.</p>
+                <p className="empty-state">No store quote requests found yet.</p>
             ) : null}
 
             <div className="record-list">
@@ -121,50 +162,53 @@ function Orders() {
                     <div key={order.id} className="record-card">
                         <div className="record-header">
                             <div>
-                                <h3>{order.app_name || 'Platform Order'}</h3>
-                                <p className="muted">Order ID: {order.id}</p>
+                                <h3>{order.product_name || 'Store request'}</h3>
+                                <p className="muted">Request ID: {order.id}</p>
                             </div>
                             <div className="record-meta">
-                                <span className={`status-badge status-${String(order.status || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
-                                    {order.status || 'pending'}
+                                <span className={`status-badge status-${String(order.status || 'pending').toLowerCase().replace(/[\s_]+/g, '-')}`}>
+                                    {String(order.status || 'pending').replace(/_/g, ' ')}
                                 </span>
-                                <span className="meta-badge">{order.payment_status || 'pending payment'}</span>
+                                <span className="meta-badge">{order.app_name || 'Felix Store'}</span>
                             </div>
                         </div>
 
                         <div className="details-grid">
                             <div>
-                                <span className="muted">Final Total</span>
-                                <strong>{formatMoney(order.final_total ?? order.total)}</strong>
+                                <span className="muted">Quoted Price</span>
+                                <strong>{formatMoney(order.quoted_price)}</strong>
                             </div>
                             <div>
-                                <span className="muted">Subtotal</span>
-                                <strong>{formatMoney(order.subtotal)}</strong>
+                                <span className="muted">Requested Quantity</span>
+                                <strong>{order.quantity || '—'}</strong>
                             </div>
                             <div>
-                                <span className="muted">Delivery</span>
-                                <strong>{formatMoney(order.delivery_fee)}</strong>
+                                <span className="muted">Requester</span>
+                                <strong>{order.contact_name || '—'}</strong>
                             </div>
                             <div>
-                                <span className="muted">Tax</span>
-                                <strong>{formatMoney(order.tax)}</strong>
+                                <span className="muted">Phone</span>
+                                <strong>{order.contact_phone || '—'}</strong>
                             </div>
                             <div>
-                                <span className="muted">Payment Method</span>
-                                <strong>{order.payment_method || '—'}</strong>
+                                <span className="muted">Created</span>
+                                <strong>{order.created_at ? new Date(order.created_at).toLocaleString() : '—'}</strong>
                             </div>
                             <div>
-                                <span className="muted">Delivery Type</span>
-                                <strong>{order.delivery_type || '—'}</strong>
+                                <span className="muted">Fulfillment</span>
+                                <strong>{order.preferred_fulfillment || '—'}</strong>
+                            </div>
+                            <div>
+                                <span className="muted">Admin Notes</span>
+                                <strong>{order.admin_notes || '—'}</strong>
                             </div>
                         </div>
 
-                        {order.notes ? <p className="muted"><strong>Notes:</strong> {order.notes}</p> : null}
+                        {order.details ? <p className="muted"><strong>Request Details:</strong> {order.details}</p> : null}
 
                         <div className="status-action-row">
                             {statusActions.map((action) => {
-                                const isActive = (order.status || 'pending') === action.status
-                                    && (!action.payment_status || (order.payment_status || 'pending') === action.payment_status);
+                                const isActive = (order.status || 'pending') === action.status;
 
                                 return (
                                     <button
@@ -172,10 +216,12 @@ function Orders() {
                                         type="button"
                                         className={`status-action-button${isActive ? ' active' : ''}`}
                                         disabled={updatingOrderId === order.id}
-                                        onClick={() => updateOrderStatus(order.id, {
-                                            status: action.status,
-                                            payment_status: action.payment_status || order.payment_status
-                                        })}
+                                        onClick={() => {
+                                            const payload = buildActionPayload(order, action);
+                                            if (payload) {
+                                                updateOrderStatus(order.id, payload);
+                                            }
+                                        }}
                                     >
                                         {updatingOrderId === order.id ? 'Updating...' : action.label}
                                     </button>
@@ -183,22 +229,8 @@ function Orders() {
                             })}
                         </div>
 
-                        <h4>Items</h4>
-                        {Array.isArray(order.items) && order.items.length ? (
-                            <ul className="detail-list">
-                                {order.items.map((item) => (
-                                    <li key={item.id || `${order.id}-${item.product_id}`}>
-                                        <strong>{item.product_name_snapshot || 'Unnamed item'}</strong>
-                                        <span>
-                                            {item.measured_quantity ?? item.quantity ?? 1}
-                                            {item.unit ? ` ${item.unit}` : ''} · {item.price_type || 'fixed'} · {formatMoney(item.line_total ?? item.price)}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="empty-state">No order items recorded.</p>
-                        )}
+                        <h4>Quote Summary</h4>
+                        <p className="muted">Use the status buttons above to review, quote, approve, or close this request.</p>
                     </div>
                 ))}
             </div>

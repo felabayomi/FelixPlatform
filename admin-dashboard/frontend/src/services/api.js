@@ -38,7 +38,7 @@ export const getStoredUser = () => {
 export const hasAdminAccess = (user) => user?.role === 'admin' || user?.role === 'superadmin';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5000',
+    baseURL: (import.meta.env.VITE_API_URL || 'https://felix-platform-backend.onrender.com').replace(/\/$/, ''),
 });
 
 api.interceptors.request.use((config) => {

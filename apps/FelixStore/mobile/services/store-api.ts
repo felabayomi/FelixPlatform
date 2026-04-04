@@ -1,11 +1,10 @@
-import { Platform } from 'react-native';
-
 export type Product = {
     id: string;
     name: string;
     description?: string | null;
     price?: string | number | null;
     category_id?: string | null;
+    category_name?: string | null;
     type?: string | null;
     price_type?: string | null;
     unit?: string | null;
@@ -14,14 +13,33 @@ export type Product = {
     active?: boolean;
 };
 
-const devFallbackUrl = Platform.select({
-    android: 'http://10.0.2.2:5000',
-    ios: 'http://localhost:5000',
-    default: 'http://localhost:5000',
-});
+export type CartOrderItem = {
+    product: Product;
+    quantity: number;
+};
 
-export const API_BASE_URL =
-    process.env.EXPO_PUBLIC_API_URL || (__DEV__ ? devFallbackUrl : 'https://replace-me-with-your-api-url.com');
+export type CreateOrderPayload = {
+    items: CartOrderItem[];
+    subtotal: number;
+    deliveryFee: number;
+    total: number;
+    deliveryType: 'delivery' | 'pickup';
+    customerName: string;
+    customerPhone: string;
+    deliveryAddress?: string;
+    notes?: string;
+};
+
+export type QuoteRequestResponse = {
+    id: string;
+    status?: string | null;
+    quoted_price?: number | string | null;
+    admin_notes?: string | null;
+};
+
+const hostedApiUrl = 'https://felix-platform-backend.onrender.com';
+
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || hostedApiUrl).replace(/\/$/, '');
 
 const toAbsoluteImageUrl = (value?: string | null) => {
     if (!value) {
@@ -55,4 +73,38 @@ export async function fetchProducts(): Promise<Product[]> {
             ...item,
             image_url: toAbsoluteImageUrl(item?.image_url),
         }));
+}
+
+export async function createOrder(payload: CreateOrderPayload): Promise<QuoteRequestResponse> {
+    const response = await fetch(`${API_BASE_URL}/quote-requests`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            product_id: payload.items[0]?.product.id,
+            quantity: payload.items.reduce((sum, item) => sum + item.quantity, 0),
+            status: 'pending',
+            details: [
+                'Quote request submitted from Felix Store',
+                `Customer: ${payload.customerName}`,
+                `Phone: ${payload.customerPhone}`,
+                payload.deliveryAddress ? `Address: ${payload.deliveryAddress}` : null,
+                `Preferred fulfillment: ${payload.deliveryType}`,
+                `Reference estimate: $${payload.total.toFixed(2)}`,
+                'Requested items:',
+                ...payload.items.map((item) => `- ${item.product.name} x${item.quantity}`),
+                payload.notes ? `Request details: ${payload.notes}` : null,
+            ]
+                .filter(Boolean)
+                .join('\n'),
+        }),
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Quote request failed with ${response.status}`);
+    }
+
+    return response.json();
 }

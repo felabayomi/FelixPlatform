@@ -6,6 +6,7 @@ const pool = require('./db');
 const productsRoutes = require('./routes/products');
 const bookingsRoutes = require('./routes/bookings');
 const ordersRoutes = require('./routes/orders');
+const quoteRequestsRoutes = require('./routes/quoteRequests');
 const authRoutes = require('./routes/auth');
 const categoriesRoutes = require('./routes/categories');
 
@@ -62,6 +63,7 @@ app.get('/test-db', async (_req, res) => {
 app.use('/products', productsRoutes);
 app.use('/bookings', bookingsRoutes);
 app.use('/orders', ordersRoutes);
+app.use('/quote-requests', quoteRequestsRoutes);
 app.use('/auth', authRoutes);
 app.use('/categories', categoriesRoutes);
 
