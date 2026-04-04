@@ -1,0 +1,30 @@
+{
+    "expo": {
+        "name": "A & F Laundry",
+        "slug": "af-laundry",
+        "version": "2.0.0",
+        "orientation": "portrait",
+        "scheme": "aflaundry",
+        "userInterfaceStyle": "automatic",
+        "runtimeVersion": {
+            "policy": "appVersion"
+        },
+        "ios": {
+            "bundleIdentifier": "com.afwebtech.aflaundry",
+            "buildNumber": "2.0.0",
+            "supportsTablet": true
+        },
+        "android": {
+            "package": "com.afwebtech.aflaundry",
+            "versionCode": 20000
+        },
+        "plugins": [
+            "expo-router"
+        ],
+        "extra": {
+            "bundleId": "com.afwebtech.aflaundry",
+            "sku": "AFLAUNDRY",
+            "appStoreConnectAppId": "1596646806"
+        }
+    }
+}
