@@ -399,7 +399,7 @@ function Products() {
                         value={imageUrl}
                         onChange={(e) => setImageUrl(e.target.value)}
                     />
-                    <p className="muted">Uploaded images are now stored with the product record so they persist; old broken uploads need to be re-uploaded.</p>
+                    <p className="muted">Uploaded images now save as file URLs (and can use permanent cloud storage when configured); older broken uploads should be re-uploaded.</p>
                     {imageUploading ? <p className="muted">Uploading image...</p> : null}
                     {imageUrl ? (
                         <div className="image-preview-wrapper">
