@@ -3,6 +3,18 @@
         {
             "src": "/",
             "dest": "/index.html"
+        },
+        {
+            "src": "https://felixstore.felixplatforms.com",
+            "dest": "/felix-store/index.html"
+        },
+        {
+            "src": "https://aflaundry.felixplatforms.com",
+            "dest": "/aflaundry/index.html"
+        },
+        {
+            "src": "https://felixplatforms.com",
+            "dest": "/felix-platform/index.html"
         }
     ]
 }
