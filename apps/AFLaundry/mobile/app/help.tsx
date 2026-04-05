@@ -1,6 +1,9 @@
 import { Link } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { submitSupportRequest } from '../services/laundry-api';
 
 const links = [
     { label: 'How to Use A & F Laundry', description: 'Step-by-step usage guide.', href: '/info/how-to-use-a-and-f-laundry' },
@@ -9,7 +12,64 @@ const links = [
     { label: 'Profile', description: 'Back to profile and shortcuts.', href: '/profile' },
 ];
 
+type FormState = {
+    name: string;
+    email: string;
+    phone: string;
+    subject: string;
+    message: string;
+};
+
+const initialForm: FormState = {
+    name: '',
+    email: '',
+    phone: '',
+    subject: 'Support request',
+    message: '',
+};
+
 export default function HelpScreen() {
+    const [form, setForm] = useState<FormState>(initialForm);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+    const updateField = (field: keyof FormState, value: string) => {
+        setForm((current) => ({ ...current, [field]: value }));
+    };
+
+    const handleSubmit = async () => {
+        if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+            Alert.alert('Missing information', 'Please enter your name, email, and message before submitting.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setStatusMessage(null);
+
+        try {
+            await submitSupportRequest({
+                contactName: form.name,
+                contactEmail: form.email,
+                contactPhone: form.phone,
+                subject: form.subject,
+                message: form.message,
+            });
+
+            setStatusMessage('Support request sent. A confirmation email should arrive shortly.');
+            setForm((current) => ({
+                ...current,
+                subject: 'Support request',
+                message: '',
+            }));
+
+            Alert.alert('Request sent', 'Your support request was sent successfully.');
+        } catch (error) {
+            Alert.alert('Unable to send', error instanceof Error ? error.message : 'Please try again in a moment.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView style={styles.screen} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -26,6 +86,25 @@ export default function HelpScreen() {
                     <Text style={styles.sectionBody}>
                         Select a laundry service, enter the service details and pickup information, submit a service request or quote request, and then track the status using the same phone number you used when submitting.
                     </Text>
+                </View>
+
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>Submit a support request</Text>
+                    <Text style={styles.sectionBody}>
+                        Send your issue directly to support and receive a confirmation email using the same backend support flow.
+                    </Text>
+
+                    <TextInput style={styles.input} placeholder="Your name" placeholderTextColor="#94A3B8" value={form.name} onChangeText={(value) => updateField('name', value)} />
+                    <TextInput style={styles.input} placeholder="Your email" placeholderTextColor="#94A3B8" keyboardType="email-address" autoCapitalize="none" value={form.email} onChangeText={(value) => updateField('email', value)} />
+                    <TextInput style={styles.input} placeholder="Phone number (optional)" placeholderTextColor="#94A3B8" keyboardType="phone-pad" value={form.phone} onChangeText={(value) => updateField('phone', value)} />
+                    <TextInput style={styles.input} placeholder="Subject" placeholderTextColor="#94A3B8" value={form.subject} onChangeText={(value) => updateField('subject', value)} />
+                    <TextInput style={[styles.input, styles.textArea]} placeholder="Tell us how we can help" placeholderTextColor="#94A3B8" multiline textAlignVertical="top" value={form.message} onChangeText={(value) => updateField('message', value)} />
+
+                    <Pressable style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={isSubmitting}>
+                        <Text style={styles.submitButtonText}>{isSubmitting ? 'Sending…' : 'Send support request'}</Text>
+                    </Pressable>
+
+                    {statusMessage ? <Text style={styles.successText}>{statusMessage}</Text> : null}
                 </View>
 
                 <View style={styles.sectionCard}>
@@ -100,6 +179,38 @@ const styles = StyleSheet.create({
         color: '#475569',
         fontSize: 14,
         lineHeight: 21,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        fontSize: 14,
+        color: '#0F172A',
+        backgroundColor: '#F8FAFC',
+    },
+    textArea: {
+        minHeight: 110,
+    },
+    submitButton: {
+        backgroundColor: '#0369A1',
+        borderRadius: 14,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    submitButtonDisabled: {
+        opacity: 0.7,
+    },
+    submitButtonText: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+        fontSize: 15,
+    },
+    successText: {
+        color: '#166534',
+        fontSize: 13,
+        lineHeight: 19,
     },
     linkGrid: {
         gap: 10,

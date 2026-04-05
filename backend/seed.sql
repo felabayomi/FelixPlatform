@@ -249,7 +249,7 @@ CROSS JOIN (
     ('Environmental Projects'),
     ('Research'),
     ('Non-Profit Programs'),
-    ('Donations'),
+    ('Corporate Social Responsibility'),
     ('Events'),
     ('Memberships')
 ) AS v(name)

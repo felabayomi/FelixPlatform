@@ -4,8 +4,6 @@ import API, { clearAuthSession, hasAdminAccess, saveAuthSession } from '../servi
 
 function Login({ onAuthSuccess }) {
     const navigate = useNavigate();
-    const [mode, setMode] = useState('login');
-    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -19,29 +17,18 @@ function Login({ onAuthSuccess }) {
             return;
         }
 
-        if (mode === 'register' && !name.trim()) {
-            setError('Name is required when creating the first admin account.');
-            setMessage('');
-            return;
-        }
-
         setSubmitting(true);
         setMessage('');
         setError('');
 
         try {
-            const endpoint = mode === 'register' ? '/auth/register' : '/auth/login';
-            const payload = mode === 'register'
-                ? { name, email, password }
-                : { email, password };
-
-            const res = await API.post(endpoint, payload);
+            const res = await API.post('/auth/login', { email, password });
             const { token, user, message: responseMessage } = res.data;
 
             if (!hasAdminAccess(user)) {
                 clearAuthSession();
                 setError('This account does not have admin access yet.');
-                setMessage(responseMessage || 'Account created, but admin access is still required.');
+                setMessage(responseMessage || 'Admin access is required to enter this dashboard.');
                 return;
             }
 
@@ -61,23 +48,11 @@ function Login({ onAuthSuccess }) {
     return (
         <div className="page-section narrow-page auth-card">
             <div className="page-header">
-                <h1>{mode === 'login' ? 'Admin Login' : 'Create First Admin'}</h1>
-                <p className="muted">
-                    {mode === 'login'
-                        ? 'Sign in to manage the protected admin dashboard.'
-                        : 'Use this once to bootstrap the first admin account.'}
-                </p>
+                <h1>Admin Login</h1>
+                <p className="muted">Sign in to manage the protected admin dashboard.</p>
             </div>
 
             <div className="login-form">
-                {mode === 'register' ? (
-                    <input
-                        type="text"
-                        placeholder="Full Name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                    />
-                ) : null}
                 <input
                     type="email"
                     placeholder="Email"
@@ -91,20 +66,7 @@ function Login({ onAuthSuccess }) {
                     onChange={(e) => setPassword(e.target.value)}
                 />
                 <button type="button" onClick={handleSubmit} disabled={submitting}>
-                    {submitting
-                        ? (mode === 'login' ? 'Signing in...' : 'Creating admin...')
-                        : (mode === 'login' ? 'Login' : 'Create Admin')}
-                </button>
-                <button
-                    type="button"
-                    className="cancel-button secondary-button"
-                    onClick={() => {
-                        setMode((current) => (current === 'login' ? 'register' : 'login'));
-                        setError('');
-                        setMessage('');
-                    }}
-                >
-                    {mode === 'login' ? 'Need to create the first admin?' : 'Back to login'}
+                    {submitting ? 'Signing in...' : 'Login'}
                 </button>
             </div>
 

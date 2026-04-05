@@ -110,7 +110,7 @@ const pageContent: Record<string, PageContent> = {
             },
             {
                 title: 'Need more help?',
-                body: 'You can also submit a support request through the app.',
+                body: 'Open the Help page to submit a support request directly through the app and receive an email confirmation.',
             },
         ],
         links: [

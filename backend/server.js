@@ -7,6 +7,7 @@ const productsRoutes = require('./routes/products');
 const bookingsRoutes = require('./routes/bookings');
 const ordersRoutes = require('./routes/orders');
 const quoteRequestsRoutes = require('./routes/quoteRequests');
+const supportRequestsRoutes = require('./routes/supportRequests');
 const authRoutes = require('./routes/auth');
 const categoriesRoutes = require('./routes/categories');
 
@@ -64,6 +65,7 @@ app.use('/products', productsRoutes);
 app.use('/bookings', bookingsRoutes);
 app.use('/orders', ordersRoutes);
 app.use('/quote-requests', quoteRequestsRoutes);
+app.use('/support-requests', supportRequestsRoutes);
 app.use('/auth', authRoutes);
 app.use('/categories', categoriesRoutes);
 

@@ -47,12 +47,19 @@ const footerLinks = [
   { label: 'Support', href: '/info/support' as const },
 ];
 
-const toTitleCase = (value: string) =>
-  value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+const toTitleCase = (value: string) => {
+  const normalized = value.replace(/_/g, ' ').trim();
+
+  if (/^donations?$/i.test(normalized)) {
+    return 'Corporate Social Responsibility';
+  }
+
+  return normalized.replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
 
 const getCollectionLabel = (product: Product) => {
   if (product.category_name?.trim()) {
-    return product.category_name.trim();
+    return toTitleCase(product.category_name.trim());
   }
 
   if (product.type?.trim()) {

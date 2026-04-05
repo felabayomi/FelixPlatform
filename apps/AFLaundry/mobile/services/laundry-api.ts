@@ -44,6 +44,23 @@ export type BookingPayload = {
     special_instructions?: string;
 };
 
+export type SupportRequestPayload = {
+    contactName: string;
+    contactEmail: string;
+    contactPhone?: string;
+    subject?: string;
+    message: string;
+};
+
+export type SupportRequestResponse = {
+    submitted: boolean;
+    app_name?: string;
+    admin_email_sent?: boolean;
+    customer_email_sent?: boolean;
+    notification_recipient?: string | null;
+    customer_email_recipient?: string | null;
+};
+
 const hostedApiUrl = 'https://felix-platform-backend.onrender.com';
 
 export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || hostedApiUrl).replace(/\/$/, '');
@@ -56,6 +73,10 @@ const toAbsoluteImageUrl = (value?: string | null) => {
     const rawValue = String(value).trim();
     if (!rawValue) {
         return null;
+    }
+
+    if (/^(data:|blob:)/i.test(rawValue)) {
+        return rawValue;
     }
 
     const protocolMatches = [...rawValue.matchAll(/https?:\/\//gi)];
@@ -215,4 +236,28 @@ export async function trackLaundryBookings(contactPhone: string): Promise<Laundr
 
     const data = await response.json();
     return Array.isArray(data) ? data : [];
+}
+
+export async function submitSupportRequest(payload: SupportRequestPayload): Promise<SupportRequestResponse> {
+    const response = await fetch(`${API_BASE_URL}/support-requests`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            app_name: 'A & F Laundry',
+            contact_name: payload.contactName,
+            contact_email: payload.contactEmail,
+            contact_phone: payload.contactPhone,
+            subject: payload.subject || 'Support request',
+            message: payload.message,
+        }),
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Support request failed with ${response.status}`);
+    }
+
+    return response.json();
 }

@@ -13,10 +13,21 @@ const sanitizeUser = (user) => ({
 });
 
 exports.register = async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, setupAccessCode, setup_access_code } = req.body;
 
     if (!email || !password) {
         return res.status(400).send('Email and password are required');
+    }
+
+    const expectedSetupAccessCode = String(process.env.ADMIN_SETUP_ACCESS_CODE || '').trim();
+    const providedSetupAccessCode = String(setupAccessCode ?? setup_access_code ?? '').trim();
+
+    if (!expectedSetupAccessCode) {
+        return res.status(403).send('Admin setup is disabled.');
+    }
+
+    if (providedSetupAccessCode !== expectedSetupAccessCode) {
+        return res.status(403).send('Invalid admin setup access code');
     }
 
     try {

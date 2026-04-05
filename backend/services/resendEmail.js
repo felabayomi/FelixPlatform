@@ -1,6 +1,7 @@
 const { Resend } = require('resend');
 
 const QUOTE_NOTIFICATION_EMAIL = process.env.QUOTE_NOTIFICATION_EMAIL || 'felixconsult@myyahoo.com';
+const SUPPORT_NOTIFICATION_EMAIL = process.env.SUPPORT_NOTIFICATION_EMAIL || QUOTE_NOTIFICATION_EMAIL;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Felix Platform <onboarding@resend.dev>';
 
 let resendClient = null;
@@ -262,4 +263,74 @@ exports.sendCustomerResponseNotification = async (quoteRequest = {}) => {
             </div>
         `,
     });
+};
+
+exports.sendSupportRequestNotification = async (supportRequest = {}) => {
+    const appName = supportRequest.app_name || 'Felix Platform';
+    const customerName = supportRequest.contact_name || 'there';
+    const customerEmail = toEmail(supportRequest.contact_email);
+    const customerPhone = toNullableText(supportRequest.contact_phone) || 'Not provided';
+    const subjectLine = toNullableText(supportRequest.subject) || 'Support request';
+    const messageText = toNullableText(supportRequest.message) || 'No additional message provided.';
+
+    const adminResult = await sendEmail({
+        to: SUPPORT_NOTIFICATION_EMAIL,
+        subject: `New ${appName} support request: ${subjectLine}`,
+        text: [
+            `A new support request was submitted from ${appName}.`,
+            `Customer: ${customerName}`,
+            `Email: ${customerEmail || 'Not provided'}`,
+            `Phone: ${customerPhone}`,
+            `Subject: ${subjectLine}`,
+            '',
+            messageText,
+        ].join('\n'),
+        html: `
+            <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
+                <h2 style="margin-bottom:8px;">New ${escapeHtml(appName)} support request</h2>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+                    <p style="margin:0 0 6px;"><strong>Customer:</strong> ${escapeHtml(customerName)}</p>
+                    <p style="margin:0 0 6px;"><strong>Email:</strong> ${escapeHtml(customerEmail || 'Not provided')}</p>
+                    <p style="margin:0 0 6px;"><strong>Phone:</strong> ${escapeHtml(customerPhone)}</p>
+                    <p style="margin:0;"><strong>Subject:</strong> ${escapeHtml(subjectLine)}</p>
+                </div>
+                <p style="white-space:pre-wrap;">${escapeHtml(messageText)}</p>
+            </div>
+        `,
+    });
+
+    let customerResult = {
+        sent: false,
+        skipped: true,
+        reason: 'Customer email was not provided',
+        recipient: customerEmail,
+    };
+
+    if (customerEmail) {
+        customerResult = await sendEmail({
+            to: customerEmail,
+            subject: `We received your ${appName} support request`,
+            text: [
+                `Hello ${customerName},`,
+                '',
+                `We received your support request for ${appName}.`,
+                `Subject: ${subjectLine}`,
+                'Our team will review it and follow up with you shortly.',
+            ].join('\n'),
+            html: `
+                <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
+                    <h2 style="margin-bottom:8px;">Support request received</h2>
+                    <p>Hello ${escapeHtml(customerName)},</p>
+                    <p>We received your ${escapeHtml(appName)} support request.</p>
+                    <p><strong>Subject:</strong> ${escapeHtml(subjectLine)}</p>
+                    <p>Our team will review it and follow up with you shortly.</p>
+                </div>
+            `,
+        });
+    }
+
+    return {
+        admin: adminResult,
+        customer: customerResult,
+    };
 };
