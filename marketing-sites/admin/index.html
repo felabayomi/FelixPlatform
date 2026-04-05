@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="refresh" content="6; url=https://felix-store-admin.vercel.app" />
+    <meta http-equiv="refresh" content="5; url=https://admin.felixplatforms.com/login" />
     <title>Felix Platforms Admin</title>
     <style>
         body {
@@ -23,7 +23,7 @@
 
         main {
             padding: 36px 20px 48px;
-            max-width: 980px;
+            max-width: 860px;
             margin: 0 auto;
         }
 
@@ -34,19 +34,12 @@
             color: #dbeafe;
         }
 
-        .grid {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-            margin-top: 24px;
-        }
-
         .card {
             background: #1e293b;
             border-radius: 12px;
-            padding: 22px;
-            width: 300px;
+            padding: 24px;
+            max-width: 420px;
+            margin: 0 auto;
         }
 
         a.button {
@@ -59,35 +52,24 @@
             border-radius: 6px;
             font-weight: 700;
         }
-
-        a.secondary {
-            background: #334155;
-        }
     </style>
 </head>
 
 <body>
     <header>
         <h1>Felix Platforms Admin</h1>
-        <p>Access admin tools for quotes, products, bookings, orders, and operational workflows.</p>
+        <p>Shared admin access for Felix Store and A & F Laundry.</p>
     </header>
 
     <main>
-        <p class="notice">This page acts as the admin access gateway and will redirect to the admin sign-in experience.
-            You can also choose the specific dashboard below.</p>
+        <p class="notice">This admin gateway is for the single shared dashboard used across both apps. You will be
+            redirected to the shared login page shortly.</p>
 
-        <div class="grid">
-            <div class="card">
-                <h2>Felix Store Admin</h2>
-                <p>Manage Felix Store products, quotes, customers, and order operations.</p>
-                <a class="button" href="https://felix-store-admin.vercel.app">Open Felix Store Admin</a>
-            </div>
-
-            <div class="card">
-                <h2>A & F Laundry Admin</h2>
-                <p>Manage laundry services, booking requests, quote approvals, and delivery operations.</p>
-                <a class="button secondary" href="https://af-laundry-admin.vercel.app">Open Laundry Admin</a>
-            </div>
+        <div class="card">
+            <h2>One Admin Login</h2>
+            <p>Manage products, quote requests, orders, bookings, and customer operations for both Felix Store and A & F
+                Laundry from one place.</p>
+            <a class="button" href="https://admin.felixplatforms.com/login">Open Shared Admin Login</a>
         </div>
     </main>
 </body>

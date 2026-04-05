@@ -108,26 +108,6 @@
                 }
             ],
             "destination": "/aflaundry/:path*"
-        },
-        {
-            "source": "/",
-            "has": [
-                {
-                    "type": "host",
-                    "value": "admin.felixplatforms.com"
-                }
-            ],
-            "destination": "/admin/index.html"
-        },
-        {
-            "source": "/:path*",
-            "has": [
-                {
-                    "type": "host",
-                    "value": "admin.felixplatforms.com"
-                }
-            ],
-            "destination": "/admin/:path*"
         }
     ]
 }
