@@ -52,16 +52,41 @@ function Products() {
         'Subscribe to Weekly Service'
     ];
 
+    const formatApiError = (err, fallbackMessage) => {
+        const data = err?.response?.data;
+
+        if (typeof data === 'string' && data.trim()) {
+            return data;
+        }
+
+        if (data?.message) {
+            return data.message;
+        }
+
+        return fallbackMessage;
+    };
+
     const loadProducts = () => {
-        API.get('/products').then((res) => {
-            setProducts(res.data);
-        });
+        API.get('/products')
+            .then((res) => {
+                setProducts(Array.isArray(res.data) ? res.data : []);
+                setError('');
+            })
+            .catch((err) => {
+                console.error(err);
+                setError(formatApiError(err, 'Product catalog temporarily unavailable while the database connection recovers. Your products are not deleted. Please try again shortly.'));
+            });
     };
 
     const loadCategories = () => {
-        API.get('/categories').then((res) => {
-            setCategories(res.data);
-        });
+        API.get('/categories')
+            .then((res) => {
+                setCategories(Array.isArray(res.data) ? res.data : []);
+            })
+            .catch((err) => {
+                console.error(err);
+                setError(formatApiError(err, 'Unable to load categories right now. Please try again shortly.'));
+            });
     };
 
     useEffect(() => {

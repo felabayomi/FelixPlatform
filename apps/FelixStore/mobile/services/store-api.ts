@@ -141,11 +141,35 @@ const toAbsoluteImageUrl = (value?: string | null) => {
     return `${API_BASE_URL}${normalizedPath}`;
 };
 
+const readApiErrorMessage = async (response: Response, fallbackMessage: string) => {
+    try {
+        const contentType = response.headers.get('content-type') || '';
+
+        if (contentType.includes('application/json')) {
+            const payload = await response.json();
+            if (typeof payload === 'string' && payload.trim()) {
+                return payload;
+            }
+            if (payload?.message) {
+                return payload.message;
+            }
+        }
+
+        const text = await response.text();
+        return text || fallbackMessage;
+    } catch {
+        return fallbackMessage;
+    }
+};
+
 export async function fetchProducts(): Promise<Product[]> {
     const response = await fetch(`${API_BASE_URL}/products`);
 
     if (!response.ok) {
-        throw new Error(`Products request failed with ${response.status}`);
+        const fallbackMessage = response.status === 503
+            ? 'Product catalog temporarily unavailable while the database connection recovers. Your products are not deleted. Please try again shortly.'
+            : `Products request failed with ${response.status}`;
+        throw new Error(await readApiErrorMessage(response, fallbackMessage));
     }
 
     const data = await response.json();

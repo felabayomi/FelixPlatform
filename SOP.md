@@ -359,6 +359,55 @@ For a new project, always follow this order:
 
 Never call a project complete until the relevant checks are verified.
 
+---
+
+## 16. Backup & Recovery SOP
+
+### Non-negotiable rule
+
+If the shared product database is unavailable, do **not** replace the live catalog with unrelated placeholder products.
+
+Instead:
+
+- return a maintenance/unavailable response
+- preserve the last known real catalog only if it came from the real DB
+- pause risky catalog edits until database access is stable again
+
+### Required backup safeguards
+
+Before major product imports, edits, or image work:
+
+1. run a catalog backup
+2. confirm Neon restore access is available
+3. confirm Cloudinary image URLs are still resolving
+
+### Standard backup command
+
+```bash
+npm --prefix backend run backup:catalog
+```
+
+This writes a timestamped JSON snapshot under:
+
+```txt
+database/backups/
+```
+
+### Minimum recovery checklist during an outage
+
+- verify whether the real data is still present in Neon SQL
+- create a restore branch before overwriting anything
+- never assume missing UI data means deleted DB records
+- confirm `products`, `categories`, `product_categories`, and `product_images`
+- restore the shared backend connection before re-enabling edits
+
+### Provider safety rules
+
+- monitor Neon usage and restore window regularly
+- upgrade or clear provider limits before they block production reads
+- keep at least one current export snapshot of the catalog outside the database
+- prefer maintenance messaging over fake replacement content during incidents
+
 ### Backend
 
 - endpoint returns expected status

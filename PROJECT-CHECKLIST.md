@@ -104,6 +104,17 @@ Use this quick checklist whenever a new project is added to Felix Platform.
 
 ---
 
+## 11. Backup & Recovery Guardrails
+
+- [ ] Run `npm --prefix backend run backup:catalog` before major catalog edits or imports
+- [ ] Confirm Neon restore / branch access works
+- [ ] Confirm provider usage limits are healthy before production launches
+- [ ] Use maintenance-mode messaging instead of replacement placeholder products during outages
+- [ ] Verify `products`, `categories`, `product_categories`, and `product_images` are recoverable
+- [ ] Keep generated backup snapshots outside git but available for recovery
+
+---
+
 ## Reusable Start Prompt
 
 Use this whenever starting a new app:

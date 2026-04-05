@@ -16,3 +16,5 @@ apps/*/mobile/node_modules/
 apps/*/mobile/dist/
 admin-dashboard/frontend/node_modules/
 admin-dashboard/frontend/dist/
+database/backups/*.json
+!database/backups/.gitkeep

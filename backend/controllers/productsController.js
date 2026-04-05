@@ -1,13 +1,13 @@
 const pool = require('../db');
-const fallbackCatalog = require('../data/fallbackCatalog');
 
 let ensureProductCategoriesTablePromise = null;
 let productsCache = {
-    data: Array.isArray(fallbackCatalog) ? fallbackCatalog : [],
+    data: [],
     expiresAt: 0,
 };
 
 const PRODUCTS_CACHE_TTL_MS = Number(process.env.PRODUCTS_CACHE_TTL_MS || 1000 * 60 * 10);
+const PRODUCT_CATALOG_RECOVERY_MESSAGE = 'Product catalog temporarily unavailable while the database connection recovers. Your products are not deleted. Please try again shortly.';
 
 const normalizeOptionalText = (value) => {
     if (value === '' || value === null || value === undefined) {
@@ -161,12 +161,16 @@ exports.getProducts = async (_req, res) => {
         console.error('Product catalog query failed:', err);
 
         if (Array.isArray(productsCache.data) && productsCache.data.length > 0) {
-            console.warn('Serving cached product catalog after database failure.');
-            return sendProductsResponse(res, productsCache.data, 'fallback-cache');
+            console.warn('Serving last known real product catalog after database failure.');
+            return sendProductsResponse(res, productsCache.data, 'stale-cache');
         }
 
-        console.warn('Serving bundled fallback catalog after database failure.');
-        return sendProductsResponse(res, fallbackCatalog, 'bundled-fallback');
+        res.set('X-Catalog-Source', 'unavailable');
+        res.set('Retry-After', '120');
+        return res.status(503).json({
+            code: 'catalog_temporarily_unavailable',
+            message: PRODUCT_CATALOG_RECOVERY_MESSAGE,
+        });
     }
 };
 
