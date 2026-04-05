@@ -13,20 +13,31 @@ const categoriesRoutes = require('./routes/categories');
 const documentFormatterRoutes = require('./routes/documentFormatter');
 
 const PORT = Number(process.env.PORT) || 5000;
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+const defaultAllowedOrigins = [
+    'http://localhost:8081',
+    'http://127.0.0.1:8081',
+    'http://localhost:8084',
+    'http://127.0.0.1:8084',
+    'http://localhost:19006',
+    'http://127.0.0.1:19006',
+];
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
+const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 
 const app = express();
 app.use(
     cors({
         origin(origin, callback) {
-            if (!origin || !allowedOrigins.length || allowedOrigins.includes(origin)) {
+            if (!origin || !allowedOrigins.length || allowedOrigins.includes(origin) || isLocalDevOrigin(origin)) {
                 return callback(null, true);
             }
 
-            return callback(new Error('Origin not allowed by CORS'));
+            console.warn(`Blocked CORS origin: ${origin}`);
+            return callback(null, false);
         },
         credentials: true,
     })

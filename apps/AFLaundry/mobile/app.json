@@ -21,6 +21,9 @@
       "package": "com.afwebtech.aflaundry",
       "versionCode": 20000
     },
+    "web": {
+      "output": "static"
+    },
     "plugins": [
       "expo-router"
     ],
