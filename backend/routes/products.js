@@ -15,9 +15,14 @@ router.post('/upload-image', authenticateToken, requireAdmin, (req, res) => {
             return res.status(400).send('Image file is required');
         }
 
-        const mimeType = req.file.mimetype || 'image/png';
-        const imageUrl = `data:${mimeType};base64,${req.file.buffer.toString('base64')}`;
-        res.json({ imageUrl, filename: req.file.originalname || 'uploaded-image' });
+        const imageUrl = `/uploads/products/${req.file.filename}`;
+        res.json({
+            imageUrl,
+            filename: req.file.filename || 'uploaded-image',
+            originalName: req.file.originalname || 'uploaded-image',
+            mimetype: req.file.mimetype || 'image/png',
+            size: req.file.size || 0,
+        });
     });
 });
 router.post('/', authenticateToken, requireAdmin, productsController.addProduct);
