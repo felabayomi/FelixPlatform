@@ -1,6 +1,13 @@
 const pool = require('../db');
+const fallbackCatalog = require('../data/fallbackCatalog');
 
 let ensureProductCategoriesTablePromise = null;
+let productsCache = {
+    data: Array.isArray(fallbackCatalog) ? fallbackCatalog : [],
+    expiresAt: 0,
+};
+
+const PRODUCTS_CACHE_TTL_MS = Number(process.env.PRODUCTS_CACHE_TTL_MS || 1000 * 60 * 10);
 
 const normalizeOptionalText = (value) => {
     if (value === '' || value === null || value === undefined) {
@@ -84,7 +91,30 @@ const syncProductCategories = async (client, productId, categoryIds) => {
     }
 };
 
+const hasFreshProductsCache = () =>
+    Array.isArray(productsCache.data) &&
+    productsCache.data.length > 0 &&
+    productsCache.expiresAt > Date.now();
+
+const updateProductsCache = (products) => {
+    productsCache = {
+        data: Array.isArray(products) ? products : [],
+        expiresAt: Date.now() + PRODUCTS_CACHE_TTL_MS,
+    };
+
+    return productsCache.data;
+};
+
+const sendProductsResponse = (res, products, source) => {
+    res.set('X-Catalog-Source', source);
+    return res.json(products);
+};
+
 exports.getProducts = async (_req, res) => {
+    if (hasFreshProductsCache()) {
+        return sendProductsResponse(res, productsCache.data, 'cache');
+    }
+
     try {
         await ensureProductCategoriesTable();
 
@@ -125,10 +155,18 @@ exports.getProducts = async (_req, res) => {
             ORDER BY p.created_at DESC, p.name ASC
         `);
 
-        res.json(result.rows);
+        const products = updateProductsCache(result.rows);
+        return sendProductsResponse(res, products, 'database');
     } catch (err) {
-        console.error(err);
-        res.status(500).send('Error fetching products');
+        console.error('Product catalog query failed:', err);
+
+        if (Array.isArray(productsCache.data) && productsCache.data.length > 0) {
+            console.warn('Serving cached product catalog after database failure.');
+            return sendProductsResponse(res, productsCache.data, 'fallback-cache');
+        }
+
+        console.warn('Serving bundled fallback catalog after database failure.');
+        return sendProductsResponse(res, fallbackCatalog, 'bundled-fallback');
     }
 };
 
