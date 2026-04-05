@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Link, type Href } from 'expo-router';
 import {
   ActivityIndicator,
@@ -10,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import {
@@ -154,6 +156,8 @@ type CartEntry = {
 };
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -244,6 +248,16 @@ export default function HomeScreen() {
 
   const deliveryFee = cart.length ? (deliveryType === 'delivery' ? 7.5 : 0) : 0;
   const orderTotal = cartSubtotal + deliveryFee;
+  const contentContainerStyle = useMemo(
+    () => [
+      styles.container,
+      {
+        paddingTop: 16 + Math.max(insets.top, 8),
+        paddingBottom: tabBarHeight + Math.max(insets.bottom, 16) + 16,
+      },
+    ],
+    [insets.bottom, insets.top, tabBarHeight],
+  );
 
   const addToCart = (product: Product) => {
     setCart((current) => {
@@ -402,7 +416,8 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={contentContainerStyle}
+      contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
       <View style={styles.heroCard}>
         <View style={styles.brandPill}>

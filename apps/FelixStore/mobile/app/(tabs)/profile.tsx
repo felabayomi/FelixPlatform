@@ -1,5 +1,7 @@
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Link, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 
@@ -29,8 +31,22 @@ const profileGroups = [
 ];
 
 export default function ProfileScreen() {
+    const insets = useSafeAreaInsets();
+    const tabBarHeight = useBottomTabBarHeight();
+    const contentContainerStyle = [
+        styles.container,
+        {
+            paddingTop: 16 + Math.max(insets.top, 8),
+            paddingBottom: tabBarHeight + Math.max(insets.bottom, 16) + 16,
+        },
+    ];
+
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView
+            style={styles.screen}
+            contentContainerStyle={contentContainerStyle}
+            contentInsetAdjustmentBehavior="automatic"
+            showsVerticalScrollIndicator={false}>
             <View style={styles.heroCard}>
                 <ThemedText style={styles.eyebrow}>PROFILE</ThemedText>
                 <ThemedText type="title" style={styles.title}>

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Link, type Href } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { fetchProducts, type Product } from '@/services/store-api';
@@ -47,6 +49,8 @@ const getCollectionLabel = (product: Product) => {
 };
 
 export default function TabTwoScreen() {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,10 +74,19 @@ export default function TabTwoScreen() {
       .slice(0, 6);
   }, [products]);
 
+  const contentContainerStyle = [
+    styles.container,
+    {
+      paddingTop: 16 + Math.max(insets.top, 8),
+      paddingBottom: tabBarHeight + Math.max(insets.bottom, 16) + 16,
+    },
+  ];
+
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={contentContainerStyle}
+      contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}>
       <View style={styles.heroCard}>
         <ThemedText style={styles.kicker}>DISCOVER MORE</ThemedText>
