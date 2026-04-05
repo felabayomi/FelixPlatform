@@ -1,0 +1,77 @@
+export type FormatterUser = {
+    id: string;
+    name?: string | null;
+    email: string;
+    role?: string | null;
+    created_at?: string | null;
+};
+
+export const API_BASE_URL = (
+    import.meta.env.VITE_API_URL ||
+    "https://felix-platform-backend.onrender.com"
+).replace(/\/$/, "");
+
+export const TOKEN_STORAGE_KEY = "felix_formatter_token";
+export const USER_STORAGE_KEY = "felix_formatter_user";
+
+export const getStoredToken = () => {
+    if (typeof window === "undefined") {
+        return null;
+    }
+
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
+};
+
+export const getStoredUser = (): FormatterUser | null => {
+    if (typeof window === "undefined") {
+        return null;
+    }
+
+    try {
+        const rawValue = localStorage.getItem(USER_STORAGE_KEY);
+        return rawValue ? (JSON.parse(rawValue) as FormatterUser) : null;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
+};
+
+export const saveAuthSession = (token: string, user: FormatterUser) => {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+};
+
+export const clearAuthSession = () => {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(USER_STORAGE_KEY);
+};
+
+export async function signInToFormatter(email: string, password: string) {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password,
+        }),
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Login failed with ${response.status}`);
+    }
+
+    const data = await response.json();
+    saveAuthSession(data.token, data.user);
+    return data.user as FormatterUser;
+}

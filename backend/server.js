@@ -10,6 +10,7 @@ const quoteRequestsRoutes = require('./routes/quoteRequests');
 const supportRequestsRoutes = require('./routes/supportRequests');
 const authRoutes = require('./routes/auth');
 const categoriesRoutes = require('./routes/categories');
+const documentFormatterRoutes = require('./routes/documentFormatter');
 
 const PORT = Number(process.env.PORT) || 5000;
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -68,6 +69,7 @@ app.use('/quote-requests', quoteRequestsRoutes);
 app.use('/support-requests', supportRequestsRoutes);
 app.use('/auth', authRoutes);
 app.use('/categories', categoriesRoutes);
+app.use('/api', documentFormatterRoutes);
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
