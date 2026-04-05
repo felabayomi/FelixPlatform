@@ -1,0 +1,14 @@
+{
+    "name": "Felix Platform",
+    "short_name": "Felix",
+    "icons": [
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ],
+    "theme_color": "#0f172a",
+    "background_color": "#0f172a",
+    "display": "standalone"
+}

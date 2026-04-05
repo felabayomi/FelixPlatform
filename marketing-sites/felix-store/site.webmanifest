@@ -1,0 +1,14 @@
+{
+    "name": "Felix Store",
+    "short_name": "Store",
+    "icons": [
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ],
+    "theme_color": "#065f46",
+    "background_color": "#065f46",
+    "display": "standalone"
+}

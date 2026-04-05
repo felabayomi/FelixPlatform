@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="A and F Laundry">
+  <defs>
+    <linearGradient id="af" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0f3d91"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#af)"/>
+  <circle cx="40" cy="46" r="10" fill="#e0f2fe"/>
+  <circle cx="72" cy="36" r="7" fill="#bae6fd"/>
+  <circle cx="86" cy="54" r="12" fill="#f0f9ff"/>
+  <path d="M31 92l13-42h11l13 42H57l-2-8H44l-2 8H31zm16-19h6l-3-12-3 12zm28 19V50h11c10 0 17 6 17 16 0 9-6 15-16 15h-5v11H75zm11-31h-4v10h4c4 0 7-2 7-5 0-4-3-5-7-5z" fill="#0f3d91"/>
+</svg>

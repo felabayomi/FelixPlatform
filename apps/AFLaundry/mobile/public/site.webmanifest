@@ -1,0 +1,14 @@
+{
+    "name": "A & F Laundry",
+    "short_name": "Laundry",
+    "icons": [
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ],
+    "theme_color": "#0f3d91",
+    "background_color": "#0f3d91",
+    "display": "standalone"
+}
