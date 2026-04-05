@@ -3,6 +3,36 @@
     "redirects": [
         {
             "source": "/felix-store",
+            "destination": "https://felixstore.felixplatforms.com/",
+            "permanent": true
+        },
+        {
+            "source": "/felix-store/:path*",
+            "destination": "https://felixstore.felixplatforms.com/:path*",
+            "permanent": true
+        },
+        {
+            "source": "/aflaundry",
+            "destination": "https://aflaundry.felixplatforms.com/",
+            "permanent": true
+        },
+        {
+            "source": "/aflaundry/:path*",
+            "destination": "https://aflaundry.felixplatforms.com/:path*",
+            "permanent": true
+        },
+        {
+            "source": "/admin",
+            "destination": "https://admin.felixplatforms.com/",
+            "permanent": true
+        },
+        {
+            "source": "/admin/:path*",
+            "destination": "https://admin.felixplatforms.com/:path*",
+            "permanent": true
+        },
+        {
+            "source": "/felix-store",
             "has": [
                 {
                     "type": "host",
@@ -24,25 +54,14 @@
             "permanent": true
         },
         {
-            "source": "/felix-store/:path*",
+            "source": "/aflaundry",
             "has": [
                 {
                     "type": "host",
-                    "value": "felixplatforms.com"
+                    "value": "aflaundry.felixplatforms.com"
                 }
             ],
-            "destination": "https://felixstore.felixplatforms.com/:path*",
-            "permanent": true
-        },
-        {
-            "source": "/felix-store/:path*",
-            "has": [
-                {
-                    "type": "host",
-                    "value": "www.felixplatforms.com"
-                }
-            ],
-            "destination": "https://felixstore.felixplatforms.com/:path*",
+            "destination": "https://aflaundry.felixplatforms.com/",
             "permanent": true
         },
         {
@@ -50,43 +69,10 @@
             "has": [
                 {
                     "type": "host",
-                    "value": "felixplatforms.com"
+                    "value": "aflaundry.felixplatforms.com"
                 }
             ],
             "destination": "https://aflaundry.felixplatforms.com/:path*",
-            "permanent": true
-        },
-        {
-            "source": "/aflaundry/:path*",
-            "has": [
-                {
-                    "type": "host",
-                    "value": "www.felixplatforms.com"
-                }
-            ],
-            "destination": "https://aflaundry.felixplatforms.com/:path*",
-            "permanent": true
-        },
-        {
-            "source": "/admin/:path*",
-            "has": [
-                {
-                    "type": "host",
-                    "value": "felixplatforms.com"
-                }
-            ],
-            "destination": "https://admin.felixplatforms.com/:path*",
-            "permanent": true
-        },
-        {
-            "source": "/admin/:path*",
-            "has": [
-                {
-                    "type": "host",
-                    "value": "www.felixplatforms.com"
-                }
-            ],
-            "destination": "https://admin.felixplatforms.com/:path*",
             "permanent": true
         }
     ],
