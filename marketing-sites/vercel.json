@@ -2,34 +2,64 @@
     "$schema": "https://openapi.vercel.sh/vercel.json",
     "rewrites": [
         {
-            "source": "/(.*)",
+            "source": "/",
             "has": [
                 {
                     "type": "host",
                     "value": "felixstore.felixplatforms.com"
                 }
             ],
-            "destination": "/felix-store/$1"
+            "destination": "/felix-store/index.html"
         },
         {
-            "source": "/(.*)",
+            "source": "/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "felixstore.felixplatforms.com"
+                }
+            ],
+            "destination": "/felix-store/:path*"
+        },
+        {
+            "source": "/",
             "has": [
                 {
                     "type": "host",
                     "value": "aflaundry.felixplatforms.com"
                 }
             ],
-            "destination": "/aflaundry/$1"
+            "destination": "/aflaundry/index.html"
         },
         {
-            "source": "/(.*)",
+            "source": "/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "aflaundry.felixplatforms.com"
+                }
+            ],
+            "destination": "/aflaundry/:path*"
+        },
+        {
+            "source": "/",
             "has": [
                 {
                     "type": "host",
                     "value": "admin.felixplatforms.com"
                 }
             ],
-            "destination": "/admin/$1"
+            "destination": "/admin/index.html"
+        },
+        {
+            "source": "/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "admin.felixplatforms.com"
+                }
+            ],
+            "destination": "/admin/:path*"
         }
     ]
 }

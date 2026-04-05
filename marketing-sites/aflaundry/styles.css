@@ -19,7 +19,7 @@ a:hover {
 }
 
 header {
-    background: linear-gradient(135deg, #082f49, #0ea5e9);
+    background: linear-gradient(135deg, rgba(8, 47, 73, 0.9), rgba(14, 165, 233, 0.78)), url('https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
     color: #fff;
     padding: 22px 18px 48px;
 }
@@ -39,6 +39,9 @@ nav a {
 
 .hero {
     max-width: 900px;
+    background: rgba(8, 47, 73, 0.26);
+    padding: 8px 0;
+    border-radius: 10px;
 }
 
 .hero h1 {

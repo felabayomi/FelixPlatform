@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="6; url=https://felix-store-admin.vercel.app" />
     <title>Felix Platforms Admin</title>
     <style>
         body {
@@ -16,13 +17,21 @@
 
         header {
             padding: 56px 20px;
-            background: linear-gradient(120deg, #111827, #1e293b);
+            background: linear-gradient(120deg, rgba(17, 24, 39, 0.92), rgba(30, 41, 59, 0.86)),
+                url('https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
         }
 
         main {
             padding: 36px 20px 48px;
-            max-width: 900px;
+            max-width: 980px;
             margin: 0 auto;
+        }
+
+        .notice {
+            max-width: 760px;
+            margin: 0 auto 24px;
+            line-height: 1.7;
+            color: #dbeafe;
         }
 
         .grid {
@@ -37,7 +46,7 @@
             background: #1e293b;
             border-radius: 12px;
             padding: 22px;
-            width: 280px;
+            width: 300px;
         }
 
         a.button {
@@ -48,6 +57,11 @@
             color: #fff;
             text-decoration: none;
             border-radius: 6px;
+            font-weight: 700;
+        }
+
+        a.secondary {
+            background: #334155;
         }
     </style>
 </head>
@@ -55,21 +69,24 @@
 <body>
     <header>
         <h1>Felix Platforms Admin</h1>
-        <p>Access admin tools for quote requests, products, orders, bookings, and operations.</p>
+        <p>Access admin tools for quotes, products, bookings, orders, and operational workflows.</p>
     </header>
 
     <main>
+        <p class="notice">This page acts as the admin access gateway and will redirect to the admin sign-in experience.
+            You can also choose the specific dashboard below.</p>
+
         <div class="grid">
             <div class="card">
                 <h2>Felix Store Admin</h2>
-                <p>Manage Felix Store products, quotes, and orders.</p>
+                <p>Manage Felix Store products, quotes, customers, and order operations.</p>
                 <a class="button" href="https://felix-store-admin.vercel.app">Open Felix Store Admin</a>
             </div>
 
             <div class="card">
                 <h2>A & F Laundry Admin</h2>
-                <p>Manage laundry services, bookings, quotes, and customer operations.</p>
-                <a class="button" href="https://af-laundry-admin.vercel.app">Open Laundry Admin</a>
+                <p>Manage laundry services, booking requests, quote approvals, and delivery operations.</p>
+                <a class="button secondary" href="https://af-laundry-admin.vercel.app">Open Laundry Admin</a>
             </div>
         </div>
     </main>
