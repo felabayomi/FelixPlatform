@@ -60,6 +60,15 @@ const splitIntoParagraphs = (text) =>
         .map((paragraph) => paragraph.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim())
         .filter(Boolean);
 
+const sanitizePdfText = (value) => String(value || '')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, '-')
+    .replace(/\u2026/g, '...')
+    .replace(/[\u2022\u25CF\u25E6]/g, '-')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, '?');
+
 const getDocxSpacing = (lineSpacing) => {
     const map = { single: 240, '1.5': 360, double: 480 };
     return { line: map[lineSpacing] || 480, lineRule: 'auto' };
@@ -320,16 +329,18 @@ async function buildPdfDocument(options) {
     };
 
     const drawLine = (text, { bold = false, center = false, size = fontSize, x = margin } = {}) => {
+        const safeText = sanitizePdfText(text);
         const font = bold ? boldFont : regularFont;
-        const textWidth = font.widthOfTextAtSize(text, size);
+        const textWidth = font.widthOfTextAtSize(safeText, size);
         const drawX = center ? margin + (usableWidth - textWidth) / 2 : x;
         ensureSpace(size + lineHeight);
-        page.drawText(text, { x: drawX, y: y - size, size, font, color: rgb(0, 0, 0), maxWidth: usableWidth });
+        page.drawText(safeText, { x: drawX, y: y - size, size, font, color: rgb(0, 0, 0), maxWidth: usableWidth });
         y -= lineHeight;
     };
 
     const drawParagraph = (text) => {
-        const words = text.split(/\s+/).filter(Boolean);
+        const safeParagraph = sanitizePdfText(text);
+        const words = safeParagraph.split(/\s+/).filter(Boolean);
         let currentLine = '';
         const lines = [];
 
@@ -554,15 +565,32 @@ exports.requestAccess = async (req, res) => {
             reason,
         });
 
-        if (!emailResult.admin?.sent) {
-            console.warn('Document Formatter access request email was not sent:', emailResult.admin?.error || emailResult.admin?.reason || 'Unknown email issue');
+        const adminEmailSent = Boolean(emailResult.admin?.sent);
+        const customerEmailSent = Boolean(emailResult.customer?.sent);
+
+        if (!adminEmailSent || !customerEmailSent) {
+            const emailIssue = emailResult.admin?.error
+                || emailResult.customer?.error
+                || emailResult.admin?.reason
+                || emailResult.customer?.reason
+                || 'Unknown email issue';
+
+            console.warn('Document Formatter access request email was not sent:', emailIssue);
+            return res.status(502).json({
+                error: 'email_delivery_failed',
+                message: 'Your request was saved, but the email notifications could not be sent right now. Please contact Felix Platform support directly.',
+                request: insertResult.rows[0],
+                admin_email_sent: adminEmailSent,
+                customer_email_sent: customerEmailSent,
+            });
         }
 
         res.json({
             submitted: true,
+            message: 'Your access request was sent successfully.',
             request: insertResult.rows[0],
-            admin_email_sent: Boolean(emailResult.admin?.sent),
-            customer_email_sent: Boolean(emailResult.customer?.sent),
+            admin_email_sent: adminEmailSent,
+            customer_email_sent: customerEmailSent,
         });
     } catch (error) {
         console.error(error);

@@ -124,6 +124,7 @@ export const formatDocx = async (
 ): Promise<Blob> => {
   return customFetch<Blob>(getFormatDocxUrl(), {
     ...options,
+    responseType: "blob",
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(formatRequest),
@@ -211,6 +212,7 @@ export const formatPdf = async (
 ): Promise<Blob> => {
   return customFetch<Blob>(getFormatPdfUrl(), {
     ...options,
+    responseType: "blob",
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(formatRequest),

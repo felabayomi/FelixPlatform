@@ -7,7 +7,7 @@ function Products() {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [price, setPrice] = useState('');
-    const [categoryId, setCategoryId] = useState('');
+    const [categoryIds, setCategoryIds] = useState([]);
     const [priceType, setPriceType] = useState('fixed');
     const [unit, setUnit] = useState('');
     const [subscriptionInterval, setSubscriptionInterval] = useState('');
@@ -19,7 +19,7 @@ function Products() {
     const [editName, setEditName] = useState('');
     const [editDescription, setEditDescription] = useState('');
     const [editPrice, setEditPrice] = useState('');
-    const [editCategoryId, setEditCategoryId] = useState('');
+    const [editCategoryIds, setEditCategoryIds] = useState([]);
     const [editPriceType, setEditPriceType] = useState('fixed');
     const [editUnit, setEditUnit] = useState('');
     const [editSubscriptionInterval, setEditSubscriptionInterval] = useState('');
@@ -74,6 +74,22 @@ function Products() {
         return category?.name || 'Uncategorized';
     };
 
+    const getProductCategoryNames = (product) => {
+        if (Array.isArray(product.category_names) && product.category_names.length) {
+            return product.category_names.filter(Boolean);
+        }
+
+        if (product.category_id) {
+            return [getCategoryName(product.category_id)];
+        }
+
+        return [];
+    };
+
+    const getSelectedCategoryValues = (event) => (
+        Array.from(event.target.selectedOptions || [], (option) => option.value).filter(Boolean)
+    );
+
     const formatPricingMeta = (product) => {
         const details = [];
 
@@ -103,7 +119,7 @@ function Products() {
             const searchableText = [
                 product.name,
                 product.description,
-                getCategoryName(product.category_id),
+                getProductCategoryNames(product).join(' '),
                 product.type,
                 product.action_label,
             ]
@@ -165,8 +181,8 @@ function Products() {
             return;
         }
 
-        if (!categoryId) {
-            setError('Please select a category first.');
+        if (!categoryIds.length) {
+            setError('Please select at least one category first.');
             setMessage('');
             return;
         }
@@ -183,7 +199,8 @@ function Products() {
                 name,
                 description,
                 price: cleanedPrice === '' ? null : Number(cleanedPrice),
-                category_id: categoryId,
+                category_id: categoryIds[0],
+                category_ids: categoryIds,
                 type: normalizedPriceType === 'subscription' ? 'subscription' : 'service',
                 price_type: normalizedPriceType,
                 unit: normalizedPriceType === 'subscription' || normalizedPriceType === 'fixed' ? null : (unit || null),
@@ -195,7 +212,7 @@ function Products() {
             setName('');
             setDescription('');
             setPrice('');
-            setCategoryId('');
+            setCategoryIds([]);
             setPriceType('fixed');
             setUnit('');
             setSubscriptionInterval('');
@@ -216,7 +233,11 @@ function Products() {
         setEditName(product.name || '');
         setEditDescription(product.description || '');
         setEditPrice(product.price ?? '');
-        setEditCategoryId(product.category_id || '');
+        setEditCategoryIds(
+            Array.isArray(product.category_ids) && product.category_ids.length
+                ? product.category_ids
+                : (product.category_id ? [product.category_id] : [])
+        );
         setEditPriceType(product.price_type || 'fixed');
         setEditUnit(product.unit || '');
         setEditSubscriptionInterval(product.subscription_interval || '');
@@ -233,6 +254,11 @@ function Products() {
             return;
         }
 
+        if (!editCategoryIds.length) {
+            setError('Please keep at least one category selected.');
+            return;
+        }
+
         try {
             const normalizedPriceType = editPriceType || 'fixed';
             const resolvedType = normalizedPriceType === 'subscription'
@@ -245,7 +271,8 @@ function Products() {
                 name: editName,
                 description: editDescription,
                 price: editPrice,
-                category_id: editCategoryId,
+                category_id: editCategoryIds[0],
+                category_ids: editCategoryIds,
                 type: resolvedType,
                 price_type: normalizedPriceType,
                 unit: normalizedPriceType === 'subscription' || normalizedPriceType === 'fixed' ? null : (editUnit || null),
@@ -280,7 +307,7 @@ function Products() {
     return (
         <div className="page-section">
             <h1>Products</h1>
-            <p className="muted">Create categories first, then assign one when adding a product.</p>
+            <p className="muted">Create categories first, then assign one or more when adding a product.</p>
 
             <div className="login-form">
                 <input
@@ -298,14 +325,20 @@ function Products() {
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                 />
-                <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                    <option value="">Select Category</option>
+                <label className="muted">Categories</label>
+                <select
+                    multiple
+                    size={Math.min(Math.max(categories.length, 4), 8)}
+                    value={categoryIds}
+                    onChange={(e) => setCategoryIds(getSelectedCategoryValues(e))}
+                >
                     {categories.map((c) => (
                         <option key={c.id} value={c.id}>
                             {c.name}
                         </option>
                     ))}
                 </select>
+                <p className="muted">Use Ctrl/Cmd to select more than one category.</p>
                 <select
                     value={priceType}
                     onChange={(e) => {
@@ -401,12 +434,18 @@ function Products() {
                                 <input value={editName} onChange={(e) => setEditName(e.target.value)} />
                                 <input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
                                 <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
-                                <select value={editCategoryId} onChange={(e) => setEditCategoryId(e.target.value)}>
-                                    <option value="">Select Category</option>
+                                <label className="muted">Categories</label>
+                                <select
+                                    multiple
+                                    size={Math.min(Math.max(categories.length, 4), 8)}
+                                    value={editCategoryIds}
+                                    onChange={(e) => setEditCategoryIds(getSelectedCategoryValues(e))}
+                                >
                                     {categories.map((c) => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
                                 </select>
+                                <p className="muted">Use Ctrl/Cmd to select more than one category.</p>
                                 <select
                                     value={editPriceType}
                                     onChange={(e) => {
@@ -483,7 +522,7 @@ function Products() {
                                 {p.image_url ? <img src={p.image_url} alt={p.name} className="product-image" /> : null}
                                 <h3>{p.name}</h3>
                                 <p>{p.description || 'No description provided.'}</p>
-                                <p className="muted">Category: {getCategoryName(p.category_id)}</p>
+                                <p className="muted">Categories: {getProductCategoryNames(p).join(', ') || 'Uncategorized'}</p>
                                 <p className="price">${p.price}</p>
                                 <p className="muted">Pricing: {formatPricingMeta(p)}</p>
                                 <p className="muted">Button label: {p.action_label || 'Auto / by product type'}</p>

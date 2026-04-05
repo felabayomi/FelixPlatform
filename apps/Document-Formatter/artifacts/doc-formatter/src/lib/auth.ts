@@ -105,5 +105,14 @@ export async function requestFormatterAccess(payload: FormatterAccessRequest) {
         throw new Error(message);
     }
 
-    return response.json();
+    const data = await response.json();
+
+    if (data?.admin_email_sent === false || data?.customer_email_sent === false) {
+        throw new Error(
+            data?.message ||
+            'Your request was saved, but the email notifications could not be sent right now. Please contact Felix Platform support directly.'
+        );
+    }
+
+    return data;
 }

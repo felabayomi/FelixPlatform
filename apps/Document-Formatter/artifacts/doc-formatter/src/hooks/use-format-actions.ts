@@ -19,16 +19,13 @@ const downloadBlob = (
   a.download = filename;
   a.rel = "noopener noreferrer";
   a.style.display = "none";
-  document.body.appendChild(a);
 
   if (options?.openInNewTab) {
-    const newWindow = window.open(url, "_blank", "noopener,noreferrer");
-    if (!newWindow) {
-      a.click();
-    }
-  } else {
-    a.click();
+    a.target = "_blank";
   }
+
+  document.body.appendChild(a);
+  a.click();
 
   window.setTimeout(() => {
     a.remove();
@@ -69,10 +66,10 @@ export function useFormatActions() {
     try {
       setIsFormatting(true);
       const blob = await pdfMutation.mutateAsync({ data });
-      downloadBlob(blob, `${filename}.pdf`, { openInNewTab: true });
+      downloadBlob(blob, `${filename}.pdf`);
       toast({
         title: "Success",
-        description: "Your PDF is ready. If it opened in a new tab, you can save or print it there.",
+        description: "Your PDF has been downloaded.",
       });
     } catch (error) {
       console.error(error);
