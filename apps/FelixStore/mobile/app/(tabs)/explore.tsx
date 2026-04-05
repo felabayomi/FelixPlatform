@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { Link, type Href } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { fetchProducts, type Product } from '@/services/store-api';
@@ -17,6 +18,17 @@ const promiseCards = [
     title: 'Always evolving',
     text: 'New categories, stronger discovery, and smoother shopping moments are on the way.',
   },
+];
+
+const inAppLinks = [
+  { label: 'Profile', href: '/profile' as const },
+  { label: 'Settings', href: '/settings' as const },
+  { label: 'Help', href: '/help' as const },
+  { label: 'About Felix Store', href: '/info/about-felix-store' as const },
+  { label: 'How to Use', href: '/info/how-to-use-felix-store' as const },
+  { label: 'Privacy Policy', href: '/info/privacy-policy' as const },
+  { label: 'Terms of Use', href: '/info/terms-of-use' as const },
+  { label: 'Support', href: '/info/support' as const },
 ];
 
 const toTitleCase = (value: string) =>
@@ -113,6 +125,21 @@ export default function TabTwoScreen() {
             <ThemedText style={styles.promiseText}>{item.text}</ThemedText>
           </View>
         ))}
+      </View>
+
+      <View style={styles.section}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>
+          Help, settings, and store pages
+        </ThemedText>
+        <View style={styles.linkGrid}>
+          {inAppLinks.map((link) => (
+            <Link key={link.label} href={link.href as Href} asChild>
+              <Pressable style={styles.linkButton}>
+                <ThemedText style={styles.linkButtonText}>{link.label}</ThemedText>
+              </Pressable>
+            </Link>
+          ))}
+        </View>
       </View>
     </ScrollView>
   );
@@ -212,5 +239,23 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontSize: 14,
     lineHeight: 21,
+  },
+  linkGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  linkButton: {
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  linkButtonText: {
+    color: '#1D4ED8',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

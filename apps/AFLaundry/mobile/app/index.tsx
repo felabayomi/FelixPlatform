@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'expo-router';
 import {
     ActivityIndicator,
     Image,
@@ -56,6 +57,17 @@ const laundryQuickActions = [
     'Request Quote',
     'Subscribe to Weekly Service',
 ] as const;
+
+const laundryInfoLinks = [
+    { label: 'Profile', href: '/profile' },
+    { label: 'Settings', href: '/settings' },
+    { label: 'Help', href: '/help' },
+    { label: 'About A & F Laundry', href: '/info/about-a-and-f-laundry' },
+    { label: 'How to Use', href: '/info/how-to-use-a-and-f-laundry' },
+    { label: 'Privacy Policy', href: '/info/privacy-policy' },
+    { label: 'Terms of Use', href: '/info/terms-of-use' },
+    { label: 'Support', href: '/info/support' },
+];
 
 const formatPrice = (value: LaundryProduct['price']) => {
     if (value === null || value === undefined || value === '') {
@@ -493,6 +505,22 @@ export default function HomeScreen() {
                             <Text style={styles.trustText}>{item.text}</Text>
                         </View>
                     ))}
+                </View>
+
+                <View style={styles.footerCard}>
+                    <Text style={styles.sectionTitle}>Profile, settings, help, and footer links</Text>
+                    <Text style={styles.sectionSubtitle}>
+                        Open About A & F Laundry, How to Use, Privacy Policy, Terms of Use, and Support without leaving the app.
+                    </Text>
+                    <View style={styles.footerLinkGrid}>
+                        {laundryInfoLinks.map((link) => (
+                            <Link key={link.label} href={link.href as never} asChild>
+                                <Pressable style={styles.footerLinkButton}>
+                                    <Text style={styles.footerLinkButtonText}>{link.label}</Text>
+                                </Pressable>
+                            </Link>
+                        ))}
+                    </View>
                 </View>
             </ScrollView>
 
@@ -1045,6 +1073,32 @@ const styles = StyleSheet.create({
     modalScrollContent: {
         padding: 16,
         gap: 10,
+    },
+    footerCard: {
+        gap: 10,
+        padding: 16,
+        borderRadius: 20,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    footerLinkGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    footerLinkButton: {
+        paddingVertical: 9,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        backgroundColor: '#F0F9FF',
+        borderWidth: 1,
+        borderColor: '#BAE6FD',
+    },
+    footerLinkButtonText: {
+        color: '#0369A1',
+        fontSize: 13,
+        fontWeight: '700',
     },
     trustCard: {
         gap: 6,

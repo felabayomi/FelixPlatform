@@ -16,14 +16,20 @@ Use your existing domain like this:
 
 ## Suggested deployment
 
-Use **Vercel** and deploy each folder as its own static project:
+Use **one Vercel project** with the root directory set to:
 
-1. Create a Vercel project for `marketing-sites/felix-platform`
-2. Attach the root domain `felixplatforms.com`
-3. Create a Vercel project for `marketing-sites/felix-store`
-4. Attach the subdomain `felixstore.felixplatforms.com`
-5. Create a Vercel project for `marketing-sites/aflaundry`
-6. Attach the subdomain `aflaundry.felixplatforms.com`
+```text
+marketing-sites
+```
+
+The included `vercel.json` will route each hostname automatically:
+
+- `felixplatforms.com` → `felix-platform/`
+- `www.felixplatforms.com` → `felix-platform/`
+- `felixstore.felixplatforms.com` → `felix-store/`
+- `aflaundry.felixplatforms.com` → `aflaundry/`
+
+After that, attach all of those domains to the same Vercel project and redeploy.
 
 ## App Store URLs to use
 

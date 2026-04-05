@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link, type Href } from 'expo-router';
 import {
   ActivityIndicator,
   Image,
@@ -33,6 +34,17 @@ const spotlightCards = [
     title: 'Modern convenience',
     text: 'From lifestyle needs to business tools, everything lives in one polished destination.',
   },
+];
+
+const footerLinks = [
+  { label: 'Profile', href: '/profile' as const },
+  { label: 'Settings', href: '/settings' as const },
+  { label: 'Help', href: '/help' as const },
+  { label: 'About Felix Store', href: '/info/about-felix-store' as const },
+  { label: 'How to Use', href: '/info/how-to-use-felix-store' as const },
+  { label: 'Privacy Policy', href: '/info/privacy-policy' as const },
+  { label: 'Terms of Use', href: '/info/terms-of-use' as const },
+  { label: 'Support', href: '/info/support' as const },
 ];
 
 const toTitleCase = (value: string) =>
@@ -846,6 +858,24 @@ export default function HomeScreen() {
           Next up: richer category browsing, favorites, a smoother cart flow, and even better product discovery.
         </ThemedText>
       </View>
+
+      <View style={styles.footerCard}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>
+          Profile, settings, help, and footer links
+        </ThemedText>
+        <ThemedText style={styles.checkoutCaption}>
+          Open About Felix Store, How to Use Felix Store, Privacy Policy, Terms of Use, and Support without leaving the app.
+        </ThemedText>
+        <View style={styles.footerLinkGrid}>
+          {footerLinks.map((link) => (
+            <Link key={link.label} href={link.href as Href} asChild>
+              <Pressable style={styles.footerLinkButton}>
+                <ThemedText style={styles.footerLinkButtonText}>{link.label}</ThemedText>
+              </Pressable>
+            </Link>
+          ))}
+        </View>
+      </View>
     </ScrollView>
   );
 }
@@ -1438,5 +1468,31 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontSize: 14,
     lineHeight: 21,
+  },
+  footerCard: {
+    gap: 10,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  footerLinkGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  footerLinkButton: {
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  footerLinkButtonText: {
+    color: '#1D4ED8',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
