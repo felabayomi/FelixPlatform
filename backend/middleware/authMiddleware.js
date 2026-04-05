@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
+const { hasDocumentFormatterAccess } = require('../services/accessControl');
 
 const getJwtSecret = () => process.env.SECRET_KEY || 'secretkey';
 
@@ -23,6 +24,7 @@ exports.authenticateToken = async (req, res, next) => {
         }
 
         req.user = result.rows[0];
+        req.user.document_formatter_access = await hasDocumentFormatterAccess(req.user);
         next();
     } catch (err) {
         console.error(err);
@@ -38,4 +40,25 @@ exports.requireAdmin = (req, res, next) => {
     }
 
     next();
+};
+
+exports.requireDocumentFormatterAccess = async (req, res, next) => {
+    try {
+        const hasAccess = req.user?.document_formatter_access ?? await hasDocumentFormatterAccess(req.user);
+
+        if (!hasAccess) {
+            return res.status(403).json({
+                error: 'access_denied',
+                message: 'Document Formatter access is limited to admins and approved paid users.',
+            });
+        }
+
+        next();
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            error: 'access_check_failed',
+            message: 'Unable to verify Document Formatter access right now.',
+        });
+    }
 };

@@ -138,8 +138,8 @@ export default function Home({ currentUser, onLogout }: HomeProps) {
               <AlignLeft className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="font-bold text-xl tracking-tight text-foreground leading-none">Formatter.</h1>
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Professional Document Engine</p>
+              <h1 className="font-bold text-xl tracking-tight text-foreground leading-none">Felix Platform Formatter</h1>
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Secure document engine for approved users</p>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-3">

@@ -54,6 +54,15 @@ CREATE TABLE products (
   created_at timestamp DEFAULT now()
 );
 
+-- PRODUCT CATEGORY TAGS (allow a product to appear in more than one category)
+CREATE TABLE product_categories (
+  id bigserial PRIMARY KEY,
+  product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  category_id uuid NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (product_id, category_id)
+);
+
 -- PRODUCT IMAGES
 CREATE TABLE product_images (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

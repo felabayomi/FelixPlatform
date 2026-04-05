@@ -4,15 +4,36 @@ import { useFormatDocx, useFormatPdf, useFormatTxt } from "@workspace/api-client
 import type { FormatRequest } from "@workspace/api-client-react";
 
 // Helper to trigger a browser download from a Blob
-const downloadBlob = (blob: Blob, filename: string) => {
+const downloadBlob = (
+  blob: Blob,
+  filename: string,
+  options?: { openInNewTab?: boolean },
+) => {
+  if (!(blob instanceof Blob) || blob.size === 0) {
+    throw new Error(`The generated file for ${filename} was empty.`);
+  }
+
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.rel = "noopener noreferrer";
+  a.style.display = "none";
   document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
+
+  if (options?.openInNewTab) {
+    const newWindow = window.open(url, "_blank", "noopener,noreferrer");
+    if (!newWindow) {
+      a.click();
+    }
+  } else {
+    a.click();
+  }
+
+  window.setTimeout(() => {
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  }, options?.openInNewTab ? 60_000 : 1_500);
 };
 
 export function useFormatActions() {
@@ -48,10 +69,10 @@ export function useFormatActions() {
     try {
       setIsFormatting(true);
       const blob = await pdfMutation.mutateAsync({ data });
-      downloadBlob(blob, `${filename}.pdf`);
+      downloadBlob(blob, `${filename}.pdf`, { openInNewTab: true });
       toast({
         title: "Success",
-        description: "Your PDF document has been downloaded.",
+        description: "Your PDF is ready. If it opened in a new tab, you can save or print it there.",
       });
     } catch (error) {
       console.error(error);

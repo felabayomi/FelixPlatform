@@ -51,7 +51,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {user ? (
+        {user && user.document_formatter_access === false ? (
+          <LoginPage currentUser={user} onSignedIn={setUser} onLogout={handleLogout} />
+        ) : user ? (
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router user={user} onLogout={handleLogout} />
           </WouterRouter>

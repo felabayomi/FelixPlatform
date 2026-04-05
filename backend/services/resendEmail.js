@@ -334,3 +334,67 @@ exports.sendSupportRequestNotification = async (supportRequest = {}) => {
         customer: customerResult,
     };
 };
+
+exports.sendDocumentFormatterAccessRequestNotification = async (accessRequest = {}) => {
+    const requesterName = toNullableText(accessRequest.name) || 'Unknown requester';
+    const requesterEmail = toEmail(accessRequest.email);
+    const organization = toNullableText(accessRequest.organization) || 'Not provided';
+    const reason = toNullableText(accessRequest.reason) || 'No access reason provided.';
+
+    const adminResult = await sendEmail({
+        to: SUPPORT_NOTIFICATION_EMAIL,
+        subject: `Document Formatter access request from ${requesterName}`,
+        text: [
+            'A new Document Formatter access request was submitted.',
+            `Name: ${requesterName}`,
+            `Email: ${requesterEmail || 'Not provided'}`,
+            `Organization: ${organization}`,
+            '',
+            reason,
+        ].join('\n'),
+        html: `
+            <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
+                <h2 style="margin-bottom:8px;">Document Formatter access request</h2>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+                    <p style="margin:0 0 6px;"><strong>Name:</strong> ${escapeHtml(requesterName)}</p>
+                    <p style="margin:0 0 6px;"><strong>Email:</strong> ${escapeHtml(requesterEmail || 'Not provided')}</p>
+                    <p style="margin:0;"><strong>Organization:</strong> ${escapeHtml(organization)}</p>
+                </div>
+                <p style="white-space:pre-wrap;">${escapeHtml(reason)}</p>
+            </div>
+        `,
+    });
+
+    let customerResult = {
+        sent: false,
+        skipped: true,
+        reason: 'Requester email was not provided',
+        recipient: requesterEmail,
+    };
+
+    if (requesterEmail) {
+        customerResult = await sendEmail({
+            to: requesterEmail,
+            subject: 'Your Document Formatter access request was received',
+            text: [
+                `Hello ${requesterName},`,
+                '',
+                'We received your Document Formatter access request.',
+                'Our team will review your request and follow up with next steps shortly.',
+            ].join('\n'),
+            html: `
+                <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
+                    <h2 style="margin-bottom:8px;">Access request received</h2>
+                    <p>Hello ${escapeHtml(requesterName)},</p>
+                    <p>We received your request for access to the Felix Platform Document Formatter.</p>
+                    <p>Our team will review it and follow up with next steps shortly.</p>
+                </div>
+            `,
+        });
+    }
+
+    return {
+        admin: adminResult,
+        customer: customerResult,
+    };
+};

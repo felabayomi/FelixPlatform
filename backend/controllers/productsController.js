@@ -1,5 +1,7 @@
 const pool = require('../db');
 
+let ensureProductCategoriesTablePromise = null;
+
 const normalizeOptionalText = (value) => {
     if (value === '' || value === null || value === undefined) {
         return null;
@@ -27,9 +29,102 @@ const normalizeMinOrderWeight = (value) => {
     return Number.isNaN(normalized) ? NaN : normalized;
 };
 
-exports.getProducts = async (req, res) => {
+const normalizeCategoryIds = (categoryIds, fallbackCategoryId = null) => {
+    const values = [];
+
+    if (fallbackCategoryId) {
+        values.push(fallbackCategoryId);
+    }
+
+    if (Array.isArray(categoryIds)) {
+        values.push(...categoryIds);
+    } else if (categoryIds) {
+        values.push(categoryIds);
+    }
+
+    return [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))];
+};
+
+const ensureProductCategoriesTable = async () => {
+    if (!ensureProductCategoriesTablePromise) {
+        ensureProductCategoriesTablePromise = pool.query(`
+            CREATE TABLE IF NOT EXISTS product_categories (
+                id BIGSERIAL PRIMARY KEY,
+                product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (product_id, category_id)
+            );
+
+            INSERT INTO product_categories (product_id, category_id)
+            SELECT id, category_id
+            FROM products
+            WHERE category_id IS NOT NULL
+            ON CONFLICT (product_id, category_id) DO NOTHING;
+        `).catch((error) => {
+            ensureProductCategoriesTablePromise = null;
+            throw error;
+        });
+    }
+
+    return ensureProductCategoriesTablePromise;
+};
+
+const syncProductCategories = async (client, productId, categoryIds) => {
+    await ensureProductCategoriesTable();
+    await client.query('DELETE FROM product_categories WHERE product_id = $1', [productId]);
+
+    for (const categoryId of categoryIds) {
+        await client.query(
+            `INSERT INTO product_categories (product_id, category_id)
+             VALUES ($1, $2)
+             ON CONFLICT (product_id, category_id) DO NOTHING`,
+            [productId, categoryId],
+        );
+    }
+};
+
+exports.getProducts = async (_req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM products ORDER BY created_at DESC, name ASC');
+        await ensureProductCategoriesTable();
+
+        const result = await pool.query(`
+            SELECT
+                p.*,
+                COALESCE(
+                    category_map.category_ids,
+                    CASE
+                        WHEN p.category_id IS NOT NULL THEN ARRAY[p.category_id::text]
+                        ELSE ARRAY[]::text[]
+                    END
+                ) AS category_ids,
+                COALESCE(
+                    category_map.category_names,
+                    CASE
+                        WHEN primary_category.name IS NOT NULL THEN ARRAY[primary_category.name]
+                        ELSE ARRAY[]::text[]
+                    END
+                ) AS category_names
+            FROM products p
+            LEFT JOIN categories primary_category ON primary_category.id = p.category_id
+            LEFT JOIN (
+                SELECT
+                    mapping.product_id,
+                    ARRAY_AGG(mapping.category_id ORDER BY mapping.category_name, mapping.category_id) AS category_ids,
+                    ARRAY_AGG(mapping.category_name ORDER BY mapping.category_name, mapping.category_id) AS category_names
+                FROM (
+                    SELECT DISTINCT
+                        pc.product_id,
+                        pc.category_id::text AS category_id,
+                        COALESCE(c.name, pc.category_id::text) AS category_name
+                    FROM product_categories pc
+                    LEFT JOIN categories c ON c.id = pc.category_id
+                ) AS mapping
+                GROUP BY mapping.product_id
+            ) AS category_map ON category_map.product_id = p.id
+            ORDER BY p.created_at DESC, p.name ASC
+        `);
+
         res.json(result.rows);
     } catch (err) {
         console.error(err);
@@ -43,6 +138,7 @@ exports.addProduct = async (req, res) => {
         description,
         price,
         category_id,
+        category_ids,
         type,
         price_type,
         unit,
@@ -55,9 +151,15 @@ exports.addProduct = async (req, res) => {
 
     const normalizedPrice = normalizePrice(price);
     const normalizedMinOrderWeight = normalizeMinOrderWeight(min_order_weight);
+    const resolvedCategoryIds = normalizeCategoryIds(category_ids, category_id);
+    const primaryCategoryId = resolvedCategoryIds[0] || null;
 
     if (!name || !name.trim()) {
         return res.status(400).send('Product name is required');
+    }
+
+    if (!resolvedCategoryIds.length) {
+        return res.status(400).send('At least one category is required');
     }
 
     if (price !== '' && price !== null && price !== undefined && Number.isNaN(normalizedPrice)) {
@@ -73,8 +175,13 @@ exports.addProduct = async (req, res) => {
         return res.status(400).send('Invalid minimum order weight');
     }
 
+    const client = await pool.connect();
+
     try {
-        const result = await pool.query(
+        await ensureProductCategoriesTable();
+        await client.query('BEGIN');
+
+        const result = await client.query(
             `INSERT INTO products (
                 name,
                 description,
@@ -95,7 +202,7 @@ exports.addProduct = async (req, res) => {
                 name.trim(),
                 normalizeOptionalText(description),
                 normalizedPrice,
-                category_id || null,
+                primaryCategoryId,
                 normalizeOptionalText(type) || 'service',
                 normalizeOptionalText(price_type) || 'fixed',
                 normalizeOptionalText(unit),
@@ -107,10 +214,21 @@ exports.addProduct = async (req, res) => {
             ]
         );
 
-        res.json(result.rows[0]);
+        const product = result.rows[0];
+        await syncProductCategories(client, product.id, resolvedCategoryIds);
+        await client.query('COMMIT');
+
+        res.json({
+            ...product,
+            category_id: primaryCategoryId,
+            category_ids: resolvedCategoryIds,
+        });
     } catch (err) {
+        await client.query('ROLLBACK').catch(() => { });
         console.error(err);
         res.status(500).send('Error adding product');
+    } finally {
+        client.release();
     }
 };
 
@@ -121,6 +239,7 @@ exports.updateProduct = async (req, res) => {
         description,
         price,
         category_id,
+        category_ids,
         type,
         price_type,
         unit,
@@ -133,9 +252,15 @@ exports.updateProduct = async (req, res) => {
 
     const normalizedPrice = normalizePrice(price);
     const normalizedMinOrderWeight = normalizeMinOrderWeight(min_order_weight);
+    const resolvedCategoryIds = normalizeCategoryIds(category_ids, category_id);
+    const primaryCategoryId = resolvedCategoryIds[0] || null;
 
     if (!name || !name.trim()) {
         return res.status(400).send('Product name is required');
+    }
+
+    if (!resolvedCategoryIds.length) {
+        return res.status(400).send('At least one category is required');
     }
 
     if (price !== '' && price !== null && price !== undefined && Number.isNaN(normalizedPrice)) {
@@ -151,8 +276,13 @@ exports.updateProduct = async (req, res) => {
         return res.status(400).send('Invalid minimum order weight');
     }
 
+    const client = await pool.connect();
+
     try {
-        const result = await pool.query(
+        await ensureProductCategoriesTable();
+        await client.query('BEGIN');
+
+        const result = await client.query(
             `UPDATE products
              SET name=$1,
                  description=$2,
@@ -172,7 +302,7 @@ exports.updateProduct = async (req, res) => {
                 name.trim(),
                 normalizeOptionalText(description),
                 normalizedPrice,
-                category_id || null,
+                primaryCategoryId,
                 normalizeOptionalText(type) || 'service',
                 normalizeOptionalText(price_type) || 'fixed',
                 normalizeOptionalText(unit),
@@ -185,10 +315,21 @@ exports.updateProduct = async (req, res) => {
             ]
         );
 
-        res.json(result.rows[0]);
+        const product = result.rows[0];
+        await syncProductCategories(client, id, resolvedCategoryIds);
+        await client.query('COMMIT');
+
+        res.json({
+            ...product,
+            category_id: primaryCategoryId,
+            category_ids: resolvedCategoryIds,
+        });
     } catch (err) {
+        await client.query('ROLLBACK').catch(() => { });
         console.error(err);
         res.status(500).send('Error updating product');
+    } finally {
+        client.release();
     }
 };
 
@@ -196,6 +337,7 @@ exports.deleteProduct = async (req, res) => {
     const { id } = req.params;
 
     try {
+        await ensureProductCategoriesTable();
         await pool.query('DELETE FROM products WHERE id=$1', [id]);
         res.send('Product deleted');
     } catch (err) {

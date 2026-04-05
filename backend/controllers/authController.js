@@ -1,15 +1,17 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { hasDocumentFormatterAccess } = require('../services/accessControl');
 
 const getJwtSecret = () => process.env.SECRET_KEY || 'secretkey';
 
-const sanitizeUser = (user) => ({
+const sanitizeUser = async (user) => ({
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
-    created_at: user.created_at
+    created_at: user.created_at,
+    document_formatter_access: await hasDocumentFormatterAccess(user),
 });
 
 exports.register = async (req, res) => {
@@ -48,11 +50,12 @@ exports.register = async (req, res) => {
         );
 
         const user = result.rows[0];
+        const safeUser = await sanitizeUser(user);
         const token = jwt.sign({ id: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
 
         res.json({
             token,
-            user,
+            user: safeUser,
             message: isFirstAdmin
                 ? 'First account created with admin access.'
                 : 'Account created successfully. Admin access is granted separately.'
@@ -85,8 +88,9 @@ exports.login = async (req, res) => {
         }
 
         const token = jwt.sign({ id: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
+        const safeUser = await sanitizeUser(user);
 
-        res.json({ token, user: sanitizeUser(user) });
+        res.json({ token, user: safeUser });
     } catch (err) {
         console.error(err);
         res.status(500).send('Error logging in');

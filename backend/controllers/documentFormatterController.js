@@ -2,6 +2,7 @@ const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = re
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const mammoth = require('mammoth');
 const pool = require('../db');
+const { sendDocumentFormatterAccessRequestNotification } = require('../services/resendEmail');
 
 const SUPPORTED_DOCUMENT_TYPES = new Set([
     'academic',
@@ -23,12 +24,15 @@ const SUPPORTED_FONT_FAMILIES = new Set([
 const SUPPORTED_LINE_SPACING = new Set(['single', '1.5', 'double']);
 
 let ensureJobsTablePromise = null;
+let ensureAccessRequestsTablePromise = null;
 
 const normalizeText = (value) => String(value || '').replace(/\r\n/g, '\n').trim();
 const normalizeOptionalText = (value) => {
     const normalized = String(value || '').trim();
     return normalized || null;
 };
+
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim().toLowerCase());
 
 const sanitizeFilename = (value) =>
     String(value || 'document')
@@ -399,6 +403,28 @@ const ensureJobsTable = async () => {
     return ensureJobsTablePromise;
 };
 
+const ensureAccessRequestsTable = async () => {
+    if (!ensureAccessRequestsTablePromise) {
+        ensureAccessRequestsTablePromise = pool.query(`
+            CREATE TABLE IF NOT EXISTS document_formatter_access_requests (
+                id BIGSERIAL PRIMARY KEY,
+                user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                organization TEXT,
+                reason TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        `).catch((error) => {
+            ensureAccessRequestsTablePromise = null;
+            throw error;
+        });
+    }
+
+    return ensureAccessRequestsTablePromise;
+};
+
 const logFormatterJob = async ({ userId, documentType, exportFormat, title, sourceType, inputFilename, contentLength }) => {
     try {
         await ensureJobsTable();
@@ -426,9 +452,125 @@ const logFormatterJob = async ({ userId, documentType, exportFormat, title, sour
         console.error('Failed to log document formatter activity:', error);
     }
 };
-
 exports.healthCheck = async (_req, res) => {
     res.json({ status: 'ok', service: 'document-formatter' });
+};
+
+exports.getAdminOverview = async (_req, res) => {
+    try {
+        await Promise.all([ensureJobsTable(), ensureAccessRequestsTable()]);
+
+        const [summaryResult, recentJobsResult, accessRequestsResult] = await Promise.all([
+            pool.query(`
+                SELECT
+                    COUNT(*)::int AS total_jobs,
+                    COUNT(*) FILTER (WHERE export_format = 'pdf')::int AS pdf_jobs,
+                    COUNT(*) FILTER (WHERE export_format = 'docx')::int AS docx_jobs,
+                    COUNT(*) FILTER (WHERE export_format = 'txt')::int AS txt_jobs,
+                    COUNT(DISTINCT user_id)::int AS unique_users,
+                    COALESCE(SUM(content_length), 0)::int AS total_characters,
+                    MAX(created_at) AS last_job_at
+                FROM document_formatter_jobs
+            `),
+            pool.query(`
+                SELECT
+                    j.id,
+                    j.document_type,
+                    j.export_format,
+                    j.title,
+                    j.source_type,
+                    j.input_filename,
+                    j.content_length,
+                    j.created_at,
+                    u.name AS user_name,
+                    u.email AS user_email
+                FROM document_formatter_jobs j
+                LEFT JOIN users u ON u.id = j.user_id
+                ORDER BY j.created_at DESC
+                LIMIT 25
+            `),
+            pool.query(`
+                SELECT id, user_id, name, email, organization, reason, status, created_at
+                FROM document_formatter_access_requests
+                ORDER BY created_at DESC
+                LIMIT 20
+            `),
+        ]);
+
+        res.json({
+            summary: summaryResult.rows[0] || {
+                total_jobs: 0,
+                pdf_jobs: 0,
+                docx_jobs: 0,
+                txt_jobs: 0,
+                unique_users: 0,
+                total_characters: 0,
+                last_job_at: null,
+            },
+            recentJobs: recentJobsResult.rows,
+            accessRequests: accessRequestsResult.rows,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            error: 'admin_overview_failed',
+            message: 'Unable to load the Document Formatter admin overview.',
+        });
+    }
+};
+
+exports.requestAccess = async (req, res) => {
+    const name = normalizeOptionalText(req.body.name);
+    const email = normalizeOptionalText(req.body.email)?.toLowerCase();
+    const organization = normalizeOptionalText(req.body.organization);
+    const reason = normalizeOptionalText(req.body.reason);
+
+    if (!name) {
+        return res.status(400).json({ error: 'invalid_name', message: 'Your name is required.' });
+    }
+
+    if (!email || !isValidEmail(email)) {
+        return res.status(400).json({ error: 'invalid_email', message: 'A valid email address is required.' });
+    }
+
+    if (!reason) {
+        return res.status(400).json({ error: 'invalid_reason', message: 'Please tell us why you need access.' });
+    }
+
+    try {
+        await ensureAccessRequestsTable();
+
+        const insertResult = await pool.query(
+            `INSERT INTO document_formatter_access_requests (user_id, name, email, organization, reason)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, name, email, organization, reason, status, created_at`,
+            [req.user?.id || null, name, email, organization, reason],
+        );
+
+        const emailResult = await sendDocumentFormatterAccessRequestNotification({
+            name,
+            email,
+            organization,
+            reason,
+        });
+
+        if (!emailResult.admin?.sent) {
+            console.warn('Document Formatter access request email was not sent:', emailResult.admin?.error || emailResult.admin?.reason || 'Unknown email issue');
+        }
+
+        res.json({
+            submitted: true,
+            request: insertResult.rows[0],
+            admin_email_sent: Boolean(emailResult.admin?.sent),
+            customer_email_sent: Boolean(emailResult.customer?.sent),
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            error: 'access_request_failed',
+            message: 'Unable to submit the access request right now.',
+        });
+    }
 };
 
 exports.formatTxt = async (req, res) => {

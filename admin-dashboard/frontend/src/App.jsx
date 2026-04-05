@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import DocumentFormatter from './pages/DocumentFormatter';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
 import Bookings from './pages/Bookings';
@@ -56,6 +57,7 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/" element={<Navigate to={hasAdminAccess(user) ? '/dashboard' : '/login'} replace />} />
             <Route path="/login" element={<Navigate to={hasAdminAccess(user) ? '/dashboard' : '/login'} replace />} />
             <Route path="/dashboard" element={<ProtectedRoute user={user}><Dashboard /></ProtectedRoute>} />
+            <Route path="/document-formatter" element={<ProtectedRoute user={user}><DocumentFormatter /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute user={user}><Products /></ProtectedRoute>} />
             <Route path="/quote-requests" element={<ProtectedRoute user={user}><QuoteRequests /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute user={user}><Orders /></ProtectedRoute>} />

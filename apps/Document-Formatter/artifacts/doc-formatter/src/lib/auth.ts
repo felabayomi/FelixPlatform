@@ -4,6 +4,14 @@ export type FormatterUser = {
     email: string;
     role?: string | null;
     created_at?: string | null;
+    document_formatter_access?: boolean;
+};
+
+export type FormatterAccessRequest = {
+    name: string;
+    email: string;
+    organization?: string;
+    reason: string;
 };
 
 export const API_BASE_URL = (
@@ -74,4 +82,28 @@ export async function signInToFormatter(email: string, password: string) {
     const data = await response.json();
     saveAuthSession(data.token, data.user);
     return data.user as FormatterUser;
+}
+
+export async function requestFormatterAccess(payload: FormatterAccessRequest) {
+    const response = await fetch(`${API_BASE_URL}/api/request-access`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            name: payload.name.trim(),
+            email: payload.email.trim().toLowerCase(),
+            organization: payload.organization?.trim() || undefined,
+            reason: payload.reason.trim(),
+        }),
+    });
+
+    if (!response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        const body = contentType.includes('application/json') ? await response.json() : await response.text();
+        const message = typeof body === 'string' ? body : body?.message || 'Unable to submit the access request right now.';
+        throw new Error(message);
+    }
+
+    return response.json();
 }
