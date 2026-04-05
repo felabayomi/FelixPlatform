@@ -13,7 +13,7 @@ export default function SettingsScreen() {
                 },
                 {
                     title: 'Support access',
-                    body: 'If you need help with a product, quote request, or account issue, you can open the help and support pages directly from here.',
+                    body: 'If you need help with a product, request, or account issue, you can open the help and support pages directly from here.',
                 },
             ]}
             links={[

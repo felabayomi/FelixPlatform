@@ -9,15 +9,15 @@ const profileGroups = [
     {
         title: 'Profile',
         links: [
-            { label: 'About Felix Store', description: 'Learn what Felix Store offers and how it works.', href: '/info/about-felix-store' as const },
-            { label: 'How to Use Felix Store', description: 'See the steps for browsing, requesting quotes, and tracking updates.', href: '/info/how-to-use-felix-store' as const },
+            { label: 'About Felix Store', description: 'Learn how Felix Store turns ideas into practical offers and solutions.', href: '/info/about-felix-store' as const },
+            { label: 'How to Use Felix Store', description: 'See how to browse, request, and move from interest to action.', href: '/info/how-to-use-felix-store' as const },
         ],
     },
     {
         title: 'Settings',
         links: [
-            { label: 'Settings', description: 'Open your in-app settings and policy links.', href: '/settings' as const },
-            { label: 'Privacy Policy', description: 'Review how customer information is handled.', href: '/info/privacy-policy' as const },
+            { label: 'Settings', description: 'Open in-app settings, policies, and support links.', href: '/settings' as const },
+            { label: 'Privacy Policy', description: 'Review how request and customer information is handled.', href: '/info/privacy-policy' as const },
             { label: 'Terms of Use', description: 'Read the app usage terms for Felix Store.', href: '/info/terms-of-use' as const },
         ],
     },
@@ -25,7 +25,7 @@ const profileGroups = [
         title: 'Help',
         links: [
             { label: 'Help', description: 'Open the Felix Store help center in-app.', href: '/help' as const },
-            { label: 'Support', description: 'Find the best way to contact the Felix team.', href: '/info/support' as const },
+            { label: 'Support', description: 'Get help with products, requests, or platform questions.', href: '/info/support' as const },
         ],
     },
 ];
@@ -50,10 +50,10 @@ export default function ProfileScreen() {
             <View style={styles.heroCard}>
                 <ThemedText style={styles.eyebrow}>PROFILE</ThemedText>
                 <ThemedText type="title" style={styles.title}>
-                    Account, settings, and help in one place.
+                    Account, resources, and next steps in one place.
                 </ThemedText>
                 <ThemedText style={styles.subtitle}>
-                    Open Felix Store information pages, support resources, privacy details, and help tools without leaving the app.
+                    Open Felix Store business info, support resources, privacy details, and help tools without leaving the app.
                 </ThemedText>
             </View>
 

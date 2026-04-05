@@ -9,16 +9,16 @@ import { fetchProducts, type Product } from '@/services/store-api';
 
 const promiseCards = [
   {
-    title: 'Thoughtful variety',
-    text: 'A growing mix of essentials, subscriptions, professional services, and digital products.',
+    title: 'Practical variety',
+    text: 'A growing mix of services, tools, digital products, and business-ready opportunities.',
   },
   {
-    title: 'Customer-first feel',
-    text: 'Designed to feel simple, reliable, and premium from the first tap to checkout.',
+    title: 'Solution-first design',
+    text: 'Built to help users discover what they need quickly and move toward action with clarity.',
   },
   {
-    title: 'Always evolving',
-    text: 'New categories, stronger discovery, and smoother shopping moments are on the way.',
+    title: 'Always expanding',
+    text: 'New categories, stronger discovery, and more execution-focused offers are on the way.',
   },
 ];
 
@@ -91,10 +91,10 @@ export default function TabTwoScreen() {
       <View style={styles.heroCard}>
         <ThemedText style={styles.kicker}>DISCOVER MORE</ThemedText>
         <ThemedText type="title" style={styles.title}>
-          Collections worth exploring.
+          Collections built around practical solutions.
         </ThemedText>
         <ThemedText style={styles.subtitle}>
-          Find curated categories built around convenience, quality, and modern everyday living.
+          Explore categories spanning products, services, digital assets, and business-ready opportunities designed for real use.
         </ThemedText>
       </View>
 
@@ -116,7 +116,7 @@ export default function TabTwoScreen() {
               <ThemedText type="defaultSemiBold" style={styles.collectionName}>
                 {label}
               </ThemedText>
-              <ThemedText style={styles.collectionMeta}>{count} items ready to explore</ThemedText>
+              <ThemedText style={styles.collectionMeta}>{count} offers ready to review</ThemedText>
             </View>
             <View style={styles.countBadge}>
               <ThemedText style={styles.countBadgeText}>{count}</ThemedText>
@@ -127,7 +127,7 @@ export default function TabTwoScreen() {
 
       <View style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
-          The Felix promise
+          The Felix approach
         </ThemedText>
 
         {promiseCards.map((item) => (
@@ -142,7 +142,7 @@ export default function TabTwoScreen() {
 
       <View style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Help, settings, and store pages
+          Help, settings, and business info
         </ThemedText>
         <View style={styles.linkGrid}>
           {inAppLinks.map((link) => (

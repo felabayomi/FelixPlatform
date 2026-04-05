@@ -25,16 +25,16 @@ import {
 
 const spotlightCards = [
   {
-    title: 'Curated quality',
-    text: 'A handpicked mix of essentials, services, and digital finds that feel worth discovering.',
+    title: 'Business-ready variety',
+    text: 'A growing mix of products, services, tools, and digital resources designed to solve real needs.',
   },
   {
-    title: 'Simple shopping',
-    text: 'A cleaner catalog experience built for fast browsing, easier decisions, and repeat visits.',
+    title: 'Flexible fulfillment',
+    text: 'Browse ready-made offers or request tailored pricing and support for something more specific.',
   },
   {
-    title: 'Modern convenience',
-    text: 'From lifestyle needs to business tools, everything lives in one polished destination.',
+    title: 'Built to grow',
+    text: 'New categories, better discovery, and more execution-ready solutions are continuously being added.',
   },
 ];
 
@@ -425,11 +425,11 @@ export default function HomeScreen() {
         </View>
 
         <ThemedText type="title" style={styles.heroTitle}>
-          A premium storefront for everyday wins.
+          Business-ready ideas, tools, and solutions in one place.
         </ThemedText>
 
         <ThemedText style={styles.heroSubtitle}>
-          Explore essentials, standout services, and digital finds, then send a quote request for tailored pricing and fulfillment.
+          Explore practical products, digital resources, and solution-driven offers, then send a request for tailored pricing, delivery, or next-step support.
         </ThemedText>
 
         <View style={styles.searchRow}>
@@ -486,7 +486,7 @@ export default function HomeScreen() {
       {loading ? (
         <View style={styles.messageCard}>
           <ActivityIndicator color="#2563EB" />
-          <ThemedText>Loading the best of Felix Store...</ThemedText>
+          <ThemedText>Loading the latest Felix Store solutions...</ThemedText>
         </View>
       ) : null}
 
@@ -560,7 +560,7 @@ export default function HomeScreen() {
                 </ThemedText>
 
                 <ThemedText style={styles.productDescription}>
-                  {shortenText(product.description || 'Useful, reliable, and ready when you are.')}
+                  {shortenText(product.description || 'Practical, useful, and ready to be put to work.')}
                 </ThemedText>
 
                 <ThemedText style={styles.productFootnote}>{formatPricing(product)}</ThemedText>
@@ -858,7 +858,7 @@ export default function HomeScreen() {
 
       <View style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Why shoppers choose Felix
+          Why people build with Felix
         </ThemedText>
         <View style={styles.featureGrid}>
           {spotlightCards.map((item) => (
@@ -874,10 +874,10 @@ export default function HomeScreen() {
 
       <View style={styles.ctaCard}>
         <ThemedText type="subtitle" style={styles.ctaTitle}>
-          More premium shopping moments are coming next.
+          More business-ready solutions are coming next.
         </ThemedText>
         <ThemedText style={styles.ctaText}>
-          Next up: richer category browsing, favorites, a smoother cart flow, and even better product discovery.
+          Next up: stronger discovery, richer categories, smoother requests, and even better ways to turn interest into action.
         </ThemedText>
       </View>
 
@@ -886,7 +886,7 @@ export default function HomeScreen() {
           Profile, settings, help, and footer links
         </ThemedText>
         <ThemedText style={styles.checkoutCaption}>
-          Open About Felix Store, How to Use Felix Store, Privacy Policy, Terms of Use, and Support without leaving the app.
+          Open Felix Store business info, the usage guide, policies, and support tools without leaving the app.
         </ThemedText>
         <View style={styles.footerLinkGrid}>
           {footerLinks.map((link) => (

@@ -17,9 +17,9 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          height: 64,
-          paddingTop: 6,
-          paddingBottom: 6,
+          height: 72,
+          paddingTop: 8,
+          paddingBottom: 12,
         },
         tabBarLabelStyle: {
           fontSize: 12,

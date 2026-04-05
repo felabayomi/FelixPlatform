@@ -6,10 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { submitSupportRequest } from '../services/store-api';
 
 const links = [
-    { label: 'How to Use Felix Store', description: 'Step-by-step usage guide.', href: '/info/how-to-use-felix-store' },
-    { label: 'Support', description: 'Open support contact details.', href: '/info/support' },
-    { label: 'Privacy Policy', description: 'Review privacy information.', href: '/info/privacy-policy' },
-    { label: 'Profile', description: 'Back to profile and shortcuts.', href: '/profile' },
+    { label: 'How to Use Felix Store', description: 'See the step-by-step request and fulfillment flow.', href: '/info/how-to-use-felix-store' },
+    { label: 'Support', description: 'Open support contact details and business help options.', href: '/info/support' },
+    { label: 'Privacy Policy', description: 'Review privacy and data-handling information.', href: '/info/privacy-policy' },
+    { label: 'Profile', description: 'Back to your shortcuts and business info pages.', href: '/profile' },
 ];
 
 type FormState = {
@@ -77,21 +77,21 @@ export default function HelpScreen() {
                     <Text style={styles.eyebrow}>HELP</Text>
                     <Text style={styles.title}>Felix Store help</Text>
                     <Text style={styles.subtitle}>
-                        Find quick guidance for browsing the store, requesting quotes, reviewing policies, and reaching support without leaving the app.
+                        Find quick guidance for browsing solution offers, sending requests, reviewing policies, and reaching support without leaving the app.
                     </Text>
                 </View>
 
                 <View style={styles.sectionCard}>
                     <Text style={styles.sectionTitle}>Using the store</Text>
                     <Text style={styles.sectionBody}>
-                        Browse the catalog, tap the product action button, complete the in-app request form, and then track the status of your quote with the same phone number you used when submitting.
+                        Browse the catalog, choose the offer or solution that fits your needs, complete the in-app request form, and then track progress with the same phone number you used when submitting.
                     </Text>
                 </View>
 
                 <View style={styles.sectionCard}>
                     <Text style={styles.sectionTitle}>Submit a support request</Text>
                     <Text style={styles.sectionBody}>
-                        Send your issue directly to support and receive a confirmation email using the same support flow behind the platform.
+                        Send your issue or business question directly to support and receive a confirmation email using the same platform support flow.
                     </Text>
 
                     <TextInput style={styles.input} placeholder="Your name" placeholderTextColor="#94A3B8" value={form.name} onChangeText={(value) => updateField('name', value)} />
