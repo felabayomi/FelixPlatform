@@ -2,12 +2,108 @@
 <html>
 
 <head>
-    <title>Felix Platform</title>
+    <title>Felix Platforms</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #0b1220;
+            color: white;
+            text-align: center;
+        }
+
+        header {
+            padding: 60px 20px;
+            background: linear-gradient(120deg, #0f172a, #1e293b);
+        }
+
+        h1 {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .container {
+            padding: 40px 20px;
+        }
+
+        .apps {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+
+        .card {
+            background: #1e293b;
+            padding: 25px;
+            border-radius: 10px;
+            width: 260px;
+        }
+
+        .card a {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 15px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+        }
+
+        footer {
+            margin-top: 40px;
+            padding: 20px;
+            background: #020617;
+        }
+
+        footer a {
+            color: #94a3b8;
+            margin: 0 10px;
+            text-decoration: none;
+        }
+    </style>
 </head>
 
-<body style="font-family: Arial; padding: 40px;">
-    <h1>Felix Platform Marketing Site Live</h1>
-    <p>If you see this, Vercel deployment is working.</p>
+<body>
+
+    <header>
+        <h1>Felix Platforms</h1>
+        <p>Digital tools, services, and logistics solutions.</p>
+    </header>
+
+    <div class="container">
+        <h2>Our Apps & Services</h2>
+
+        <div class="apps">
+            <div class="card">
+                <h3>Felix Store</h3>
+                <p>Digital tools, services, and marketplace.</p>
+                <a href="https://felixstore.felixplatforms.com">Visit</a>
+            </div>
+
+            <div class="card">
+                <h3>A & F Laundry</h3>
+                <p>Laundry pickup, delivery, and commercial laundry services.</p>
+                <a href="https://aflaundry.felixplatforms.com">Visit</a>
+            </div>
+
+            <div class="card">
+                <h3>Admin Dashboard</h3>
+                <p>Manage products, orders, bookings, and users.</p>
+                <a href="https://admin.felixplatforms.com">Admin</a>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/support.html">Support</a>
+        <a href="/about.html">About</a>
+    </footer>
+
 </body>
 
 </html>
