@@ -27,6 +27,7 @@ export type CreateOrderPayload = {
     deliveryType: 'delivery' | 'pickup';
     customerName: string;
     customerPhone: string;
+    customerEmail: string;
     deliveryAddress?: string;
     notes?: string;
 };
@@ -36,6 +37,16 @@ export type QuoteRequestResponse = {
     status?: string | null;
     quoted_price?: number | string | null;
     admin_notes?: string | null;
+    product_id?: string | null;
+    product_name?: string | null;
+    app_name?: string | null;
+    contact_name?: string | null;
+    contact_phone?: string | null;
+    contact_email?: string | null;
+    preferred_fulfillment?: string | null;
+    reference_estimate?: string | null;
+    created_at?: string | null;
+    customer_action?: string | null;
 };
 
 const hostedApiUrl = 'https://felix-platform-backend.onrender.com';
@@ -144,9 +155,9 @@ export async function createOrder(payload: CreateOrderPayload): Promise<QuoteReq
                 'Quote request submitted from Felix Store',
                 `Customer: ${payload.customerName}`,
                 `Phone: ${payload.customerPhone}`,
+                `Email: ${payload.customerEmail}`,
                 payload.deliveryAddress ? `Address: ${payload.deliveryAddress}` : null,
                 `Preferred fulfillment: ${payload.deliveryType}`,
-                `Reference estimate: $${payload.total.toFixed(2)}`,
                 'Requested items:',
                 ...payload.items.map((item) => `- ${item.product.name} x${item.quantity}`),
                 payload.notes ? `Request details: ${payload.notes}` : null,
@@ -159,6 +170,53 @@ export async function createOrder(payload: CreateOrderPayload): Promise<QuoteReq
     if (!response.ok) {
         const message = await response.text();
         throw new Error(message || `Quote request failed with ${response.status}`);
+    }
+
+    return response.json();
+}
+
+export async function trackQuoteRequests(contactPhone: string): Promise<QuoteRequestResponse[]> {
+    const normalizedPhone = String(contactPhone || '').trim();
+
+    if (!normalizedPhone) {
+        return [];
+    }
+
+    const params = new URLSearchParams({
+        phone: normalizedPhone,
+        app_name: 'Felix Store',
+    });
+
+    const response = await fetch(`${API_BASE_URL}/quote-requests/track?${params.toString()}`);
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Tracking request failed with ${response.status}`);
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+}
+
+export async function respondToQuoteRequest(
+    quoteRequestId: string,
+    contactPhone: string,
+    decision: 'accept' | 'decline',
+): Promise<QuoteRequestResponse> {
+    const response = await fetch(`${API_BASE_URL}/quote-requests/${quoteRequestId}/respond`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            contact_phone: contactPhone,
+            decision,
+        }),
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Quote response failed with ${response.status}`);
     }
 
     return response.json();

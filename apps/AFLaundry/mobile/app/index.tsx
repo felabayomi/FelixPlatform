@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Image,
@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
     createLaundryBooking,
     fetchLaundryServices,
+    respondToLaundryQuote,
     trackLaundryBookings,
     type LaundryBooking,
     type LaundryProduct,
@@ -82,6 +83,14 @@ const formatServiceMeta = (service: LaundryProduct) => {
 const shortenText = (value: string, limit = 110) =>
     value.length > limit ? `${value.slice(0, limit).trim()}…` : value;
 
+const getServiceActionLabel = (service: LaundryProduct) => {
+    if (service.action_label?.trim()) {
+        return service.action_label.trim();
+    }
+
+    return 'Request Quote';
+};
+
 const formatStatusLabel = (value?: string | null) => {
     if (!value) {
         return 'Pending';
@@ -93,11 +102,11 @@ const formatStatusLabel = (value?: string | null) => {
 };
 
 export default function HomeScreen() {
-    const scrollViewRef = useRef<ScrollView>(null);
     const [services, setServices] = useState<LaundryProduct[]>([]);
     const [selectedServiceId, setSelectedServiceId] = useState('');
     const [contactName, setContactName] = useState('');
     const [contactPhone, setContactPhone] = useState('');
+    const [contactEmail, setContactEmail] = useState('');
     const [serviceDate, setServiceDate] = useState('2026-04-10');
     const [serviceWindow, setServiceWindow] = useState('9AM-12PM');
     const [pickupAddress, setPickupAddress] = useState('');
@@ -108,11 +117,12 @@ export default function HomeScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
-    const [formOffsetY, setFormOffsetY] = useState(0);
+    const [requestModalVisible, setRequestModalVisible] = useState(false);
     const [trackingPhone, setTrackingPhone] = useState('');
     const [trackingLoading, setTrackingLoading] = useState(false);
     const [trackingResults, setTrackingResults] = useState<LaundryBooking[]>([]);
     const [trackingError, setTrackingError] = useState('');
+    const [respondingBookingId, setRespondingBookingId] = useState('');
     const [failedServiceImageIds, setFailedServiceImageIds] = useState<Record<string, boolean>>({});
 
     const loadServices = async () => {
@@ -141,18 +151,11 @@ export default function HomeScreen() {
         [services, selectedServiceId],
     );
 
-    const scrollToBookingForm = () => {
-        scrollViewRef.current?.scrollTo({
-            y: Math.max(formOffsetY - 12, 0),
-            animated: true,
-        });
-    };
-
     const handleSelectService = (serviceId: string) => {
         setSelectedServiceId(serviceId);
         setMessage('');
         setError('');
-        setTimeout(scrollToBookingForm, 80);
+        setRequestModalVisible(true);
     };
 
     const handleQuickAction = (action: (typeof laundryQuickActions)[number]) => {
@@ -163,7 +166,11 @@ export default function HomeScreen() {
             setSpecialInstructions((current) => current || 'Interested in subscribing to weekly laundry service.');
         }
 
-        setTimeout(scrollToBookingForm, 80);
+        if (!selectedServiceId && services[0]?.id) {
+            setSelectedServiceId(String(services[0].id));
+        }
+
+        setRequestModalVisible(true);
     };
 
     const loadTracking = async (phoneOverride?: string) => {
@@ -189,8 +196,14 @@ export default function HomeScreen() {
     };
 
     const handleSubmit = async () => {
-        if (!selectedServiceId || !contactName.trim() || !contactPhone.trim() || !pickupAddress.trim()) {
-            setError('Please choose a service and fill in the required contact and address fields.');
+        if (!selectedServiceId || !contactName.trim() || !contactPhone.trim() || !contactEmail.trim() || !pickupAddress.trim()) {
+            setError('Please choose a service and fill in your contact details, including email, plus the pickup address.');
+            setMessage('');
+            return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
+            setError('Please enter a valid email address for quote updates and scheduling emails.');
             setMessage('');
             return;
         }
@@ -208,11 +221,12 @@ export default function HomeScreen() {
                 delivery_address: deliveryAddress || pickupAddress,
                 contact_name: contactName,
                 contact_phone: contactPhone,
+                contact_email: contactEmail,
                 weight_estimate: weightEstimate,
                 special_instructions: specialInstructions,
             });
 
-            setMessage(`Quote request #${createdBooking.id} has been sent. The team will review it and contact you shortly.`);
+            setMessage(`Quote request #${createdBooking.id} has been sent. We will email your quote and pickup updates shortly.`);
             setWeightEstimate('');
             setSpecialInstructions('');
             setTrackingPhone(contactPhone);
@@ -222,6 +236,7 @@ export default function HomeScreen() {
                     product_name: selectedService?.name || 'Laundry service',
                 },
             ]);
+            setRequestModalVisible(false);
             void loadTracking(contactPhone);
         } catch (err) {
             console.error(err);
@@ -231,10 +246,42 @@ export default function HomeScreen() {
         }
     };
 
+    const handleBookingResponse = async (
+        bookingId: string,
+        phone: string,
+        decision: 'accept' | 'decline',
+    ) => {
+        const phoneToUse = String(phone || trackingPhone).trim();
+
+        if (!phoneToUse) {
+            setTrackingError('Enter the phone number used for the request before responding to the quote.');
+            return;
+        }
+
+        setRespondingBookingId(bookingId);
+        setTrackingError('');
+
+        try {
+            const updatedBooking = await respondToLaundryQuote(bookingId, phoneToUse, decision);
+            setTrackingResults((current) =>
+                current.map((item) => (item.id === bookingId ? { ...item, ...updatedBooking } : item))
+            );
+            setMessage(
+                decision === 'accept'
+                    ? `Quote #${bookingId} accepted. The team can now move it into pickup and delivery scheduling.`
+                    : `Quote #${bookingId} was declined and has been updated.`
+            );
+        } catch (err) {
+            console.error(err);
+            setTrackingError(err instanceof Error ? err.message : 'Unable to update your quote response right now.');
+        } finally {
+            setRespondingBookingId('');
+        }
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView
-                ref={scrollViewRef}
                 style={styles.screen}
                 contentContainerStyle={styles.container}
                 showsVerticalScrollIndicator={false}>
@@ -257,16 +304,6 @@ export default function HomeScreen() {
                         </View>
                     </View>
 
-                    <View style={styles.quickActionWrap}>
-                        {laundryQuickActions.map((action) => (
-                            <Pressable
-                                key={action}
-                                style={styles.quickActionButton}
-                                onPress={() => handleQuickAction(action)}>
-                                <Text style={styles.quickActionButtonText}>{action}</Text>
-                            </Pressable>
-                        ))}
-                    </View>
                 </View>
 
                 <View style={styles.section}>
@@ -290,6 +327,17 @@ export default function HomeScreen() {
                         Select the option that fits your weekly routine or special care needs, then request a tailored quote.
                     </Text>
 
+                    <View style={styles.quickActionWrap}>
+                        {laundryQuickActions.map((action) => (
+                            <Pressable
+                                key={action}
+                                style={styles.quickActionButton}
+                                onPress={() => handleQuickAction(action)}>
+                                <Text style={styles.quickActionButtonText}>{action}</Text>
+                            </Pressable>
+                        ))}
+                    </View>
+
                     {loading ? (
                         <View style={styles.statusCard}>
                             <ActivityIndicator size="small" color="#0EA5E9" />
@@ -302,10 +350,7 @@ export default function HomeScreen() {
                             const selected = String(selectedServiceId) === String(service.id);
 
                             return (
-                                <Pressable
-                                    key={service.id}
-                                    style={[styles.serviceCard, selected ? styles.serviceCardActive : null]}
-                                    onPress={() => handleSelectService(String(service.id))}>
+                                <View key={service.id} style={[styles.serviceCard, selected ? styles.serviceCardActive : null]}>
                                     {service.image_url && !failedServiceImageIds[String(service.id)] ? (
                                         <Image
                                             source={{ uri: service.image_url }}
@@ -336,104 +381,26 @@ export default function HomeScreen() {
                                         {shortenText(service.description || 'Fresh, careful, and convenient laundry service tailored to your routine.')}
                                     </Text>
 
-                                    <Text style={styles.selectedLabel}>
-                                        {selected ? 'Request Laundry Service selected' : 'Request Laundry Service'}
-                                    </Text>
-                                </Pressable>
+                                    <View style={styles.serviceActionRow}>
+                                        <Text style={styles.selectedLabel}>
+                                            {selected ? 'Selected for your request' : 'Tap below to request this service'}
+                                        </Text>
+                                        <Pressable
+                                            style={styles.serviceActionButton}
+                                            onPress={() => handleSelectService(String(service.id))}>
+                                            <Text style={styles.serviceActionButtonText}>
+                                                {getServiceActionLabel(service)}
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                </View>
                             );
                         })
                         : null}
                 </View>
 
-                <View style={styles.formCard} onLayout={(event) => setFormOffsetY(event.nativeEvent.layout.y)}>
-                    <Text style={styles.sectionTitle}>Schedule Pickup / Request Quote</Text>
-                    <Text style={styles.formSubtitle}>
-                        {selectedService
-                            ? `You’re requesting a quote for: ${selectedService.name}`
-                            : 'Choose a service above to start your quote request.'}
-                    </Text>
-
-                    {selectedService ? (
-                        <View style={styles.selectionSummaryCard}>
-                            <View style={styles.selectionSummaryTextWrap}>
-                                <Text style={styles.selectionSummaryTitle}>{selectedService.name}</Text>
-                                <Text style={styles.selectionSummaryMeta}>{formatServiceMeta(selectedService)}</Text>
-                            </View>
-                            <Text style={styles.selectionSummaryPrice}>{formatPrice(selectedService.price)}</Text>
-                        </View>
-                    ) : null}
-
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Full name"
-                        placeholderTextColor="#94A3B8"
-                        value={contactName}
-                        onChangeText={setContactName}
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Phone number"
-                        placeholderTextColor="#94A3B8"
-                        value={contactPhone}
-                        onChangeText={setContactPhone}
-                        keyboardType="phone-pad"
-                    />
-
-                    <View style={styles.row}>
-                        <TextInput
-                            style={[styles.input, styles.halfInput]}
-                            placeholder="Service date"
-                            placeholderTextColor="#94A3B8"
-                            value={serviceDate}
-                            onChangeText={setServiceDate}
-                        />
-                        <TextInput
-                            style={[styles.input, styles.halfInput]}
-                            placeholder="Time window"
-                            placeholderTextColor="#94A3B8"
-                            value={serviceWindow}
-                            onChangeText={setServiceWindow}
-                        />
-                    </View>
-
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Pickup address"
-                        placeholderTextColor="#94A3B8"
-                        value={pickupAddress}
-                        onChangeText={setPickupAddress}
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Delivery address"
-                        placeholderTextColor="#94A3B8"
-                        value={deliveryAddress}
-                        onChangeText={setDeliveryAddress}
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Estimated weight (lbs)"
-                        placeholderTextColor="#94A3B8"
-                        value={weightEstimate}
-                        onChangeText={setWeightEstimate}
-                        keyboardType="decimal-pad"
-                    />
-                    <TextInput
-                        style={[styles.input, styles.multilineInput]}
-                        placeholder="Special instructions (gate code, delicate items, folding notes...)"
-                        placeholderTextColor="#94A3B8"
-                        value={specialInstructions}
-                        onChangeText={setSpecialInstructions}
-                        multiline
-                    />
-
-                    <Pressable style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>
-                        <Text style={styles.submitButtonText}>{submitting ? 'Sending...' : 'Schedule Pickup'}</Text>
-                    </Pressable>
-
-                    {message ? <Text style={styles.successText}>{message}</Text> : null}
-                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                </View>
+                {message ? <Text style={styles.successText}>{message}</Text> : null}
+                {error && !requestModalVisible ? <Text style={styles.errorText}>{error}</Text> : null}
 
                 <View style={styles.trackingCard}>
                     <Text style={styles.sectionTitle}>Track your quote / order</Text>
@@ -486,8 +453,33 @@ export default function HomeScreen() {
                             <Text style={styles.trackingDetailText}>
                                 Address: {booking.pickup_address || booking.delivery_address || 'Address pending'}
                             </Text>
+                            <Text style={styles.trackingDetailText}>
+                                Quoted price: {formatPrice(booking.quoted_price)}
+                            </Text>
+                            {booking.admin_notes ? (
+                                <Text style={styles.trackingDetailText}>Admin notes: {booking.admin_notes}</Text>
+                            ) : null}
                             {booking.assigned_driver ? (
                                 <Text style={styles.trackingDetailText}>Driver: {booking.assigned_driver}</Text>
+                            ) : null}
+
+                            {booking.status === 'quoted' ? (
+                                <View style={styles.trackingActionRow}>
+                                    <Pressable
+                                        style={[styles.trackingActionButton, styles.acceptButton]}
+                                        onPress={() => void handleBookingResponse(booking.id, booking.contact_phone || trackingPhone, 'accept')}
+                                        disabled={respondingBookingId === booking.id}>
+                                        <Text style={styles.trackingActionButtonText}>
+                                            {respondingBookingId === booking.id ? 'Updating...' : 'Accept Quote'}
+                                        </Text>
+                                    </Pressable>
+                                    <Pressable
+                                        style={[styles.trackingActionButton, styles.declineButton]}
+                                        onPress={() => void handleBookingResponse(booking.id, booking.contact_phone || trackingPhone, 'decline')}
+                                        disabled={respondingBookingId === booking.id}>
+                                        <Text style={styles.trackingActionButtonText}>Decline</Text>
+                                    </Pressable>
+                                </View>
                             ) : null}
                         </View>
                     ))}
@@ -503,6 +495,119 @@ export default function HomeScreen() {
                     ))}
                 </View>
             </ScrollView>
+
+            {requestModalVisible ? (
+                <View style={styles.modalBackdrop}>
+                    <View style={styles.modalCard}>
+                        <View style={styles.modalHeaderRow}>
+                            <View style={styles.selectionSummaryTextWrap}>
+                                <Text style={styles.sectionTitle}>Schedule Pickup / Request Quote</Text>
+                                <Text style={styles.formSubtitle}>
+                                    {selectedService
+                                        ? `You’re requesting a quote for: ${selectedService.name}`
+                                        : 'Choose a service above to start your quote request.'}
+                                </Text>
+                            </View>
+                            <Pressable style={styles.modalCloseButton} onPress={() => setRequestModalVisible(false)}>
+                                <Text style={styles.modalCloseButtonText}>Close</Text>
+                            </Pressable>
+                        </View>
+
+                        <ScrollView
+                            style={styles.modalScroll}
+                            contentContainerStyle={styles.modalScrollContent}
+                            showsVerticalScrollIndicator={false}>
+                            {selectedService ? (
+                                <View style={styles.selectionSummaryCard}>
+                                    <View style={styles.selectionSummaryTextWrap}>
+                                        <Text style={styles.selectionSummaryTitle}>{selectedService.name}</Text>
+                                        <Text style={styles.selectionSummaryMeta}>{formatServiceMeta(selectedService)}</Text>
+                                    </View>
+                                </View>
+                            ) : null}
+
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Full name"
+                                placeholderTextColor="#94A3B8"
+                                value={contactName}
+                                onChangeText={setContactName}
+                            />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Phone number"
+                                placeholderTextColor="#94A3B8"
+                                value={contactPhone}
+                                onChangeText={setContactPhone}
+                                keyboardType="phone-pad"
+                            />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Email address"
+                                placeholderTextColor="#94A3B8"
+                                value={contactEmail}
+                                onChangeText={setContactEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+
+                            <View style={styles.row}>
+                                <TextInput
+                                    style={[styles.input, styles.halfInput]}
+                                    placeholder="Service date"
+                                    placeholderTextColor="#94A3B8"
+                                    value={serviceDate}
+                                    onChangeText={setServiceDate}
+                                />
+                                <TextInput
+                                    style={[styles.input, styles.halfInput]}
+                                    placeholder="Time window"
+                                    placeholderTextColor="#94A3B8"
+                                    value={serviceWindow}
+                                    onChangeText={setServiceWindow}
+                                />
+                            </View>
+
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Pickup address"
+                                placeholderTextColor="#94A3B8"
+                                value={pickupAddress}
+                                onChangeText={setPickupAddress}
+                            />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Delivery address"
+                                placeholderTextColor="#94A3B8"
+                                value={deliveryAddress}
+                                onChangeText={setDeliveryAddress}
+                            />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Estimated weight (lbs)"
+                                placeholderTextColor="#94A3B8"
+                                value={weightEstimate}
+                                onChangeText={setWeightEstimate}
+                                keyboardType="decimal-pad"
+                            />
+                            <TextInput
+                                style={[styles.input, styles.multilineInput]}
+                                placeholder="Special instructions (gate code, delicate items, folding notes...)"
+                                placeholderTextColor="#94A3B8"
+                                value={specialInstructions}
+                                onChangeText={setSpecialInstructions}
+                                multiline
+                            />
+
+                            <Pressable style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>
+                                <Text style={styles.submitButtonText}>{submitting ? 'Sending...' : 'Request Quote'}</Text>
+                            </Pressable>
+
+                            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                        </ScrollView>
+                    </View>
+                </View>
+            ) : null}
         </SafeAreaView>
     );
 }
@@ -703,6 +808,21 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '700',
     },
+    serviceActionRow: {
+        gap: 8,
+        marginTop: 2,
+    },
+    serviceActionButton: {
+        paddingVertical: 11,
+        borderRadius: 12,
+        backgroundColor: '#082F49',
+        alignItems: 'center',
+    },
+    serviceActionButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '800',
+    },
     formCard: {
         padding: 16,
         borderRadius: 20,
@@ -716,6 +836,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         lineHeight: 20,
     },
+
     selectionSummaryCard: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -861,6 +982,69 @@ const styles = StyleSheet.create({
         color: '#475569',
         fontSize: 14,
         lineHeight: 20,
+    },
+    trackingActionRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 4,
+    },
+    trackingActionButton: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    acceptButton: {
+        backgroundColor: '#166534',
+    },
+    declineButton: {
+        backgroundColor: '#991B1B',
+    },
+    trackingActionButtonText: {
+        color: '#FFFFFF',
+        fontWeight: '800',
+    },
+    modalBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(15, 23, 42, 0.5)',
+        justifyContent: 'center',
+        padding: 16,
+        zIndex: 50,
+        elevation: 50,
+    },
+    modalCard: {
+        maxHeight: '88%',
+        borderRadius: 20,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        overflow: 'hidden',
+    },
+    modalHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: 12,
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E2E8F0',
+    },
+    modalCloseButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        backgroundColor: '#E2E8F0',
+    },
+    modalCloseButtonText: {
+        color: '#0F172A',
+        fontWeight: '700',
+    },
+    modalScroll: {
+        flexGrow: 0,
+    },
+    modalScrollContent: {
+        padding: 16,
+        gap: 10,
     },
     trustCard: {
         gap: 6,

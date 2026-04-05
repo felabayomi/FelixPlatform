@@ -5,6 +5,7 @@ const { authenticateToken, requireAdmin } = require('../middleware/authMiddlewar
 
 router.get('/track', quoteRequestsController.trackQuoteRequests);
 router.post('/', quoteRequestsController.addQuoteRequest);
+router.post('/:id/respond', quoteRequestsController.respondToQuoteRequest);
 router.get('/', authenticateToken, requireAdmin, quoteRequestsController.getQuoteRequests);
 router.patch('/:id', authenticateToken, requireAdmin, quoteRequestsController.updateQuoteRequest);
 

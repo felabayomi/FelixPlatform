@@ -15,3 +15,9 @@ services:
         generateValue: true
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: QUOTE_NOTIFICATION_EMAIL
+        value: felixconsult@myyahoo.com
+      - key: RESEND_FROM_EMAIL
+        sync: false

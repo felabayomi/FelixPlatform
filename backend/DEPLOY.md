@@ -10,6 +10,9 @@
 5. Add environment variables from `.env.example`:
    - `DATABASE_URL`
    - `SECRET_KEY`
+   - `RESEND_API_KEY`
+   - `QUOTE_NOTIFICATION_EMAIL=felixconsult@myyahoo.com`
+   - `RESEND_FROM_EMAIL` (or leave the example default for testing)
    - `ALLOWED_ORIGINS`
    - `NODE_ENV=production`
 6. Deploy and verify `/health`.

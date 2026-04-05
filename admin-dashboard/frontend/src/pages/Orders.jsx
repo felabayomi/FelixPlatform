@@ -191,6 +191,10 @@ function Orders() {
                                 <strong>{order.contact_phone || '—'}</strong>
                             </div>
                             <div>
+                                <span className="muted">Email</span>
+                                <strong>{order.contact_email || '—'}</strong>
+                            </div>
+                            <div>
                                 <span className="muted">Created</span>
                                 <strong>{order.created_at ? new Date(order.created_at).toLocaleString() : '—'}</strong>
                             </div>

@@ -15,8 +15,9 @@ router.post('/upload-image', authenticateToken, requireAdmin, (req, res) => {
             return res.status(400).send('Image file is required');
         }
 
-        const imageUrl = `${req.protocol}://${req.get('host')}/uploads/products/${req.file.filename}`;
-        res.json({ imageUrl, filename: req.file.filename });
+        const mimeType = req.file.mimetype || 'image/png';
+        const imageUrl = `data:${mimeType};base64,${req.file.buffer.toString('base64')}`;
+        res.json({ imageUrl, filename: req.file.originalname || 'uploaded-image' });
     });
 });
 router.post('/', authenticateToken, requireAdmin, productsController.addProduct);

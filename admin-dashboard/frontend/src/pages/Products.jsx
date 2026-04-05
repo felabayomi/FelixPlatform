@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import API from '../services/api';
 
 function Products() {
@@ -14,6 +14,7 @@ function Products() {
     const [actionLabel, setActionLabel] = useState('');
     const [imageUrl, setImageUrl] = useState('');
     const [imageUploading, setImageUploading] = useState(false);
+    const [productSearch, setProductSearch] = useState('');
     const [editingProductId, setEditingProductId] = useState(null);
     const [editName, setEditName] = useState('');
     const [editDescription, setEditDescription] = useState('');
@@ -90,6 +91,29 @@ function Products() {
 
         return details.length ? details.join(' • ') : 'fixed';
     };
+
+    const filteredProducts = useMemo(() => {
+        const query = productSearch.trim().toLowerCase();
+
+        if (!query) {
+            return products;
+        }
+
+        return products.filter((product) => {
+            const searchableText = [
+                product.name,
+                product.description,
+                getCategoryName(product.category_id),
+                product.type,
+                product.action_label,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return searchableText.includes(query);
+        });
+    }, [products, productSearch, categories]);
 
     const uploadProductImage = async (file, mode = 'create') => {
         if (!file) {
@@ -342,6 +366,7 @@ function Products() {
                         value={imageUrl}
                         onChange={(e) => setImageUrl(e.target.value)}
                     />
+                    <p className="muted">Uploaded images are now stored with the product record so they persist; old broken uploads need to be re-uploaded.</p>
                     {imageUploading ? <p className="muted">Uploading image...</p> : null}
                     {imageUrl ? (
                         <div className="image-preview-wrapper">
@@ -359,8 +384,17 @@ function Products() {
 
             <hr />
 
+            <div className="list-toolbar">
+                <input
+                    placeholder="Search products by name, category, type, or button label"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                />
+                <p className="muted">Showing {filteredProducts.length} of {products.length} products</p>
+            </div>
+
             <div className="product-grid">
-                {products.map((p) => (
+                {filteredProducts.map((p) => (
                     <div key={p.id} className="product-card">
                         {editingProductId === p.id ? (
                             <div className="edit-form">

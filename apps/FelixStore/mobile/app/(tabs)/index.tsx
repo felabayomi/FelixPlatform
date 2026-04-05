@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,14 @@ import {
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { createOrder, fetchProducts, type Product } from '@/services/store-api';
+import {
+  createOrder,
+  fetchProducts,
+  respondToQuoteRequest,
+  trackQuoteRequests,
+  type Product,
+  type QuoteRequestResponse,
+} from '@/services/store-api';
 
 const spotlightCards = [
   {
@@ -111,6 +119,16 @@ const getPrimaryActionLabel = (product: Product) => {
   return 'Request Quote';
 };
 
+const formatStatusLabel = (value?: string | null) => {
+  if (!value) {
+    return 'Pending';
+  }
+
+  return String(value)
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
 type CartEntry = {
   product: Product;
   quantity: number;
@@ -125,12 +143,19 @@ export default function HomeScreen() {
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
   const [orderNotes, setOrderNotes] = useState('');
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
+  const [trackingPhone, setTrackingPhone] = useState('');
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingResults, setTrackingResults] = useState<QuoteRequestResponse[]>([]);
+  const [trackingError, setTrackingError] = useState('');
+  const [respondingRequestId, setRespondingRequestId] = useState('');
+  const [requestModalVisible, setRequestModalVisible] = useState(false);
   const [failedImageIds, setFailedImageIds] = useState<Record<string, boolean>>({});
 
   const loadProducts = async () => {
@@ -218,6 +243,7 @@ export default function HomeScreen() {
 
     setCheckoutMessage('');
     setCheckoutError('');
+    setRequestModalVisible(true);
   };
 
   const updateCartQuantity = (productId: string, delta: number) => {
@@ -236,6 +262,61 @@ export default function HomeScreen() {
     setCart((current) => current.filter((item) => String(item.product.id) !== String(productId)));
   };
 
+  const loadTracking = async (phoneOverride?: string) => {
+    const phoneToUse = String(phoneOverride ?? trackingPhone).trim();
+
+    if (!phoneToUse) {
+      setTrackingError('Enter the phone number used for your quote request to track it.');
+      return;
+    }
+
+    setTrackingLoading(true);
+    setTrackingError('');
+
+    try {
+      const data = await trackQuoteRequests(phoneToUse);
+      setTrackingResults(data);
+    } catch (err) {
+      console.error(err);
+      setTrackingError(err instanceof Error ? err.message : 'Unable to load tracking right now.');
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
+  const handleQuoteResponse = async (
+    quoteRequestId: string,
+    phone: string,
+    decision: 'accept' | 'decline',
+  ) => {
+    const phoneToUse = String(phone || trackingPhone).trim();
+
+    if (!phoneToUse) {
+      setTrackingError('Enter the same phone number used for your quote request before responding.');
+      return;
+    }
+
+    setRespondingRequestId(quoteRequestId);
+    setTrackingError('');
+
+    try {
+      const updatedRequest = await respondToQuoteRequest(quoteRequestId, phoneToUse, decision);
+      setTrackingResults((current) =>
+        current.map((item) => (item.id === quoteRequestId ? { ...item, ...updatedRequest } : item)),
+      );
+      setCheckoutMessage(
+        decision === 'accept'
+          ? `Quote #${quoteRequestId} accepted. The Felix team will continue your order process.`
+          : `Quote #${quoteRequestId} was declined and has been updated.`,
+      );
+    } catch (err) {
+      console.error(err);
+      setTrackingError(err instanceof Error ? err.message : 'Unable to update your quote response right now.');
+    } finally {
+      setRespondingRequestId('');
+    }
+  };
+
   const handleCheckout = async () => {
     if (!cart.length) {
       setCheckoutError('Add at least one item to your request list before sending a quote request.');
@@ -243,8 +324,14 @@ export default function HomeScreen() {
       return;
     }
 
-    if (!customerName.trim() || !customerPhone.trim()) {
-      setCheckoutError('Please enter your name and phone number so the team can respond to your quote request.');
+    if (!customerName.trim() || !customerPhone.trim() || !customerEmail.trim()) {
+      setCheckoutError('Please enter your name, phone number, and email so the team can respond to your quote request.');
+      setCheckoutMessage('');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
+      setCheckoutError('Please enter a valid email address for quote updates and approval emails.');
       setCheckoutMessage('');
       return;
     }
@@ -260,6 +347,7 @@ export default function HomeScreen() {
     setCheckoutMessage('');
 
     try {
+      const trackingPhoneNumber = customerPhone.trim();
       const order = await createOrder({
         items: cart,
         subtotal: cartSubtotal,
@@ -268,16 +356,22 @@ export default function HomeScreen() {
         deliveryType,
         customerName,
         customerPhone,
+        customerEmail,
         deliveryAddress,
         notes: orderNotes,
       });
 
-      setCheckoutMessage(`Quote request #${order.id} has been sent. The Felix team will review it and contact you shortly.`);
+      setCheckoutMessage(`Quote request #${order.id} has been sent. We will email the review and price update to you shortly.`);
+      setTrackingPhone(trackingPhoneNumber);
+      setTrackingResults([order]);
+      void loadTracking(trackingPhoneNumber);
       setCart([]);
       setCustomerName('');
       setCustomerPhone('');
+      setCustomerEmail('');
       setDeliveryAddress('');
       setOrderNotes('');
+      setRequestModalVisible(false);
     } catch (err) {
       console.error(err);
       setCheckoutError(err instanceof Error ? err.message : 'Unable to send your quote request right now.');
@@ -453,144 +547,280 @@ export default function HomeScreen() {
         })
         : null}
 
-      <View style={styles.checkoutCard}>
+      <View style={styles.requestSummaryCard}>
         <View style={styles.checkoutHeader}>
           <View style={styles.checkoutHeaderText}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Quote request
+              Quote request popup
             </ThemedText>
             <ThemedText style={styles.checkoutCaption}>
               {cartItemCount
-                ? `${cartItemCount} item${cartItemCount === 1 ? '' : 's'} in your request list.`
-                : 'Add products from the catalog to build a quote request.'}
+                ? `${cartItemCount} item${cartItemCount === 1 ? '' : 's'} ready. Tap below to review and send your request.`
+                : 'Tap any product action button and the request form will open instantly as a popup.'}
             </ThemedText>
           </View>
           <View style={styles.totalBadge}>
-            <ThemedText style={styles.totalBadgeText}>{formatPrice(orderTotal)}</ThemedText>
+            <ThemedText style={styles.totalBadgeText}>
+              {cartItemCount ? `${cartItemCount} item${cartItemCount === 1 ? '' : 's'}` : 'Start'}
+            </ThemedText>
           </View>
         </View>
 
-        {cart.length === 0 ? (
-          <View style={styles.emptyCartCard}>
-            <ThemedText type="defaultSemiBold">Your request list is empty</ThemedText>
-            <ThemedText style={styles.emptyCartText}>
-              Tap the action button on any product card to add it to your quote request.
-            </ThemedText>
+        {checkoutMessage ? <ThemedText style={styles.successCardText}>{checkoutMessage}</ThemedText> : null}
+        {checkoutError && !requestModalVisible ? <ThemedText style={styles.errorTitle}>{checkoutError}</ThemedText> : null}
+
+        <Pressable style={styles.requestSummaryButton} onPress={() => setRequestModalVisible(true)}>
+          <ThemedText style={styles.requestSummaryButtonText}>
+            {cartItemCount ? 'Open Request Form' : 'Open Quote Request'}
+          </ThemedText>
+        </Pressable>
+      </View>
+
+      <View style={styles.trackingCard}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>
+          Track your quote / order
+        </ThemedText>
+        <ThemedText style={styles.checkoutCaption}>
+          Enter the phone number used for your request to see the latest quote, status updates, and approval actions.
+        </ThemedText>
+
+        <View style={styles.trackingInputRow}>
+          <TextInput
+            style={[styles.checkoutInput, styles.trackingInput]}
+            placeholder="Phone number used for your request"
+            placeholderTextColor="#94A3B8"
+            value={trackingPhone}
+            onChangeText={setTrackingPhone}
+            keyboardType="phone-pad"
+          />
+          <Pressable style={styles.trackingButton} onPress={() => void loadTracking()}>
+            <ThemedText style={styles.trackingButtonText}>Check</ThemedText>
+          </Pressable>
+        </View>
+
+        {trackingLoading ? (
+          <View style={styles.messageCard}>
+            <ActivityIndicator color="#2563EB" />
+            <ThemedText>Checking your latest quote request...</ThemedText>
           </View>
-        ) : (
-          <>
-            {cart.map((item) => (
-              <View key={item.product.id} style={styles.cartRow}>
-                <View style={styles.cartInfo}>
-                  <ThemedText type="defaultSemiBold" style={styles.cartName}>
-                    {item.product.name}
-                  </ThemedText>
-                  <ThemedText style={styles.cartMeta}>
-                    {formatPrice(item.product.price)} • {getCollectionLabel(item.product)}
-                  </ThemedText>
-                </View>
+        ) : null}
 
-                <View style={styles.quantityControls}>
-                  <Pressable style={styles.qtyButton} onPress={() => updateCartQuantity(String(item.product.id), -1)}>
-                    <ThemedText style={styles.qtyButtonText}>−</ThemedText>
-                  </Pressable>
-                  <ThemedText style={styles.qtyValue}>{item.quantity}</ThemedText>
-                  <Pressable style={styles.qtyButton} onPress={() => updateCartQuantity(String(item.product.id), 1)}>
-                    <ThemedText style={styles.qtyButtonText}>+</ThemedText>
-                  </Pressable>
-                </View>
+        {trackingError ? <ThemedText style={styles.errorTitle}>{trackingError}</ThemedText> : null}
 
-                <Pressable onPress={() => removeFromCart(String(item.product.id))}>
-                  <ThemedText style={styles.removeText}>Remove</ThemedText>
+        {!trackingLoading && !trackingError && trackingResults.length === 0 ? (
+          <ThemedText style={styles.trackingEmptyText}>
+            Your latest quote and order status will appear here after you submit or search.
+          </ThemedText>
+        ) : null}
+
+        {trackingResults.map((request) => (
+          <View key={request.id} style={styles.trackingResultCard}>
+            <View style={styles.trackingResultHeader}>
+              <View style={styles.trackingResultTextWrap}>
+                <ThemedText type="defaultSemiBold" style={styles.trackingResultTitle}>
+                  {request.product_name || 'Felix Store request'}
+                </ThemedText>
+                <ThemedText style={styles.trackingResultMeta}>Tracking ID #{request.id}</ThemedText>
+              </View>
+              <View style={styles.statusBadge}>
+                <ThemedText style={styles.statusBadgeText}>{formatStatusLabel(request.status)}</ThemedText>
+              </View>
+            </View>
+
+            <ThemedText style={styles.trackingDetailText}>
+              Quoted price: {formatPrice(request.quoted_price)}
+            </ThemedText>
+            <ThemedText style={styles.trackingDetailText}>
+              Fulfillment: {request.preferred_fulfillment || 'To be confirmed'}
+            </ThemedText>
+            {request.admin_notes ? (
+              <ThemedText style={styles.trackingDetailText}>Admin notes: {request.admin_notes}</ThemedText>
+            ) : null}
+
+            {request.status === 'quoted' ? (
+              <View style={styles.trackingActionRow}>
+                <Pressable
+                  style={[styles.trackingActionButton, styles.acceptButton]}
+                  onPress={() => void handleQuoteResponse(request.id, request.contact_phone || trackingPhone, 'accept')}
+                  disabled={respondingRequestId === request.id}>
+                  <ThemedText style={styles.trackingActionButtonText}>
+                    {respondingRequestId === request.id ? 'Updating...' : 'Accept Quote'}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  style={[styles.trackingActionButton, styles.declineButton]}
+                  onPress={() => void handleQuoteResponse(request.id, request.contact_phone || trackingPhone, 'decline')}
+                  disabled={respondingRequestId === request.id}>
+                  <ThemedText style={styles.trackingActionButtonText}>Decline</ThemedText>
                 </Pressable>
               </View>
-            ))}
-
-            <View style={styles.summaryBlock}>
-              <View style={styles.summaryRow}>
-                <ThemedText style={styles.summaryLabel}>Subtotal</ThemedText>
-                <ThemedText style={styles.summaryValue}>{formatPrice(cartSubtotal)}</ThemedText>
-              </View>
-              <View style={styles.summaryRow}>
-                <ThemedText style={styles.summaryLabel}>Delivery</ThemedText>
-                <ThemedText style={styles.summaryValue}>{formatPrice(deliveryFee)}</ThemedText>
-              </View>
-              <View style={styles.summaryRow}>
-                <ThemedText style={styles.summaryTotalLabel}>Reference total</ThemedText>
-                <ThemedText style={styles.summaryTotalValue}>{formatPrice(orderTotal)}</ThemedText>
-              </View>
-            </View>
-
-            <ThemedText style={styles.emptyCartText}>
-              Final pricing is confirmed after review. Payment can be handled offline, by invoice, or through a secure payment link.
-            </ThemedText>
-
-            <ThemedText type="defaultSemiBold" style={styles.checkoutSubheading}>
-              Request details
-            </ThemedText>
-
-            <View style={styles.deliverySwitchRow}>
-              <Pressable
-                style={[styles.deliveryOption, deliveryType === 'delivery' ? styles.deliveryOptionActive : null]}
-                onPress={() => setDeliveryType('delivery')}>
-                <ThemedText style={[styles.deliveryOptionText, deliveryType === 'delivery' ? styles.deliveryOptionTextActive : null]}>
-                  Delivery
-                </ThemedText>
-              </Pressable>
-              <Pressable
-                style={[styles.deliveryOption, deliveryType === 'pickup' ? styles.deliveryOptionActive : null]}
-                onPress={() => setDeliveryType('pickup')}>
-                <ThemedText style={[styles.deliveryOptionText, deliveryType === 'pickup' ? styles.deliveryOptionTextActive : null]}>
-                  Pickup
-                </ThemedText>
-              </Pressable>
-            </View>
-
-            <TextInput
-              style={styles.checkoutInput}
-              placeholder="Full name"
-              placeholderTextColor="#94A3B8"
-              value={customerName}
-              onChangeText={setCustomerName}
-            />
-            <TextInput
-              style={styles.checkoutInput}
-              placeholder="Phone number"
-              placeholderTextColor="#94A3B8"
-              value={customerPhone}
-              onChangeText={setCustomerPhone}
-              keyboardType="phone-pad"
-            />
-            <TextInput
-              style={styles.checkoutInput}
-              placeholder={deliveryType === 'delivery' ? 'Delivery address' : 'Pickup note or preferred location'}
-              placeholderTextColor="#94A3B8"
-              value={deliveryAddress}
-              onChangeText={setDeliveryAddress}
-            />
-            <TextInput
-              style={[styles.checkoutInput, styles.checkoutNotesInput]}
-              placeholder="Quote details (sizes, bundles, custom requests)"
-              placeholderTextColor="#94A3B8"
-              value={orderNotes}
-              onChangeText={setOrderNotes}
-              multiline
-            />
-
-            {checkoutMessage ? <ThemedText style={styles.successCardText}>{checkoutMessage}</ThemedText> : null}
-            {checkoutError ? <ThemedText style={styles.errorTitle}>{checkoutError}</ThemedText> : null}
-
-            <Pressable
-              style={[styles.checkoutButton, submittingOrder ? styles.checkoutButtonDisabled : null]}
-              onPress={handleCheckout}
-              disabled={submittingOrder}>
-              <ThemedText style={styles.checkoutButtonText}>
-                {submittingOrder ? 'Sending request...' : 'Request Quote'}
-              </ThemedText>
-            </Pressable>
-          </>
-        )}
+            ) : null}
+          </View>
+        ))}
       </View>
+
+      <Modal
+        visible={requestModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRequestModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Quote request
+              </ThemedText>
+              <Pressable style={styles.modalCloseButton} onPress={() => setRequestModalVisible(false)}>
+                <ThemedText style={styles.modalCloseButtonText}>Close</ThemedText>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}>
+              <View style={styles.checkoutCard}>
+                <View style={styles.checkoutHeader}>
+                  <View style={styles.checkoutHeaderText}>
+                    <ThemedText style={styles.checkoutCaption}>
+                      {cartItemCount
+                        ? `${cartItemCount} item${cartItemCount === 1 ? '' : 's'} in your request list.`
+                        : 'Add products from the catalog to build a quote request.'}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.totalBadge}>
+                    <ThemedText style={styles.totalBadgeText}>
+                      {cartItemCount ? `${cartItemCount} item${cartItemCount === 1 ? '' : 's'}` : 'Start'}
+                    </ThemedText>
+                  </View>
+                </View>
+
+                {cart.length === 0 ? (
+                  <View style={styles.emptyCartCard}>
+                    <ThemedText type="defaultSemiBold">Your request list is empty</ThemedText>
+                    <ThemedText style={styles.emptyCartText}>
+                      Tap the action button on any product card to add it to your quote request.
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <>
+                    {cart.map((item) => (
+                      <View key={item.product.id} style={styles.cartRow}>
+                        <View style={styles.cartInfo}>
+                          <ThemedText type="defaultSemiBold" style={styles.cartName}>
+                            {item.product.name}
+                          </ThemedText>
+                          <ThemedText style={styles.cartMeta}>
+                            Qty {item.quantity} • {getCollectionLabel(item.product)}
+                          </ThemedText>
+                        </View>
+
+                        <View style={styles.quantityControls}>
+                          <Pressable style={styles.qtyButton} onPress={() => updateCartQuantity(String(item.product.id), -1)}>
+                            <ThemedText style={styles.qtyButtonText}>−</ThemedText>
+                          </Pressable>
+                          <ThemedText style={styles.qtyValue}>{item.quantity}</ThemedText>
+                          <Pressable style={styles.qtyButton} onPress={() => updateCartQuantity(String(item.product.id), 1)}>
+                            <ThemedText style={styles.qtyButtonText}>+</ThemedText>
+                          </Pressable>
+                        </View>
+
+                        <Pressable onPress={() => removeFromCart(String(item.product.id))}>
+                          <ThemedText style={styles.removeText}>Remove</ThemedText>
+                        </Pressable>
+                      </View>
+                    ))}
+
+                    <View style={styles.summaryBlock}>
+                      <View style={styles.summaryRow}>
+                        <ThemedText style={styles.summaryTotalLabel}>Requested quantity</ThemedText>
+                        <ThemedText style={styles.summaryTotalValue}>{cartItemCount}</ThemedText>
+                      </View>
+                    </View>
+
+                    <ThemedText style={styles.emptyCartText}>
+                      Final pricing is confirmed only after review. Share your request details below and the team will respond with the quote.
+                    </ThemedText>
+
+                    <ThemedText type="defaultSemiBold" style={styles.checkoutSubheading}>
+                      Request details
+                    </ThemedText>
+
+                    <View style={styles.deliverySwitchRow}>
+                      <Pressable
+                        style={[styles.deliveryOption, deliveryType === 'delivery' ? styles.deliveryOptionActive : null]}
+                        onPress={() => setDeliveryType('delivery')}>
+                        <ThemedText style={[styles.deliveryOptionText, deliveryType === 'delivery' ? styles.deliveryOptionTextActive : null]}>
+                          Delivery
+                        </ThemedText>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.deliveryOption, deliveryType === 'pickup' ? styles.deliveryOptionActive : null]}
+                        onPress={() => setDeliveryType('pickup')}>
+                        <ThemedText style={[styles.deliveryOptionText, deliveryType === 'pickup' ? styles.deliveryOptionTextActive : null]}>
+                          Pickup
+                        </ThemedText>
+                      </Pressable>
+                    </View>
+
+                    <TextInput
+                      style={styles.checkoutInput}
+                      placeholder="Full name"
+                      placeholderTextColor="#94A3B8"
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                    />
+                    <TextInput
+                      style={styles.checkoutInput}
+                      placeholder="Phone number"
+                      placeholderTextColor="#94A3B8"
+                      value={customerPhone}
+                      onChangeText={setCustomerPhone}
+                      keyboardType="phone-pad"
+                    />
+                    <TextInput
+                      style={styles.checkoutInput}
+                      placeholder="Email address"
+                      placeholderTextColor="#94A3B8"
+                      value={customerEmail}
+                      onChangeText={setCustomerEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                    <TextInput
+                      style={styles.checkoutInput}
+                      placeholder={deliveryType === 'delivery' ? 'Delivery address' : 'Pickup note or preferred location'}
+                      placeholderTextColor="#94A3B8"
+                      value={deliveryAddress}
+                      onChangeText={setDeliveryAddress}
+                    />
+                    <TextInput
+                      style={[styles.checkoutInput, styles.checkoutNotesInput]}
+                      placeholder="Quote details (sizes, bundles, custom requests)"
+                      placeholderTextColor="#94A3B8"
+                      value={orderNotes}
+                      onChangeText={setOrderNotes}
+                      multiline
+                    />
+
+                    {checkoutMessage ? <ThemedText style={styles.successCardText}>{checkoutMessage}</ThemedText> : null}
+                    {checkoutError ? <ThemedText style={styles.errorTitle}>{checkoutError}</ThemedText> : null}
+
+                    <Pressable
+                      style={[styles.checkoutButton, submittingOrder ? styles.checkoutButtonDisabled : null]}
+                      onPress={handleCheckout}
+                      disabled={submittingOrder}>
+                      <ThemedText style={styles.checkoutButtonText}>
+                        {submittingOrder ? 'Sending request...' : 'Request Quote'}
+                      </ThemedText>
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <View style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -849,6 +1079,152 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  requestSummaryCard: {
+    gap: 12,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  requestSummaryButton: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#1D4ED8',
+    alignItems: 'center',
+  },
+  requestSummaryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  trackingCard: {
+    gap: 10,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  trackingInputRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  trackingInput: {
+    flex: 1,
+  },
+  trackingButton: {
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trackingButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  trackingEmptyText: {
+    color: '#64748B',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  trackingResultCard: {
+    gap: 6,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  trackingResultHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  trackingResultTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  trackingResultTitle: {
+    color: '#0F172A',
+  },
+  trackingResultMeta: {
+    color: '#64748B',
+    fontSize: 13,
+  },
+  statusBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: '#DBEAFE',
+  },
+  statusBadgeText: {
+    color: '#1D4ED8',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  trackingDetailText: {
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  trackingActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  trackingActionButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  acceptButton: {
+    backgroundColor: '#166534',
+  },
+  declineButton: {
+    backgroundColor: '#991B1B',
+  },
+  trackingActionButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+  },
+  modalCard: {
+    maxHeight: '92%',
+    borderRadius: 24,
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    gap: 12,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalCloseButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: '#DBEAFE',
+  },
+  modalCloseButtonText: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  modalScroll: {
+    flexGrow: 0,
+  },
+  modalScrollContent: {
+    paddingBottom: 4,
   },
   checkoutCard: {
     gap: 12,

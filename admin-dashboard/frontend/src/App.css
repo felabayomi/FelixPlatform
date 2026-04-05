@@ -285,6 +285,20 @@
   min-width: 140px;
 }
 
+.list-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 20px;
+}
+
+.list-toolbar input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+}
+
 .record-list {
   display: grid;
   gap: 16px;
@@ -426,6 +440,57 @@
 .status-action-button:disabled {
   opacity: 0.7;
   cursor: wait;
+}
+
+.filter-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-chip {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1f2937;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-chip.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.quote-action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.quote-detail-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+.quote-items-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #1f2937;
+}
+
+.quote-text-block {
+  white-space: pre-wrap;
+  line-height: 1.5;
 }
 
 .narrow-page {

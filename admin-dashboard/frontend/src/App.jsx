@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
 import Bookings from './pages/Bookings';
+import QuoteRequests from './pages/QuoteRequests';
 import Categories from './pages/Categories';
 import Users from './pages/Users';
 import { clearAuthSession, getStoredUser, hasAdminAccess } from './services/api';
@@ -56,6 +57,7 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/login" element={<Navigate to={hasAdminAccess(user) ? '/dashboard' : '/login'} replace />} />
             <Route path="/dashboard" element={<ProtectedRoute user={user}><Dashboard /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute user={user}><Products /></ProtectedRoute>} />
+            <Route path="/quote-requests" element={<ProtectedRoute user={user}><QuoteRequests /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute user={user}><Orders /></ProtectedRoute>} />
             <Route path="/bookings" element={<ProtectedRoute user={user}><Bookings /></ProtectedRoute>} />
             <Route path="/categories" element={<ProtectedRoute user={user}><Categories /></ProtectedRoute>} />

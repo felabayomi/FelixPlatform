@@ -199,6 +199,10 @@ function Bookings() {
                                 <span className="muted">Phone</span>
                                 <strong>{booking.contact_phone || '—'}</strong>
                             </div>
+                            <div>
+                                <span className="muted">Email</span>
+                                <strong>{booking.contact_email || '—'}</strong>
+                            </div>
                         </div>
 
                         <div className="status-action-row">

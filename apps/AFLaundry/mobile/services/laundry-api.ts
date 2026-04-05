@@ -7,6 +7,7 @@ export type LaundryProduct = {
     price_type?: string | null;
     unit?: string | null;
     image_url?: string | null;
+    action_label?: string | null;
     active?: boolean;
 };
 
@@ -22,7 +23,12 @@ export type LaundryBooking = {
     assigned_driver?: string | null;
     contact_name?: string | null;
     contact_phone?: string | null;
+    contact_email?: string | null;
+    quoted_price?: string | number | null;
+    admin_notes?: string | null;
+    reference_estimate?: string | null;
     created_at?: string | null;
+    customer_action?: string | null;
 };
 
 export type BookingPayload = {
@@ -33,6 +39,7 @@ export type BookingPayload = {
     delivery_address: string;
     contact_name: string;
     contact_phone: string;
+    contact_email: string;
     weight_estimate?: string | number;
     special_instructions?: string;
 };
@@ -131,6 +138,7 @@ export async function createLaundryBooking(payload: BookingPayload): Promise<Lau
                 'Quote request submitted from A & F Laundry',
                 `Customer: ${payload.contact_name}`,
                 `Phone: ${payload.contact_phone}`,
+                `Email: ${payload.contact_email}`,
                 `Service date: ${payload.service_date}`,
                 `Window: ${payload.service_window}`,
                 `Pickup address: ${payload.pickup_address}`,
@@ -154,11 +162,36 @@ export async function createLaundryBooking(payload: BookingPayload): Promise<Lau
         product_id: payload.product_id,
         contact_name: payload.contact_name,
         contact_phone: payload.contact_phone,
+        contact_email: payload.contact_email,
         service_date: payload.service_date,
         service_window: payload.service_window,
         pickup_address: payload.pickup_address,
         delivery_address: payload.delivery_address,
     };
+}
+
+export async function respondToLaundryQuote(
+    quoteRequestId: string,
+    contactPhone: string,
+    decision: 'accept' | 'decline',
+): Promise<LaundryBooking> {
+    const response = await fetch(`${API_BASE_URL}/quote-requests/${quoteRequestId}/respond`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            contact_phone: contactPhone,
+            decision,
+        }),
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Quote response failed with ${response.status}`);
+    }
+
+    return response.json();
 }
 
 export async function trackLaundryBookings(contactPhone: string): Promise<LaundryBooking[]> {
