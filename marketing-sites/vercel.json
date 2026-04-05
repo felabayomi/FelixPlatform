@@ -1,5 +1,73 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
+    "redirects": [
+        {
+            "source": "/felix-store/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "felixplatforms.com"
+                }
+            ],
+            "destination": "https://felixstore.felixplatforms.com/:path*",
+            "permanent": true
+        },
+        {
+            "source": "/felix-store/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "www.felixplatforms.com"
+                }
+            ],
+            "destination": "https://felixstore.felixplatforms.com/:path*",
+            "permanent": true
+        },
+        {
+            "source": "/aflaundry/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "felixplatforms.com"
+                }
+            ],
+            "destination": "https://aflaundry.felixplatforms.com/:path*",
+            "permanent": true
+        },
+        {
+            "source": "/aflaundry/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "www.felixplatforms.com"
+                }
+            ],
+            "destination": "https://aflaundry.felixplatforms.com/:path*",
+            "permanent": true
+        },
+        {
+            "source": "/admin/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "felixplatforms.com"
+                }
+            ],
+            "destination": "https://admin.felixplatforms.com/:path*",
+            "permanent": true
+        },
+        {
+            "source": "/admin/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "www.felixplatforms.com"
+                }
+            ],
+            "destination": "https://admin.felixplatforms.com/:path*",
+            "permanent": true
+        }
+    ],
     "rewrites": [
         {
             "source": "/",
