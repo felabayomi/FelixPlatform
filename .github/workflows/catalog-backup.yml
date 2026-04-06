@@ -1,0 +1,48 @@
+name: Nightly Catalog Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 2 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  backup-catalog:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      NODE_ENV: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate DATABASE_URL secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret is missing. Add it in GitHub repo settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Export nightly catalog backup
+        run: npm --prefix backend run backup:catalog
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-backup-${{ github.run_id }}
+          path: database/backups/catalog-backup-*.json
+          if-no-files-found: error
+          retention-days: 30

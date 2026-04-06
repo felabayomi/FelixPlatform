@@ -91,10 +91,9 @@ const syncProductCategories = async (client, productId, categoryIds) => {
     }
 };
 
-const hasFreshProductsCache = () =>
+const hasProductsCache = () =>
     Array.isArray(productsCache.data) &&
-    productsCache.data.length > 0 &&
-    productsCache.expiresAt > Date.now();
+    productsCache.data.length > 0;
 
 const updateProductsCache = (products) => {
     productsCache = {
@@ -105,16 +104,19 @@ const updateProductsCache = (products) => {
     return productsCache.data;
 };
 
+const invalidateProductsCache = () => {
+    productsCache = {
+        data: [],
+        expiresAt: 0,
+    };
+};
+
 const sendProductsResponse = (res, products, source) => {
     res.set('X-Catalog-Source', source);
     return res.json(products);
 };
 
 exports.getProducts = async (_req, res) => {
-    if (hasFreshProductsCache()) {
-        return sendProductsResponse(res, productsCache.data, 'cache');
-    }
-
     try {
         await ensureProductCategoriesTable();
 
@@ -160,7 +162,7 @@ exports.getProducts = async (_req, res) => {
     } catch (err) {
         console.error('Product catalog query failed:', err);
 
-        if (Array.isArray(productsCache.data) && productsCache.data.length > 0) {
+        if (hasProductsCache()) {
             console.warn('Serving last known real product catalog after database failure.');
             return sendProductsResponse(res, productsCache.data, 'stale-cache');
         }
@@ -259,6 +261,7 @@ exports.addProduct = async (req, res) => {
         const product = result.rows[0];
         await syncProductCategories(client, product.id, resolvedCategoryIds);
         await client.query('COMMIT');
+        invalidateProductsCache();
 
         res.json({
             ...product,
@@ -360,6 +363,7 @@ exports.updateProduct = async (req, res) => {
         const product = result.rows[0];
         await syncProductCategories(client, id, resolvedCategoryIds);
         await client.query('COMMIT');
+        invalidateProductsCache();
 
         res.json({
             ...product,
@@ -381,6 +385,7 @@ exports.deleteProduct = async (req, res) => {
     try {
         await ensureProductCategoriesTable();
         await pool.query('DELETE FROM products WHERE id=$1', [id]);
+        invalidateProductsCache();
         res.send('Product deleted');
     } catch (err) {
         console.error(err);

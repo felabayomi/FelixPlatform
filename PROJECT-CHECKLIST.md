@@ -107,6 +107,7 @@ Use this quick checklist whenever a new project is added to Felix Platform.
 ## 11. Backup & Recovery Guardrails
 
 - [ ] Run `npm --prefix backend run backup:catalog` before major catalog edits or imports
+- [ ] Configure the GitHub Actions `DATABASE_URL` secret for nightly backups
 - [ ] Confirm Neon restore / branch access works
 - [ ] Confirm provider usage limits are healthy before production launches
 - [ ] Use maintenance-mode messaging instead of replacement placeholder products during outages

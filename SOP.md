@@ -393,6 +393,20 @@ This writes a timestamped JSON snapshot under:
 database/backups/
 ```
 
+### Nightly automation
+
+A nightly GitHub Actions workflow is stored in:
+
+```txt
+.github/workflows/catalog-backup.yml
+```
+
+Required repo secret:
+
+```txt
+DATABASE_URL
+```
+
 ### Minimum recovery checklist during an outage
 
 - verify whether the real data is still present in Neon SQL
