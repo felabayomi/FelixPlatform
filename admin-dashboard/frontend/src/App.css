@@ -366,7 +366,9 @@
 .status-pickup_scheduled,
 .status-picked_up,
 .status-in_progress,
-.status-out_for_delivery {
+.status-in-progress,
+.status-out_for_delivery,
+.status-out-for-delivery {
   background: #dbeafe;
   color: #1d4ed8;
 }

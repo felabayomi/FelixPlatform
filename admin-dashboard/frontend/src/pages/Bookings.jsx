@@ -1,80 +1,67 @@
 import { useEffect, useMemo, useState } from 'react';
 import API from '../services/api';
 
+const initialFormState = {
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    dropoffDate: '',
+    dropoffTime: '',
+    pickupDate: '',
+    pickupTime: '',
+    soapType: 'Tide Regular',
+    hasHeavyItems: false,
+    heavyItemsCount: 0,
+    specialInstructions: ''
+};
+
+const statusActions = [
+    { label: 'Scheduled', status: 'scheduled' },
+    { label: 'In Progress', status: 'in-progress' },
+    { label: 'Completed', status: 'completed' },
+    { label: 'Cancelled', status: 'cancelled' }
+];
+
+const formatStatusLabel = (status = 'scheduled') => String(status)
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const formatDateTime = (date, time) => {
+    if (date && time) {
+        return `${date} at ${time}`;
+    }
+
+    return date || time || '—';
+};
+
+const formatCreatedAt = (value) => {
+    if (!value) {
+        return '—';
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+};
+
 function Bookings() {
     const [bookings, setBookings] = useState([]);
-    const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [creatingBooking, setCreatingBooking] = useState(false);
     const [updatingBookingId, setUpdatingBookingId] = useState(null);
+    const [bookingForm, setBookingForm] = useState(initialFormState);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
-
-    const statusActions = [
-        { label: 'Pending', status: 'pending' },
-        { label: 'Reviewing', status: 'reviewing' },
-        { label: 'Quote Sent', status: 'quoted' },
-        { label: 'Accepted', status: 'accepted' },
-        { label: 'Pickup Scheduled', status: 'pickup_scheduled' },
-        { label: 'Picked Up', status: 'picked_up' },
-        { label: 'In Progress', status: 'in_progress' },
-        { label: 'Out for Delivery', status: 'out_for_delivery' },
-        { label: 'Delivered', status: 'delivered' },
-        { label: 'Completed', status: 'completed' },
-        { label: 'Cancelled', status: 'cancelled' }
-    ];
-
-    const buildActionPayload = (booking, action) => {
-        const requiresQuoteDetails = ['reviewing', 'quoted', 'accepted', 'pickup_scheduled'].includes(action.status);
-
-        if (!requiresQuoteDetails || typeof window === 'undefined') {
-            return {
-                status: action.status,
-                quoted_price: booking.quoted_price ?? null,
-                admin_notes: booking.admin_notes || ''
-            };
-        }
-
-        const quotedPriceInput = window.prompt(
-            'Enter the quoted price for this laundry request (leave blank to keep current value).',
-            booking.quoted_price ?? ''
-        );
-
-        if (quotedPriceInput === null) {
-            return null;
-        }
-
-        const adminNotesInput = window.prompt(
-            'Add admin notes for pickup or delivery (optional).',
-            booking.admin_notes || ''
-        );
-
-        if (adminNotesInput === null) {
-            return null;
-        }
-
-        return {
-            status: action.status,
-            quoted_price: quotedPriceInput,
-            admin_notes: adminNotesInput
-        };
-    };
 
     const loadBookings = async () => {
         setLoading(true);
         setError('');
 
         try {
-            const [bookingsRes, productsRes] = await Promise.all([
-                API.get('/quote-requests'),
-                API.get('/products')
-            ]);
-
-            const allRequests = Array.isArray(bookingsRes.data) ? bookingsRes.data : [];
-            setBookings(allRequests.filter((booking) => booking.app_name === 'A & F Laundry'));
-            setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+            const res = await API.get('/api/admin/aflaundry/appointments');
+            setBookings(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             console.error(err);
-            setError(err.response?.data || 'Error loading bookings.');
+            setError(err.response?.data || 'Error loading A&F Laundry bookings.');
         } finally {
             setLoading(false);
         }
@@ -84,50 +71,113 @@ function Bookings() {
         loadBookings();
     }, []);
 
-    const updateBookingStatus = async (bookingId, payload) => {
+    const updateBooking = async (bookingId, payload, successMessage) => {
         setUpdatingBookingId(bookingId);
         setError('');
         setMessage('');
 
         try {
-            const res = await API.patch(`/quote-requests/${bookingId}`, payload);
+            const res = await API.patch(`/api/admin/aflaundry/appointments/${bookingId}`, payload);
             setBookings((current) => current.map((booking) => (booking.id === bookingId ? { ...booking, ...res.data } : booking)));
-            setMessage(`Request updated to ${res.data.status}.`);
+            setMessage(successMessage || `Booking updated to ${formatStatusLabel(res.data.status)}.`);
         } catch (err) {
             console.error(err);
-            setError(err.response?.data || 'Error updating booking status.');
+            setError(err.response?.data || 'Error updating booking.');
         } finally {
             setUpdatingBookingId(null);
         }
     };
 
-    const getProductName = (productId) => {
-        const product = products.find((item) => item.id === productId);
-        return product?.name || 'Unknown service';
+    const handleFormChange = (event) => {
+        const { name, type, value, checked } = event.target;
+
+        setBookingForm((current) => ({
+            ...current,
+            [name]: type === 'checkbox' ? checked : value,
+            ...(name === 'hasHeavyItems' && !checked ? { heavyItemsCount: 0 } : {})
+        }));
     };
 
-    const stats = useMemo(() => {
-        const quoteRequested = bookings.filter((booking) => ['pending', 'reviewing', 'quoted'].includes(booking.status)).length;
-        const scheduled = bookings.filter((booking) => ['accepted', 'pickup_scheduled'].includes(booking.status)).length;
-        const completed = bookings.filter((booking) => booking.status === 'completed').length;
+    const handleCreateBooking = async (event) => {
+        event.preventDefault();
+        setCreatingBooking(true);
+        setError('');
+        setMessage('');
 
-        return {
-            totalBookings: bookings.length,
-            quoteRequested,
-            scheduled,
-            completed
-        };
-    }, [bookings]);
+        try {
+            const payload = {
+                ...bookingForm,
+                heavyItemsCount: bookingForm.hasHeavyItems ? Number(bookingForm.heavyItemsCount || 0) : 0,
+                pickupDate: bookingForm.pickupDate || null,
+                pickupTime: bookingForm.pickupTime || null,
+                specialInstructions: bookingForm.specialInstructions || ''
+            };
+
+            const res = await API.post('/api/admin/aflaundry/appointments', payload);
+            setBookings((current) => [res.data, ...current]);
+            setBookingForm(initialFormState);
+            setMessage(`Booking created for ${res.data.customerName}.`);
+        } catch (err) {
+            console.error(err);
+            setError(err.response?.data || 'Error creating booking.');
+        } finally {
+            setCreatingBooking(false);
+        }
+    };
+
+    const handleSchedulePickup = (booking) => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const pickupDate = window.prompt('Enter the pickup date (YYYY-MM-DD).', booking.pickupDate || '');
+        if (pickupDate === null) {
+            return;
+        }
+
+        const pickupTime = window.prompt('Enter the pickup time (HH:MM).', booking.pickupTime || '');
+        if (pickupTime === null) {
+            return;
+        }
+
+        const specialInstructions = window.prompt(
+            'Update special instructions if needed.',
+            booking.specialInstructions || ''
+        );
+
+        if (specialInstructions === null) {
+            return;
+        }
+
+        updateBooking(
+            booking.id,
+            {
+                pickupDate: pickupDate || null,
+                pickupTime: pickupTime || null,
+                specialInstructions,
+                status: booking.status === 'cancelled' ? 'scheduled' : booking.status
+            },
+            `Pickup updated for ${booking.customerName}.`
+        );
+    };
+
+    const stats = useMemo(() => ({
+        totalBookings: bookings.length,
+        scheduled: bookings.filter((booking) => booking.status === 'scheduled').length,
+        inProgress: bookings.filter((booking) => booking.status === 'in-progress').length,
+        completed: bookings.filter((booking) => booking.status === 'completed').length,
+        cancelled: bookings.filter((booking) => booking.status === 'cancelled').length
+    }), [bookings]);
 
     return (
         <div className="page-section">
             <div className="page-header section-actions">
                 <div>
-                    <h1>Laundry Quote Requests</h1>
-                    <p className="muted">Review incoming quote requests, approve pricing, and move accepted jobs into pickup and delivery.</p>
+                    <h1>Laundry Bookings</h1>
+                    <p className="muted">View live A&F Laundry appointments, take bookings from the admin desk, and update job status.</p>
                 </div>
                 <button type="button" className="edit-button refresh-button" onClick={loadBookings}>
-                    Refresh Quotes
+                    Refresh Bookings
                 </button>
             </div>
 
@@ -137,17 +187,87 @@ function Bookings() {
                     <strong>{stats.totalBookings}</strong>
                 </div>
                 <div className="stat-card">
-                    <span className="muted">Quote Queue</span>
-                    <strong>{stats.quoteRequested}</strong>
+                    <span className="muted">Scheduled</span>
+                    <strong>{stats.scheduled}</strong>
                 </div>
                 <div className="stat-card">
-                    <span className="muted">Pickup Scheduled</span>
-                    <strong>{stats.scheduled}</strong>
+                    <span className="muted">In Progress</span>
+                    <strong>{stats.inProgress}</strong>
                 </div>
                 <div className="stat-card">
                     <span className="muted">Completed</span>
                     <strong>{stats.completed}</strong>
                 </div>
+                <div className="stat-card">
+                    <span className="muted">Cancelled</span>
+                    <strong>{stats.cancelled}</strong>
+                </div>
+            </div>
+
+            <div className="record-card" style={{ marginBottom: '16px' }}>
+                <div className="page-header" style={{ marginBottom: '12px' }}>
+                    <div>
+                        <h3 style={{ marginBottom: '4px' }}>Take a booking</h3>
+                        <p className="muted" style={{ margin: 0 }}>Create a new customer appointment directly from the admin dashboard.</p>
+                    </div>
+                </div>
+
+                <form className="edit-form" onSubmit={handleCreateBooking}>
+                    <div className="details-grid">
+                        <div>
+                            <span className="muted">Customer name</span>
+                            <input name="customerName" value={bookingForm.customerName} onChange={handleFormChange} required />
+                        </div>
+                        <div>
+                            <span className="muted">Phone</span>
+                            <input name="customerPhone" value={bookingForm.customerPhone} onChange={handleFormChange} required />
+                        </div>
+                        <div>
+                            <span className="muted">Email</span>
+                            <input type="email" name="customerEmail" value={bookingForm.customerEmail} onChange={handleFormChange} required />
+                        </div>
+                        <div>
+                            <span className="muted">Dropoff date</span>
+                            <input type="date" name="dropoffDate" value={bookingForm.dropoffDate} onChange={handleFormChange} required />
+                        </div>
+                        <div>
+                            <span className="muted">Dropoff time</span>
+                            <input type="time" name="dropoffTime" value={bookingForm.dropoffTime} onChange={handleFormChange} required />
+                        </div>
+                        <div>
+                            <span className="muted">Pickup date</span>
+                            <input type="date" name="pickupDate" value={bookingForm.pickupDate} onChange={handleFormChange} />
+                        </div>
+                        <div>
+                            <span className="muted">Pickup time</span>
+                            <input type="time" name="pickupTime" value={bookingForm.pickupTime} onChange={handleFormChange} />
+                        </div>
+                        <div>
+                            <span className="muted">Soap type</span>
+                            <input name="soapType" value={bookingForm.soapType} onChange={handleFormChange} required />
+                        </div>
+                        <div>
+                            <span className="muted">Heavy items count</span>
+                            <input type="number" min="0" name="heavyItemsCount" value={bookingForm.heavyItemsCount} onChange={handleFormChange} disabled={!bookingForm.hasHeavyItems} />
+                        </div>
+                    </div>
+
+                    <label className="muted" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input type="checkbox" name="hasHeavyItems" checked={bookingForm.hasHeavyItems} onChange={handleFormChange} />
+                        Includes heavy items
+                    </label>
+
+                    <input
+                        name="specialInstructions"
+                        value={bookingForm.specialInstructions}
+                        onChange={handleFormChange}
+                        placeholder="Special instructions, stain notes, gate code, or pickup info"
+                    />
+
+                    <button type="submit" className="edit-button" disabled={creatingBooking}>
+                        {creatingBooking ? 'Saving booking...' : 'Create Booking'}
+                    </button>
+                </form>
             </div>
 
             {message ? <p className="message-success">{message}</p> : null}
@@ -155,7 +275,7 @@ function Bookings() {
             {loading ? <p className="empty-state">Loading bookings...</p> : null}
 
             {!loading && !bookings.length ? (
-                <p className="empty-state">No laundry quote requests found yet.</p>
+                <p className="empty-state">No A&F Laundry bookings found yet.</p>
             ) : null}
 
             <div className="record-list">
@@ -163,51 +283,62 @@ function Bookings() {
                     <div key={booking.id} className="record-card">
                         <div className="record-header">
                             <div>
-                                <h3>{getProductName(booking.product_id)}</h3>
-                                <p className="muted">Request ID: {booking.id}</p>
+                                <h3>{booking.customerName || 'Laundry booking'}</h3>
+                                <p className="muted">Booking ID: {booking.id}</p>
                             </div>
                             <div className="record-meta">
-                                <span className={`status-badge status-${String(booking.status || 'pending').toLowerCase().replace(/[\s_]+/g, '-')}`}>
-                                    {String(booking.status || 'pending').replace(/_/g, ' ')}
+                                <span className={`status-badge status-${String(booking.status || 'scheduled').toLowerCase().replace(/[\s_]+/g, '-')}`}>
+                                    {formatStatusLabel(booking.status)}
                                 </span>
-                                <span className="meta-badge">{booking.app_name || 'A & F Laundry'}</span>
+                                <span className="meta-badge">A & F Laundry</span>
                             </div>
                         </div>
 
                         <div className="details-grid">
                             <div>
-                                <span className="muted">Service Date</span>
-                                <strong>{booking.service_date || booking.booking_date || '—'}</strong>
+                                <span className="muted">Dropoff</span>
+                                <strong>{formatDateTime(booking.dropoffDate, booking.dropoffTime)}</strong>
                             </div>
                             <div>
-                                <span className="muted">Window</span>
-                                <strong>{booking.service_window || booking.booking_time || '—'}</strong>
-                            </div>
-                            <div>
-                                <span className="muted">Weight Estimate</span>
-                                <strong>{booking.weight_estimate ? `${booking.weight_estimate} lbs` : '—'}</strong>
-                            </div>
-                            <div>
-                                <span className="muted">Quoted Price</span>
-                                <strong>{booking.quoted_price ? `$${Number(booking.quoted_price).toFixed(2)}` : '—'}</strong>
-                            </div>
-                            <div>
-                                <span className="muted">Contact</span>
-                                <strong>{booking.contact_name || '—'}</strong>
+                                <span className="muted">Pickup</span>
+                                <strong>{formatDateTime(booking.pickupDate, booking.pickupTime)}</strong>
                             </div>
                             <div>
                                 <span className="muted">Phone</span>
-                                <strong>{booking.contact_phone || '—'}</strong>
+                                <strong>{booking.customerPhone || '—'}</strong>
                             </div>
                             <div>
                                 <span className="muted">Email</span>
-                                <strong>{booking.contact_email || '—'}</strong>
+                                <strong>{booking.customerEmail || '—'}</strong>
                             </div>
+                            <div>
+                                <span className="muted">Soap</span>
+                                <strong>{booking.soapType || '—'}</strong>
+                            </div>
+                            <div>
+                                <span className="muted">Heavy items</span>
+                                <strong>{booking.hasHeavyItems ? `${booking.heavyItemsCount || 0} item(s)` : 'No'}</strong>
+                            </div>
+                            <div>
+                                <span className="muted">Created</span>
+                                <strong>{formatCreatedAt(booking.createdAt)}</strong>
+                            </div>
+                        </div>
+
+                        <div className="quote-action-grid">
+                            <button
+                                type="button"
+                                className="secondary-button"
+                                disabled={updatingBookingId === booking.id}
+                                onClick={() => handleSchedulePickup(booking)}
+                            >
+                                {updatingBookingId === booking.id ? 'Updating...' : 'Edit Pickup'}
+                            </button>
                         </div>
 
                         <div className="status-action-row">
                             {statusActions.map((action) => {
-                                const isActive = (booking.status || 'pending') === action.status;
+                                const isActive = (booking.status || 'scheduled') === action.status;
 
                                 return (
                                     <button
@@ -215,12 +346,7 @@ function Bookings() {
                                         type="button"
                                         className={`status-action-button${isActive ? ' active' : ''}`}
                                         disabled={updatingBookingId === booking.id}
-                                        onClick={() => {
-                                            const payload = buildActionPayload(booking, action);
-                                            if (payload) {
-                                                updateBookingStatus(booking.id, payload);
-                                            }
-                                        }}
+                                        onClick={() => updateBooking(booking.id, { status: action.status }, `Booking moved to ${action.label}.`)}
                                     >
                                         {updatingBookingId === booking.id ? 'Updating...' : action.label}
                                     </button>
@@ -228,10 +354,9 @@ function Bookings() {
                             })}
                         </div>
 
-                        {booking.pickup_address ? <p className="muted"><strong>Pickup:</strong> {booking.pickup_address}</p> : null}
-                        {booking.delivery_address ? <p className="muted"><strong>Delivery:</strong> {booking.delivery_address}</p> : null}
-                        {booking.admin_notes ? <p className="muted"><strong>Admin Notes:</strong> {booking.admin_notes}</p> : null}
-                        {booking.details ? <p className="muted"><strong>Request Details:</strong> {booking.details}</p> : null}
+                        {booking.specialInstructions ? (
+                            <p className="muted"><strong>Special Instructions:</strong> {booking.specialInstructions}</p>
+                        ) : null}
                     </div>
                 ))}
             </div>
