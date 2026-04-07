@@ -3,12 +3,10 @@ services:
     name: aflaundry-webapp
     env: node
     rootDir: apps/AFLaundry/frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm run start
     healthCheckPath: /health
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: AFLAUNDRY_APP_BASE_URL
         value: https://aflaundry.com
       - key: AFLAUNDRY_RESEND_API_KEY

@@ -7,15 +7,16 @@
 
 ## Render settings
 - **Root Directory:** `apps/AFLaundry/frontend`
-- **Build Command:** `npm install && npm run build`
+- **Build Command:** `npm install --include=dev && npm run build`
 - **Start Command:** `npm run start`
 - **Health Check Path:** `/health`
+
+> If Render shows `sh: 1: vite: not found`, it usually means `NODE_ENV=production` caused devDependencies to be skipped during install. The build command above fixes that.
 
 ## Production environment variables
 Set these in the Render dashboard:
 
 ```env
-NODE_ENV=production
 DATABASE_URL=
 AFLAUNDRY_APP_BASE_URL=https://aflaundry.com
 AFLAUNDRY_RESEND_API_KEY=
