@@ -4,7 +4,7 @@ This folder contains standalone static marketing sites for:
 
 - `felix-platform/` → deploy to `https://felixplatforms.com`
 - `felix-store/` → deploy to `https://felixstore.felixplatforms.com`
-- `aflaundry/` → deploy to `https://aflaundry.felixplatforms.com`
+- `aflaundry/` → current public marketing site for A & F Laundry (the scheduler web app uses `https://aflaundry.com`)
 
 ## Recommended domain structure
 
@@ -12,7 +12,8 @@ Use your existing domain like this:
 
 - `https://felixplatforms.com` → main brand / umbrella landing page
 - `https://felixstore.felixplatforms.com` → Felix Store public site
-- `https://aflaundry.felixplatforms.com` → A & F Laundry public site
+- `https://aflaundry.com` → A & F Laundry scheduler web app
+- `https://aflaundry.felixplatforms.com` → A & F Laundry public marketing site
 
 ## Suggested deployment
 
@@ -28,6 +29,8 @@ The included `vercel.json` will route each hostname automatically:
 - `www.felixplatforms.com` → `felix-platform/`
 - `felixstore.felixplatforms.com` → `felix-store/`
 - `aflaundry.felixplatforms.com` → `aflaundry/`
+
+If you want the public scheduler app on `aflaundry.com`, deploy `apps/AFLaundry/frontend` as its own web service and attach that custom domain separately.
 
 After that, attach all of those domains to the same Vercel project and redeploy.
 

@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: aflaundry-webapp
+    env: node
+    rootDir: apps/AFLaundry/frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AFLAUNDRY_APP_BASE_URL
+        value: https://aflaundry.com
+      - key: AFLAUNDRY_RESEND_API_KEY
+        sync: false
+      - key: AFLAUNDRY_RESEND_FROM_EMAIL
+        sync: false
+      - key: AFLAUNDRY_NOTIFICATION_EMAIL
+        value: aflaundryservice@gmail.com
+      - key: DATABASE_URL
+        sync: false
