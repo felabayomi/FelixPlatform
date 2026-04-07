@@ -17,6 +17,8 @@ export type LaundryBooking = {
     product_name?: string | null;
     service_date?: string | null;
     service_window?: string | null;
+    pickup_date?: string | null;
+    pickup_time?: string | null;
     status?: string | null;
     pickup_address?: string | null;
     delivery_address?: string | null;
@@ -31,17 +33,33 @@ export type LaundryBooking = {
     customer_action?: string | null;
 };
 
-export type BookingPayload = {
-    product_id: string;
-    service_date: string;
-    service_window: string;
-    pickup_address: string;
-    delivery_address: string;
-    contact_name: string;
-    contact_phone: string;
-    contact_email: string;
-    weight_estimate?: string | number;
-    special_instructions?: string;
+export type AppointmentPayload = {
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    dropoffDate: string;
+    dropoffTime: string;
+    pickupDate?: string;
+    pickupTime?: string;
+    soapType: string;
+    hasHeavyItems?: boolean;
+    heavyItemsCount?: number;
+    specialInstructions?: string;
+};
+
+export type QuoteRequestPayload = {
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    serviceType: string;
+    preferredDate: string;
+    serviceWindow?: string;
+    pickupAddress: string;
+    deliveryAddress?: string;
+    estimatedWeight?: string | number;
+    preferredFulfillment?: string;
+    notes?: string;
+    source?: string;
 };
 
 export type SupportRequestPayload = {
@@ -61,9 +79,15 @@ export type SupportRequestResponse = {
     customer_email_recipient?: string | null;
 };
 
-const hostedApiUrl = 'https://felix-platform-backend.onrender.com';
+const hostedFelixApiUrl = 'https://felix-platform-backend.onrender.com';
+const hostedLaundryApiUrl = 'https://aflaundry.com';
 
-export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || hostedApiUrl).replace(/\/$/, '');
+export const FELIX_API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || hostedFelixApiUrl).replace(/\/$/, '');
+export const AFLAUNDRY_API_BASE_URL = (
+    process.env.EXPO_PUBLIC_AFLAUNDRY_API_URL
+    || process.env.EXPO_PUBLIC_AFLAUNDRY_WEB_URL
+    || hostedLaundryApiUrl
+).replace(/\/$/, '');
 
 const toAbsoluteImageUrl = (value?: string | null) => {
     if (!value) {
@@ -110,7 +134,7 @@ const toAbsoluteImageUrl = (value?: string | null) => {
     }
 
     const normalizedPath = rawValue.startsWith('/') ? rawValue : `/${rawValue}`;
-    return `${API_BASE_URL}${normalizedPath}`;
+    return `${FELIX_API_BASE_URL}${normalizedPath}`;
 };
 
 const readApiErrorMessage = async (response: Response, fallbackMessage: string) => {
@@ -125,6 +149,9 @@ const readApiErrorMessage = async (response: Response, fallbackMessage: string) 
             if (payload?.message) {
                 return payload.message;
             }
+            if (payload?.error) {
+                return typeof payload.error === 'string' ? payload.error : fallbackMessage;
+            }
         }
 
         const text = await response.text();
@@ -134,8 +161,35 @@ const readApiErrorMessage = async (response: Response, fallbackMessage: string) 
     }
 };
 
+const toTrackingRecord = (
+    item: Record<string, any>,
+    defaults: Partial<LaundryBooking> = {},
+): LaundryBooking => ({
+    ...item,
+    ...defaults,
+    id: String(item?.id ?? defaults.id ?? ''),
+    product_id: item?.product_id ?? defaults.product_id ?? null,
+    product_name: item?.product_name ?? defaults.product_name ?? 'Laundry Service',
+    service_date: item?.service_date ?? item?.dropoffDate ?? defaults.service_date ?? null,
+    service_window: item?.service_window ?? item?.dropoffTime ?? defaults.service_window ?? null,
+    pickup_date: item?.pickup_date ?? item?.pickupDate ?? defaults.pickup_date ?? null,
+    pickup_time: item?.pickup_time ?? item?.pickupTime ?? defaults.pickup_time ?? null,
+    status: item?.status ?? defaults.status ?? 'pending',
+    pickup_address: item?.pickup_address ?? defaults.pickup_address ?? null,
+    delivery_address: item?.delivery_address ?? defaults.delivery_address ?? null,
+    assigned_driver: item?.assigned_driver ?? defaults.assigned_driver ?? null,
+    contact_name: item?.contact_name ?? item?.customerName ?? defaults.contact_name ?? null,
+    contact_phone: item?.contact_phone ?? item?.customerPhone ?? defaults.contact_phone ?? null,
+    contact_email: item?.contact_email ?? item?.customerEmail ?? defaults.contact_email ?? null,
+    quoted_price: item?.quoted_price ?? defaults.quoted_price ?? null,
+    admin_notes: item?.admin_notes ?? defaults.admin_notes ?? null,
+    reference_estimate: item?.reference_estimate ?? defaults.reference_estimate ?? null,
+    created_at: item?.created_at ?? item?.createdAt ?? defaults.created_at ?? null,
+    customer_action: item?.customer_action ?? defaults.customer_action ?? null,
+});
+
 export async function fetchLaundryServices(): Promise<LaundryProduct[]> {
-    const response = await fetch(`${API_BASE_URL}/products`);
+    const response = await fetch(`${FELIX_API_BASE_URL}/products`);
 
     if (!response.ok) {
         const fallbackMessage = response.status === 503
@@ -156,11 +210,11 @@ export async function fetchLaundryServices(): Promise<LaundryProduct[]> {
             const name = String(item?.name || '').toLowerCase();
 
             return item?.active !== false && (
-                type === 'laundry' ||
-                name.includes('laundry') ||
-                name.includes('cleaning') ||
-                name.includes('wash') ||
-                name.includes('ironing')
+                type === 'laundry'
+                || name.includes('laundry')
+                || name.includes('cleaning')
+                || name.includes('wash')
+                || name.includes('ironing')
             );
         })
         .map((item) => ({
@@ -169,50 +223,53 @@ export async function fetchLaundryServices(): Promise<LaundryProduct[]> {
         }));
 }
 
-export async function createLaundryBooking(payload: BookingPayload): Promise<LaundryBooking> {
-    const response = await fetch(`${API_BASE_URL}/quote-requests`, {
+export async function createLaundryAppointment(payload: AppointmentPayload): Promise<LaundryBooking> {
+    const response = await fetch(`${AFLAUNDRY_API_BASE_URL}/api/appointments`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        throw new Error(await readApiErrorMessage(response, `Booking request failed with ${response.status}`));
+    }
+
+    const appointment = await response.json();
+    return toTrackingRecord(appointment, {
+        product_name: 'Scheduled Laundry Booking',
+    });
+}
+
+export async function requestLaundryQuote(payload: QuoteRequestPayload): Promise<LaundryBooking> {
+    const response = await fetch(`${AFLAUNDRY_API_BASE_URL}/api/quotes`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            product_id: payload.product_id,
-            quantity: payload.weight_estimate || 1,
-            status: 'pending',
-            details: [
-                'Quote request submitted from A & F Laundry',
-                `Customer: ${payload.contact_name}`,
-                `Phone: ${payload.contact_phone}`,
-                `Email: ${payload.contact_email}`,
-                `Service date: ${payload.service_date}`,
-                `Window: ${payload.service_window}`,
-                `Pickup address: ${payload.pickup_address}`,
-                payload.delivery_address ? `Delivery address: ${payload.delivery_address}` : null,
-                payload.weight_estimate ? `Weight estimate: ${payload.weight_estimate}` : null,
-                payload.special_instructions ? `Instructions: ${payload.special_instructions}` : null,
-            ]
-                .filter(Boolean)
-                .join('\n'),
+            ...payload,
+            source: payload.source || 'mobile',
         }),
     });
 
     if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || `Quote request failed with ${response.status}`);
+        throw new Error(await readApiErrorMessage(response, `Quote request failed with ${response.status}`));
     }
 
     const quote = await response.json();
-    return {
-        ...quote,
-        product_id: payload.product_id,
-        contact_name: payload.contact_name,
-        contact_phone: payload.contact_phone,
-        contact_email: payload.contact_email,
-        service_date: payload.service_date,
-        service_window: payload.service_window,
-        pickup_address: payload.pickup_address,
-        delivery_address: payload.delivery_address,
-    };
+    return toTrackingRecord(quote, {
+        product_name: payload.serviceType || 'Laundry Quote',
+        service_date: payload.preferredDate,
+        service_window: payload.serviceWindow ?? null,
+        pickup_address: payload.pickupAddress,
+        delivery_address: payload.deliveryAddress ?? null,
+        contact_name: payload.customerName,
+        contact_phone: payload.customerPhone,
+        contact_email: payload.customerEmail,
+        reference_estimate: 'Quote pending review',
+    });
 }
 
 export async function respondToLaundryQuote(
@@ -220,7 +277,7 @@ export async function respondToLaundryQuote(
     contactPhone: string,
     decision: 'accept' | 'decline',
 ): Promise<LaundryBooking> {
-    const response = await fetch(`${API_BASE_URL}/quote-requests/${quoteRequestId}/respond`, {
+    const response = await fetch(`${FELIX_API_BASE_URL}/quote-requests/${quoteRequestId}/respond`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -232,11 +289,10 @@ export async function respondToLaundryQuote(
     });
 
     if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || `Quote response failed with ${response.status}`);
+        throw new Error(await readApiErrorMessage(response, `Quote response failed with ${response.status}`));
     }
 
-    return response.json();
+    return toTrackingRecord(await response.json());
 }
 
 export async function trackLaundryBookings(contactPhone: string): Promise<LaundryBooking[]> {
@@ -246,24 +302,63 @@ export async function trackLaundryBookings(contactPhone: string): Promise<Laundr
         return [];
     }
 
-    const params = new URLSearchParams({
+    const quoteParams = new URLSearchParams({
         phone: normalizedPhone,
         app_name: 'A & F Laundry',
     });
+    const appointmentParams = new URLSearchParams({
+        phone: normalizedPhone,
+    });
 
-    const response = await fetch(`${API_BASE_URL}/quote-requests/track?${params.toString()}`);
+    const [quotesResult, appointmentsResult] = await Promise.allSettled([
+        fetch(`${FELIX_API_BASE_URL}/quote-requests/track?${quoteParams.toString()}`),
+        fetch(`${AFLAUNDRY_API_BASE_URL}/api/appointments?${appointmentParams.toString()}`),
+    ]);
 
-    if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || `Tracking request failed with ${response.status}`);
+    const results: LaundryBooking[] = [];
+    const errors: string[] = [];
+
+    if (quotesResult.status === 'fulfilled') {
+        if (quotesResult.value.ok) {
+            const data = await quotesResult.value.json();
+            if (Array.isArray(data)) {
+                results.push(...data.map((item) => toTrackingRecord(item)));
+            }
+        } else {
+            errors.push(await readApiErrorMessage(quotesResult.value, `Tracking request failed with ${quotesResult.value.status}`));
+        }
+    } else {
+        errors.push(quotesResult.reason instanceof Error ? quotesResult.reason.message : 'Unable to reach quote tracking right now.');
     }
 
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    if (appointmentsResult.status === 'fulfilled') {
+        if (appointmentsResult.value.ok) {
+            const data = await appointmentsResult.value.json();
+            if (Array.isArray(data)) {
+                results.push(...data.map((item) => toTrackingRecord(item, {
+                    product_name: 'Scheduled Laundry Booking',
+                })));
+            }
+        } else if (appointmentsResult.value.status !== 404) {
+            errors.push(await readApiErrorMessage(appointmentsResult.value, `Appointment tracking failed with ${appointmentsResult.value.status}`));
+        }
+    } else {
+        errors.push(appointmentsResult.reason instanceof Error ? appointmentsResult.reason.message : 'Unable to reach booking tracking right now.');
+    }
+
+    if (!results.length && errors.length) {
+        throw new Error(errors[0]);
+    }
+
+    return results.sort((left, right) => {
+        const leftTime = left.created_at ? new Date(left.created_at).getTime() : 0;
+        const rightTime = right.created_at ? new Date(right.created_at).getTime() : 0;
+        return rightTime - leftTime;
+    });
 }
 
 export async function submitSupportRequest(payload: SupportRequestPayload): Promise<SupportRequestResponse> {
-    const response = await fetch(`${API_BASE_URL}/support-requests`, {
+    const response = await fetch(`${FELIX_API_BASE_URL}/support-requests`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -279,8 +374,7 @@ export async function submitSupportRequest(payload: SupportRequestPayload): Prom
     });
 
     if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || `Support request failed with ${response.status}`);
+        throw new Error(await readApiErrorMessage(response, `Support request failed with ${response.status}`));
     }
 
     return response.json();

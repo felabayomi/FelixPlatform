@@ -13,8 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
-    createLaundryBooking,
+    createLaundryAppointment,
     fetchLaundryServices,
+    requestLaundryQuote,
     respondToLaundryQuote,
     trackLaundryBookings,
     type LaundryBooking,
@@ -24,15 +25,15 @@ import {
 const serviceSteps = [
     {
         title: 'Choose a service',
-        text: 'Pick the care that fits your wardrobe, household, or weekly routine.',
+        text: 'Browse wash & fold, bedding, and recurring care options that fit your routine.',
     },
     {
-        title: 'Request a quote',
-        text: 'Share your schedule, location, and laundry details so we can review the job properly.',
+        title: 'Book now or request a quote',
+        text: 'Use instant booking for standard laundry or request a tailored quote for custom pickup and delivery needs.',
     },
     {
-        title: 'Approve and schedule',
-        text: 'Once the team confirms the quote, pickup and delivery are arranged with you directly.',
+        title: 'Track every update',
+        text: 'Follow your booking or quote from scheduling through completion right inside the app.',
     },
 ];
 
@@ -52,10 +53,10 @@ const trustCards = [
 ];
 
 const laundryQuickActions = [
+    'Book Laundry',
     'Schedule Pickup',
-    'Request Laundry Service',
     'Request Quote',
-    'Subscribe to Weekly Service',
+    'Weekly Service Quote',
 ] as const;
 
 const laundryInfoLinks = [
@@ -100,7 +101,7 @@ const getServiceActionLabel = (service: LaundryProduct) => {
         return service.action_label.trim();
     }
 
-    return 'Request Quote';
+    return 'Book or Quote';
 };
 
 const formatStatusLabel = (value?: string | null) => {
@@ -113,17 +114,27 @@ const formatStatusLabel = (value?: string | null) => {
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
 
+type RequestFlow = 'booking' | 'quote';
+
 export default function HomeScreen() {
     const [services, setServices] = useState<LaundryProduct[]>([]);
     const [selectedServiceId, setSelectedServiceId] = useState('');
+    const [activeFlow, setActiveFlow] = useState<RequestFlow>('booking');
     const [contactName, setContactName] = useState('');
     const [contactPhone, setContactPhone] = useState('');
     const [contactEmail, setContactEmail] = useState('');
+    const [dropoffDate, setDropoffDate] = useState('2026-04-10');
+    const [dropoffTime, setDropoffTime] = useState('10:00 AM');
+    const [pickupDate, setPickupDate] = useState('');
+    const [pickupTime, setPickupTime] = useState('');
+    const [soapType, setSoapType] = useState('Tide Regular');
+    const [heavyItemsCount, setHeavyItemsCount] = useState('0');
     const [serviceDate, setServiceDate] = useState('2026-04-10');
-    const [serviceWindow, setServiceWindow] = useState('9AM-12PM');
+    const [serviceWindow, setServiceWindow] = useState('Morning (9 AM - 12 PM)');
     const [pickupAddress, setPickupAddress] = useState('');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [weightEstimate, setWeightEstimate] = useState('');
+    const [preferredFulfillment, setPreferredFulfillment] = useState('Drop-off + pickup');
     const [specialInstructions, setSpecialInstructions] = useState('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -163,8 +174,9 @@ export default function HomeScreen() {
         [services, selectedServiceId],
     );
 
-    const handleSelectService = (serviceId: string) => {
+    const handleSelectService = (serviceId: string, flow: RequestFlow = 'booking') => {
         setSelectedServiceId(serviceId);
+        setActiveFlow(flow);
         setMessage('');
         setError('');
         setRequestModalVisible(true);
@@ -174,7 +186,14 @@ export default function HomeScreen() {
         setMessage('');
         setError('');
 
-        if (action === 'Subscribe to Weekly Service') {
+        if (action === 'Request Quote' || action === 'Weekly Service Quote') {
+            setActiveFlow('quote');
+        } else {
+            setActiveFlow('booking');
+        }
+
+        if (action === 'Weekly Service Quote') {
+            setPreferredFulfillment('Pickup & delivery quote needed');
             setSpecialInstructions((current) => current || 'Interested in subscribing to weekly laundry service.');
         }
 
@@ -208,14 +227,26 @@ export default function HomeScreen() {
     };
 
     const handleSubmit = async () => {
-        if (!selectedServiceId || !contactName.trim() || !contactPhone.trim() || !contactEmail.trim() || !pickupAddress.trim()) {
-            setError('Please choose a service and fill in your contact details, including email, plus the pickup address.');
+        if (!contactName.trim() || !contactPhone.trim() || !contactEmail.trim()) {
+            setError('Please enter your name, phone number, and email address before submitting.');
             setMessage('');
             return;
         }
 
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
-            setError('Please enter a valid email address for quote updates and scheduling emails.');
+            setError('Please enter a valid email address for confirmations and updates.');
+            setMessage('');
+            return;
+        }
+
+        if (activeFlow === 'booking' && (!dropoffDate.trim() || !dropoffTime.trim() || !soapType.trim())) {
+            setError('Please choose a drop-off date, time, and soap preference to book your laundry service.');
+            setMessage('');
+            return;
+        }
+
+        if (activeFlow === 'quote' && !pickupAddress.trim()) {
+            setError('Please add your pickup or contact address so we can review the quote request.');
             setMessage('');
             return;
         }
@@ -225,34 +256,65 @@ export default function HomeScreen() {
         setMessage('');
 
         try {
-            const createdBooking = await createLaundryBooking({
-                product_id: selectedServiceId,
-                service_date: serviceDate,
-                service_window: serviceWindow,
-                pickup_address: pickupAddress,
-                delivery_address: deliveryAddress || pickupAddress,
-                contact_name: contactName,
-                contact_phone: contactPhone,
-                contact_email: contactEmail,
-                weight_estimate: weightEstimate,
-                special_instructions: specialInstructions,
-            });
+            if (activeFlow === 'booking') {
+                const heavyItemCount = Number.parseInt(heavyItemsCount || '0', 10);
+                const createdBooking = await createLaundryAppointment({
+                    customerName: contactName,
+                    customerPhone: contactPhone,
+                    customerEmail: contactEmail,
+                    dropoffDate,
+                    dropoffTime,
+                    pickupDate: pickupDate || undefined,
+                    pickupTime: pickupTime || undefined,
+                    soapType,
+                    hasHeavyItems: heavyItemCount > 0,
+                    heavyItemsCount: Number.isFinite(heavyItemCount) ? Math.max(heavyItemCount, 0) : 0,
+                    specialInstructions: specialInstructions || undefined,
+                });
 
-            setMessage(`Quote request #${createdBooking.id} has been sent. We will email your quote and pickup updates shortly.`);
-            setWeightEstimate('');
-            setSpecialInstructions('');
-            setTrackingPhone(contactPhone);
-            setTrackingResults([
-                {
-                    ...createdBooking,
-                    product_name: selectedService?.name || 'Laundry service',
-                },
-            ]);
+                setMessage(`Booking #${createdBooking.id} is confirmed. We’ll email your drop-off and pickup details shortly.`);
+                setTrackingPhone(contactPhone);
+                setTrackingResults([
+                    {
+                        ...createdBooking,
+                        product_name: selectedService?.name || createdBooking.product_name || 'Laundry booking',
+                    },
+                ]);
+                setPickupDate('');
+                setPickupTime('');
+            } else {
+                const createdQuote = await requestLaundryQuote({
+                    customerName: contactName,
+                    customerPhone: contactPhone,
+                    customerEmail: contactEmail,
+                    serviceType: selectedService?.name || 'Laundry Service',
+                    preferredDate: serviceDate,
+                    serviceWindow,
+                    pickupAddress,
+                    deliveryAddress: deliveryAddress || undefined,
+                    estimatedWeight: weightEstimate || undefined,
+                    preferredFulfillment,
+                    notes: specialInstructions || undefined,
+                    source: 'mobile',
+                });
+
+                setMessage(`Quote request #${createdQuote.id} has been sent. We will email your quote and pickup updates shortly.`);
+                setWeightEstimate('');
+                setSpecialInstructions('');
+                setTrackingPhone(contactPhone);
+                setTrackingResults([
+                    {
+                        ...createdQuote,
+                        product_name: selectedService?.name || createdQuote.product_name || 'Laundry quote',
+                    },
+                ]);
+            }
+
             setRequestModalVisible(false);
             void loadTracking(contactPhone);
         } catch (err) {
             console.error(err);
-            setError(err instanceof Error ? err.message : 'Unable to submit your quote request.');
+            setError(err instanceof Error ? err.message : `Unable to submit your ${activeFlow}.`);
         } finally {
             setSubmitting(false);
         }
@@ -301,7 +363,7 @@ export default function HomeScreen() {
                     <Text style={styles.kicker}>A & F LAUNDRY</Text>
                     <Text style={styles.heroTitle}>Fresh clothes without the stress.</Text>
                     <Text style={styles.heroSubtitle}>
-                        Choose your care, request a quote, and let the team confirm pickup and delivery around your schedule.
+                        Choose your care, book a laundry slot, or request a quote and let the team handle the rest around your schedule.
                     </Text>
 
                     <View style={styles.badgeRow}>
@@ -336,7 +398,7 @@ export default function HomeScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Choose your service</Text>
                     <Text style={styles.sectionSubtitle}>
-                        Select the option that fits your weekly routine or special care needs, then request a tailored quote.
+                        Select the option that fits your weekly routine or special care needs, then book instantly or request a tailored quote.
                     </Text>
 
                     <View style={styles.quickActionWrap}>
@@ -395,11 +457,16 @@ export default function HomeScreen() {
 
                                     <View style={styles.serviceActionRow}>
                                         <Text style={styles.selectedLabel}>
-                                            {selected ? 'Selected for your request' : 'Tap below to request this service'}
+                                            {selected ? 'Selected for booking or quote' : 'Tap below to book now or request a quote'}
                                         </Text>
                                         <Pressable
                                             style={styles.serviceActionButton}
-                                            onPress={() => handleSelectService(String(service.id))}>
+                                            onPress={() =>
+                                                handleSelectService(
+                                                    String(service.id),
+                                                    getServiceActionLabel(service).toLowerCase().includes('quote') ? 'quote' : 'booking',
+                                                )
+                                            }>
                                             <Text style={styles.serviceActionButtonText}>
                                                 {getServiceActionLabel(service)}
                                             </Text>
@@ -415,9 +482,9 @@ export default function HomeScreen() {
                 {error && !requestModalVisible ? <Text style={styles.errorText}>{error}</Text> : null}
 
                 <View style={styles.trackingCard}>
-                    <Text style={styles.sectionTitle}>Track your quote / order</Text>
+                    <Text style={styles.sectionTitle}>Track your booking / quote</Text>
                     <Text style={styles.sectionSubtitle}>
-                        Enter your phone number to check the latest quote, pickup, and delivery status.
+                        Enter your phone number to check the latest booking, quote, pickup, and delivery status.
                     </Text>
 
                     <View style={styles.trackingInputRow}>
@@ -444,7 +511,7 @@ export default function HomeScreen() {
                     {trackingError ? <Text style={styles.errorText}>{trackingError}</Text> : null}
 
                     {!trackingLoading && !trackingError && trackingResults.length === 0 ? (
-                        <Text style={styles.trackingEmptyText}>Your latest quote and laundry status will appear here after you submit or search.</Text>
+                        <Text style={styles.trackingEmptyText}>Your latest booking and quote status will appear here after you submit or search.</Text>
                     ) : null}
 
                     {trackingResults.map((booking) => (
@@ -529,11 +596,15 @@ export default function HomeScreen() {
                     <View style={styles.modalCard}>
                         <View style={styles.modalHeaderRow}>
                             <View style={styles.selectionSummaryTextWrap}>
-                                <Text style={styles.sectionTitle}>Schedule Pickup / Request Quote</Text>
+                                <Text style={styles.sectionTitle}>
+                                    {activeFlow === 'booking' ? 'Book Laundry Service' : 'Request a Laundry Quote'}
+                                </Text>
                                 <Text style={styles.formSubtitle}>
-                                    {selectedService
-                                        ? `You’re requesting a quote for: ${selectedService.name}`
-                                        : 'Choose a service above to start your quote request.'}
+                                    {activeFlow === 'booking'
+                                        ? 'Book a drop-off slot now and add pickup details if you already know them.'
+                                        : selectedService
+                                            ? `Tell us more about ${selectedService.name} and we’ll email your tailored quote.`
+                                            : 'Choose a service above to start your laundry quote request.'}
                                 </Text>
                             </View>
                             <Pressable style={styles.modalCloseButton} onPress={() => setRequestModalVisible(false)}>
@@ -553,6 +624,23 @@ export default function HomeScreen() {
                                     </View>
                                 </View>
                             ) : null}
+
+                            <View style={styles.flowToggleRow}>
+                                <Pressable
+                                    style={[styles.flowToggleButton, activeFlow === 'booking' ? styles.flowToggleButtonActive : null]}
+                                    onPress={() => setActiveFlow('booking')}>
+                                    <Text style={[styles.flowToggleButtonText, activeFlow === 'booking' ? styles.flowToggleButtonTextActive : null]}>
+                                        Book Now
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    style={[styles.flowToggleButton, activeFlow === 'quote' ? styles.flowToggleButtonActive : null]}
+                                    onPress={() => setActiveFlow('quote')}>
+                                    <Text style={[styles.flowToggleButtonText, activeFlow === 'quote' ? styles.flowToggleButtonTextActive : null]}>
+                                        Request Quote
+                                    </Text>
+                                </Pressable>
+                            </View>
 
                             <TextInput
                                 style={styles.input}
@@ -579,48 +667,114 @@ export default function HomeScreen() {
                                 autoCapitalize="none"
                             />
 
-                            <View style={styles.row}>
-                                <TextInput
-                                    style={[styles.input, styles.halfInput]}
-                                    placeholder="Service date"
-                                    placeholderTextColor="#94A3B8"
-                                    value={serviceDate}
-                                    onChangeText={setServiceDate}
-                                />
-                                <TextInput
-                                    style={[styles.input, styles.halfInput]}
-                                    placeholder="Time window"
-                                    placeholderTextColor="#94A3B8"
-                                    value={serviceWindow}
-                                    onChangeText={setServiceWindow}
-                                />
-                            </View>
+                            {activeFlow === 'booking' ? (
+                                <>
+                                    <View style={styles.row}>
+                                        <TextInput
+                                            style={[styles.input, styles.halfInput]}
+                                            placeholder="Drop-off date (YYYY-MM-DD)"
+                                            placeholderTextColor="#94A3B8"
+                                            value={dropoffDate}
+                                            onChangeText={setDropoffDate}
+                                        />
+                                        <TextInput
+                                            style={[styles.input, styles.halfInput]}
+                                            placeholder="Drop-off time"
+                                            placeholderTextColor="#94A3B8"
+                                            value={dropoffTime}
+                                            onChangeText={setDropoffTime}
+                                        />
+                                    </View>
+
+                                    <View style={styles.row}>
+                                        <TextInput
+                                            style={[styles.input, styles.halfInput]}
+                                            placeholder="Pickup date (optional)"
+                                            placeholderTextColor="#94A3B8"
+                                            value={pickupDate}
+                                            onChangeText={setPickupDate}
+                                        />
+                                        <TextInput
+                                            style={[styles.input, styles.halfInput]}
+                                            placeholder="Pickup time (optional)"
+                                            placeholderTextColor="#94A3B8"
+                                            value={pickupTime}
+                                            onChangeText={setPickupTime}
+                                        />
+                                    </View>
+
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Soap preference"
+                                        placeholderTextColor="#94A3B8"
+                                        value={soapType}
+                                        onChangeText={setSoapType}
+                                    />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Heavy items count (0 if none)"
+                                        placeholderTextColor="#94A3B8"
+                                        value={heavyItemsCount}
+                                        onChangeText={setHeavyItemsCount}
+                                        keyboardType="number-pad"
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <View style={styles.row}>
+                                        <TextInput
+                                            style={[styles.input, styles.halfInput]}
+                                            placeholder="Preferred service date"
+                                            placeholderTextColor="#94A3B8"
+                                            value={serviceDate}
+                                            onChangeText={setServiceDate}
+                                        />
+                                        <TextInput
+                                            style={[styles.input, styles.halfInput]}
+                                            placeholder="Preferred time window"
+                                            placeholderTextColor="#94A3B8"
+                                            value={serviceWindow}
+                                            onChangeText={setServiceWindow}
+                                        />
+                                    </View>
+
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Pickup address"
+                                        placeholderTextColor="#94A3B8"
+                                        value={pickupAddress}
+                                        onChangeText={setPickupAddress}
+                                    />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Delivery address"
+                                        placeholderTextColor="#94A3B8"
+                                        value={deliveryAddress}
+                                        onChangeText={setDeliveryAddress}
+                                    />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Estimated weight (lbs)"
+                                        placeholderTextColor="#94A3B8"
+                                        value={weightEstimate}
+                                        onChangeText={setWeightEstimate}
+                                        keyboardType="decimal-pad"
+                                    />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Preferred fulfillment"
+                                        placeholderTextColor="#94A3B8"
+                                        value={preferredFulfillment}
+                                        onChangeText={setPreferredFulfillment}
+                                    />
+                                </>
+                            )}
 
                             <TextInput
-                                style={styles.input}
-                                placeholder="Pickup address"
-                                placeholderTextColor="#94A3B8"
-                                value={pickupAddress}
-                                onChangeText={setPickupAddress}
-                            />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Delivery address"
-                                placeholderTextColor="#94A3B8"
-                                value={deliveryAddress}
-                                onChangeText={setDeliveryAddress}
-                            />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Estimated weight (lbs)"
-                                placeholderTextColor="#94A3B8"
-                                value={weightEstimate}
-                                onChangeText={setWeightEstimate}
-                                keyboardType="decimal-pad"
-                            />
-                            <TextInput
                                 style={[styles.input, styles.multilineInput]}
-                                placeholder="Special instructions (gate code, delicate items, folding notes...)"
+                                placeholder={activeFlow === 'booking'
+                                    ? 'Special instructions (gate code, delicate items, folding notes...)'
+                                    : 'Tell us about heavy items, same-day needs, detergent requests, or special handling'}
                                 placeholderTextColor="#94A3B8"
                                 value={specialInstructions}
                                 onChangeText={setSpecialInstructions}
@@ -628,7 +782,9 @@ export default function HomeScreen() {
                             />
 
                             <Pressable style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>
-                                <Text style={styles.submitButtonText}>{submitting ? 'Sending...' : 'Request Quote'}</Text>
+                                <Text style={styles.submitButtonText}>
+                                    {submitting ? 'Sending...' : activeFlow === 'booking' ? 'Book Laundry' : 'Request Quote'}
+                                </Text>
                             </Pressable>
 
                             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -863,6 +1019,31 @@ const styles = StyleSheet.create({
         color: '#475569',
         fontSize: 14,
         lineHeight: 20,
+    },
+    flowToggleRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    flowToggleButton: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#BAE6FD',
+        backgroundColor: '#F0F9FF',
+        alignItems: 'center',
+    },
+    flowToggleButtonActive: {
+        backgroundColor: '#082F49',
+        borderColor: '#082F49',
+    },
+    flowToggleButtonText: {
+        color: '#0369A1',
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    flowToggleButtonTextActive: {
+        color: '#FFFFFF',
     },
 
     selectionSummaryCard: {

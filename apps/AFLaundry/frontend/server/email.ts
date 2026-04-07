@@ -159,6 +159,21 @@ function createEmailTemplate(content: string): string {
 `;
 }
 
+interface QuoteRequestNotificationPayload {
+  id?: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  serviceType: string;
+  preferredDate: string;
+  serviceWindow?: string | null;
+  pickupAddress: string;
+  deliveryAddress?: string | null;
+  estimatedWeight?: string | null;
+  preferredFulfillment?: string | null;
+  notes?: string | null;
+}
+
 export async function sendBookingNotification(appointment: Appointment) {
   try {
     const heavyItemsInfo = appointment.hasHeavyItems && appointment.heavyItemsCount
@@ -261,6 +276,96 @@ export async function sendBookingNotification(appointment: Appointment) {
     };
   } catch (error) {
     console.error('Error sending email:', error);
+    return { success: false, error };
+  }
+}
+
+export async function sendQuoteRequestNotificationEmail(quoteRequest: QuoteRequestNotificationPayload) {
+  try {
+    const referenceId = (quoteRequest.id || 'pending').substring(0, 8).toUpperCase();
+    const serviceWindow = quoteRequest.serviceWindow
+      ? `<div class="info-row"><span class="label">Preferred Window:</span> ${quoteRequest.serviceWindow}</div>`
+      : '';
+    const estimatedWeight = quoteRequest.estimatedWeight
+      ? `<div class="info-row"><span class="label">Estimated Weight:</span> ${quoteRequest.estimatedWeight} lbs</div>`
+      : '';
+    const deliveryAddress = quoteRequest.deliveryAddress
+      ? `<div class="info-row"><span class="label">Delivery Address:</span> ${quoteRequest.deliveryAddress}</div>`
+      : '';
+    const preferredFulfillment = quoteRequest.preferredFulfillment
+      ? `<div class="info-row"><span class="label">Preferred Fulfillment:</span> ${quoteRequest.preferredFulfillment}</div>`
+      : '';
+    const notesBlock = quoteRequest.notes
+      ? `
+    <div class="section">
+      <div class="section-title">Notes</div>
+      <div class="info-row">${quoteRequest.notes}</div>
+    </div>`
+      : '';
+
+    const adminContent = `
+    <h1>New Quote Request Received</h1>
+    <div class="reference">Reference Number: ${referenceId}</div>
+
+    <div class="section">
+      <div class="section-title">Customer Information</div>
+      <div class="info-row"><span class="label">Name:</span> ${quoteRequest.customerName}</div>
+      <div class="info-row"><span class="label">Phone:</span> ${quoteRequest.customerPhone}</div>
+      <div class="info-row"><span class="label">Email:</span> ${quoteRequest.customerEmail}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Quote Details</div>
+      <div class="info-row"><span class="label">Service Type:</span> ${quoteRequest.serviceType}</div>
+      <div class="info-row"><span class="label">Preferred Date:</span> ${quoteRequest.preferredDate}</div>
+      ${serviceWindow}
+      ${estimatedWeight}
+      ${preferredFulfillment}
+      <div class="info-row"><span class="label">Pickup / Contact Address:</span> ${quoteRequest.pickupAddress}</div>
+      ${deliveryAddress}
+    </div>
+    ${notesBlock}
+    `;
+
+    const customerContent = `
+    <h1>Your Quote Request is In</h1>
+    <div class="reference">Reference Number: ${referenceId}</div>
+
+    <div class="section">
+      <div class="info-row">Thank you for contacting A & F Laundry Service.</div>
+      <div class="info-row">We’ve received your request for a ${quoteRequest.serviceType.toLowerCase()} quote and will get back to you shortly.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">What You Sent Us</div>
+      <div class="info-row"><span class="label">Preferred Date:</span> ${quoteRequest.preferredDate}</div>
+      ${serviceWindow}
+      ${estimatedWeight}
+      ${preferredFulfillment}
+    </div>
+    `;
+
+    const adminEmailResult = await sendTemplatedEmail({
+      to: NOTIFICATION_EMAIL,
+      subject: `New Quote Request: ${quoteRequest.customerName} - ${quoteRequest.preferredDate}`,
+      html: createEmailTemplate(adminContent),
+    });
+
+    const customerEmailResult = quoteRequest.customerEmail
+      ? await sendTemplatedEmail({
+        to: quoteRequest.customerEmail,
+        subject: `Quote Request Received: ${quoteRequest.preferredDate}`,
+        html: createEmailTemplate(customerContent),
+      })
+      : { success: true, skipped: true };
+
+    return {
+      success: Boolean(adminEmailResult.success && customerEmailResult.success),
+      adminEmailResult,
+      customerEmailResult,
+    };
+  } catch (error) {
+    console.error('Error sending quote request emails:', error);
     return { success: false, error };
   }
 }

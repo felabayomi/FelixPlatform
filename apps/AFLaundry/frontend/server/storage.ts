@@ -5,6 +5,7 @@ import { type Appointment, type InsertAppointment, type UpdateAppointment } from
 export interface IStorage {
   getAppointment(id: string): Promise<Appointment | undefined>;
   getAllAppointments(): Promise<Appointment[]>;
+  findAppointmentsByContact(contactPhone?: string, contactEmail?: string): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointment(id: string, appointment: UpdateAppointment): Promise<Appointment | undefined>;
   deleteAppointment(id: string): Promise<boolean>;
@@ -56,6 +57,11 @@ const appointmentSelect = `
     created_at AS "createdAt"
   FROM appointments
 `;
+
+function normalizePhoneNumber(value?: string | null) {
+  const digitsOnly = String(value ?? "").replace(/\D/g, "");
+  return digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+}
 
 function mapRowToAppointment(row: AppointmentRow): Appointment {
   return {
@@ -122,6 +128,24 @@ export class MemStorage implements IStorage {
 
   async getAllAppointments(): Promise<Appointment[]> {
     return Array.from(this.appointments.values());
+  }
+
+  async findAppointmentsByContact(contactPhone?: string, contactEmail?: string): Promise<Appointment[]> {
+    const normalizedPhone = normalizePhoneNumber(contactPhone);
+    const normalizedEmail = String(contactEmail ?? "").trim().toLowerCase();
+
+    return Array.from(this.appointments.values())
+      .filter((appointment) => {
+        const matchesPhone = normalizedPhone
+          ? normalizePhoneNumber(appointment.customerPhone) === normalizedPhone
+          : false;
+        const matchesEmail = normalizedEmail
+          ? String(appointment.customerEmail ?? "").trim().toLowerCase() === normalizedEmail
+          : false;
+
+        return matchesPhone || matchesEmail;
+      })
+      .sort((left, right) => new Date(right.createdAt ?? 0).getTime() - new Date(left.createdAt ?? 0).getTime());
   }
 
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
@@ -270,6 +294,29 @@ export class DatabaseStorage implements IStorage {
 
   async getAllAppointments(): Promise<Appointment[]> {
     return this.fetchAppointments(`${appointmentSelect} ORDER BY created_at DESC`);
+  }
+
+  async findAppointmentsByContact(contactPhone?: string, contactEmail?: string): Promise<Appointment[]> {
+    const normalizedPhone = normalizePhoneNumber(contactPhone);
+    const normalizedEmail = String(contactEmail ?? "").trim().toLowerCase();
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (normalizedPhone) {
+      params.push(normalizedPhone);
+      conditions.push(`RIGHT(regexp_replace(customer_phone, '\\D', '', 'g'), 10) = $${params.length}`);
+    }
+
+    if (normalizedEmail) {
+      params.push(normalizedEmail);
+      conditions.push(`LOWER(customer_email) = $${params.length}`);
+    }
+
+    if (!conditions.length) {
+      return [];
+    }
+
+    return this.fetchAppointments(`${appointmentSelect} WHERE ${conditions.join(" OR ")} ORDER BY created_at DESC`, params);
   }
 
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
