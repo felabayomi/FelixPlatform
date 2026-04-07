@@ -3,8 +3,12 @@ import type { Appointment } from '@shared/schema';
 
 const RESEND_API_KEY = process.env.AFLAUNDRY_RESEND_API_KEY || process.env.RESEND_API_KEY;
 const SENDER_EMAIL = process.env.AFLAUNDRY_RESEND_FROM_EMAIL || process.env.SENDER_EMAIL || 'onboarding@resend.dev';
+const NOTIFICATION_EMAIL = process.env.AFLAUNDRY_NOTIFICATION_EMAIL || 'aflaundryservice@gmail.com';
 const SENDER_NAME = 'A&F Laundry Service';
 const LOGO_URL = 'https://res.cloudinary.com/do26xsbby/image/upload/v1759950496/348s_byajhr.png';
+const FROM_EMAIL = /<[^<>]+>/.test(SENDER_EMAIL)
+  ? SENDER_EMAIL
+  : `${SENDER_NAME} <${SENDER_EMAIL}>`;
 const BASE_URL = process.env.AFLAUNDRY_APP_BASE_URL || process.env.APP_BASE_URL || (process.env.REPLIT_DEV_DOMAIN
   ? `https://${process.env.REPLIT_DEV_DOMAIN}`
   : `http://localhost:${process.env.PORT || '5000'}`);
@@ -24,6 +28,35 @@ const resend = RESEND_API_KEY
 
 if (!RESEND_API_KEY) {
   console.warn('[Email] AFLAUNDRY_RESEND_API_KEY is not configured. Reminder emails are disabled.');
+}
+
+async function sendTemplatedEmail({
+  to,
+  subject,
+  html,
+}: {
+  to: string | string[];
+  subject: string;
+  html: string;
+}) {
+  const recipients = (Array.isArray(to) ? to : [to])
+    .map((recipient) => String(recipient || '').trim())
+    .filter(Boolean);
+
+  if (!recipients.length) {
+    return {
+      data: null,
+      error: { message: 'No email recipients were provided.' },
+    };
+  }
+
+  return resend.emails.send({
+    from: FROM_EMAIL,
+    to: recipients,
+    replyTo: NOTIFICATION_EMAIL,
+    subject,
+    html,
+  });
 }
 
 function createEmailTemplate(content: string): string {
@@ -191,8 +224,7 @@ export async function sendDropoffReminder(appointment: Appointment, rescheduleTo
     ${createRescheduleButton(rescheduleUrl)}
     `;
 
-    const { data, error } = await resend.emails.send({
-      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+    const { data, error } = await sendTemplatedEmail({
       to: [appointment.customerEmail],
       subject: `Reminder: Drop-off Tomorrow at ${appointment.dropoffTime}`,
       html: createEmailTemplate(emailContent),
@@ -259,8 +291,7 @@ export async function sendPickupReminder(appointment: Appointment, rescheduleTok
     ${createRescheduleButton(rescheduleUrl)}
     `;
 
-    const { data, error } = await resend.emails.send({
-      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+    const { data, error } = await sendTemplatedEmail({
       to: [appointment.customerEmail],
       subject: `Reminder: Pickup Tomorrow at ${appointment.pickupTime}`,
       html: createEmailTemplate(emailContent),
@@ -314,8 +345,7 @@ export async function sendSameDayReminder(appointment: Appointment, type: 'dropo
     ${createRescheduleButton(rescheduleUrl)}
     `;
 
-    const { data, error } = await resend.emails.send({
-      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+    const { data, error } = await sendTemplatedEmail({
       to: [appointment.customerEmail],
       subject: `Today: ${isDropoff ? 'Drop-off' : 'Pickup'} at ${time}`,
       html: createEmailTemplate(emailContent),
@@ -381,8 +411,7 @@ export async function sendLaundryReadyNotification(appointment: Appointment) {
     </div>
     `;
 
-    const { data, error } = await resend.emails.send({
-      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+    const { data, error } = await sendTemplatedEmail({
       to: [appointment.customerEmail],
       subject: 'Your Laundry is Ready for Pickup! 🎉',
       html: createEmailTemplate(emailContent),
@@ -445,8 +474,7 @@ export async function sendThankYouEmail(appointment: Appointment) {
     </div>
     `;
 
-    const { data, error } = await resend.emails.send({
-      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+    const { data, error } = await sendTemplatedEmail({
       to: [appointment.customerEmail],
       subject: 'Thank You for Choosing A&F Laundry Service!',
       html: createEmailTemplate(emailContent),

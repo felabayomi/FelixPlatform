@@ -6,6 +6,9 @@ const SENDER_EMAIL = process.env.AFLAUNDRY_RESEND_FROM_EMAIL || process.env.SEND
 const NOTIFICATION_EMAIL = process.env.AFLAUNDRY_NOTIFICATION_EMAIL || 'aflaundryservice@gmail.com';
 const SENDER_NAME = 'A&F Laundry Service';
 const LOGO_URL = 'https://res.cloudinary.com/do26xsbby/image/upload/v1759950496/348s_byajhr.png';
+const FROM_EMAIL = /<[^<>]+>/.test(SENDER_EMAIL)
+  ? SENDER_EMAIL
+  : `${SENDER_NAME} <${SENDER_EMAIL}>`;
 
 const resend = RESEND_API_KEY
   ? new Resend(RESEND_API_KEY)
@@ -22,6 +25,40 @@ const resend = RESEND_API_KEY
 
 if (!RESEND_API_KEY) {
   console.warn('[Email] AFLAUNDRY_RESEND_API_KEY is not configured. Email notifications are disabled.');
+}
+
+async function sendTemplatedEmail({
+  to,
+  subject,
+  html,
+}: {
+  to: string | string[];
+  subject: string;
+  html: string;
+}) {
+  const recipients = (Array.isArray(to) ? to : [to])
+    .map((recipient) => String(recipient || '').trim())
+    .filter(Boolean);
+
+  if (!recipients.length) {
+    return { success: false, error: { message: 'No email recipients were provided.' } };
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: recipients,
+    replyTo: NOTIFICATION_EMAIL,
+    subject,
+    html,
+  });
+
+  if (error) {
+    console.error('Failed to send email:', error);
+    return { success: false, error };
+  }
+
+  console.log('Email sent successfully:', data);
+  return { success: true, data };
 }
 
 function createEmailTemplate(content: string): string {
@@ -182,25 +219,46 @@ export async function sendBookingNotification(appointment: Appointment) {
     ${specialInstructions}
     `;
 
-    const recipients = ['aflaundryservice@gmail.com'];
-    if (appointment.customerEmail) {
-      recipients.push(appointment.customerEmail);
-    }
+    const customerConfirmationContent = `
+    <h1>Your Booking is Confirmed!</h1>
+    <div class="reference">
+      Reference Number: ${appointment.id.substring(0, 8).toUpperCase()}
+    </div>
 
-    const { data, error } = await resend.emails.send({
-      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
-      to: recipients,
+    <div class="section">
+      <div class="info-row">Thank you for booking with A & F Laundry Service.</div>
+      <div class="info-row">We have received your appointment and will be ready for you on <strong>${appointment.dropoffDate}</strong> at <strong>${appointment.dropoffTime}</strong>.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Booking Details</div>
+      <div class="info-row"><span class="label">Drop-off:</span> ${appointment.dropoffDate} at ${appointment.dropoffTime}</div>
+      ${pickupInfo}
+      <div class="info-row"><span class="label">Soap Type:</span> ${appointment.soapType}</div>
+      ${heavyItemsInfo}
+    </div>
+    ${specialInstructions}
+    `;
+
+    const adminEmailResult = await sendTemplatedEmail({
+      to: NOTIFICATION_EMAIL,
       subject: `New Booking: ${appointment.customerName} - ${appointment.dropoffDate}`,
       html: createEmailTemplate(emailContent),
     });
 
-    if (error) {
-      console.error('Failed to send email:', error);
-      return { success: false, error };
-    }
+    const customerEmailResult = appointment.customerEmail
+      ? await sendTemplatedEmail({
+        to: appointment.customerEmail,
+        subject: `Booking Confirmed: ${appointment.dropoffDate} at ${appointment.dropoffTime}`,
+        html: createEmailTemplate(customerConfirmationContent),
+      })
+      : { success: true, skipped: true };
 
-    console.log('Email sent successfully:', data);
-    return { success: true, data };
+    return {
+      success: Boolean(adminEmailResult.success && customerEmailResult.success),
+      adminEmailResult,
+      customerEmailResult,
+    };
   } catch (error) {
     console.error('Error sending email:', error);
     return { success: false, error };
@@ -283,25 +341,25 @@ export async function sendPickupScheduledNotification(appointment: Appointment) 
     ${specialInstructions}
     `;
 
-    const recipients = ['aflaundryservice@gmail.com'];
-    if (appointment.customerEmail) {
-      recipients.push(appointment.customerEmail);
-    }
-
-    const { data, error } = await resend.emails.send({
-      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
-      to: recipients,
+    const adminEmailResult = await sendTemplatedEmail({
+      to: NOTIFICATION_EMAIL,
       subject: `Pickup Scheduled: ${appointment.customerName} - ${appointment.pickupDate}`,
       html: createEmailTemplate(emailContent),
     });
 
-    if (error) {
-      console.error('Failed to send pickup scheduled email:', error);
-      return { success: false, error };
-    }
+    const customerEmailResult = appointment.customerEmail
+      ? await sendTemplatedEmail({
+        to: appointment.customerEmail,
+        subject: `Pickup Scheduled: ${appointment.pickupDate} at ${appointment.pickupTime}`,
+        html: createEmailTemplate(emailContent),
+      })
+      : { success: true, skipped: true };
 
-    console.log('Pickup scheduled email sent successfully:', data);
-    return { success: true, data };
+    return {
+      success: Boolean(adminEmailResult.success && customerEmailResult.success),
+      adminEmailResult,
+      customerEmailResult,
+    };
   } catch (error) {
     console.error('Error sending pickup scheduled email:', error);
     return { success: false, error };
