@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { prepareStorage } from "./storage";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduler } from "./scheduler";
 
@@ -42,6 +43,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await prepareStorage();
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

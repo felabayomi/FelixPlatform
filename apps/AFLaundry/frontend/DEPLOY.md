@@ -16,11 +16,14 @@ Set these in the Render dashboard:
 
 ```env
 NODE_ENV=production
+DATABASE_URL=
 AFLAUNDRY_APP_BASE_URL=https://aflaundry.com
 AFLAUNDRY_RESEND_API_KEY=
-AFLAUNDRY_RESEND_FROM_EMAIL="A & F Laundry <bookings@aflaundry.com>"
+AFLAUNDRY_RESEND_FROM_EMAIL="A & F Laundry <hello@aflaundry.com>"
 AFLAUNDRY_NOTIFICATION_EMAIL=aflaundryservice@gmail.com
 ```
+
+> Add these in the **Render service for `apps/AFLaundry/frontend`**. The values in `backend/.env` do not automatically carry over to this separate web app.
 
 ## Custom domain
 Attach these in Render after the service is live:
@@ -29,7 +32,12 @@ Attach these in Render after the service is live:
 
 Then update your DNS records to point the domain to Render.
 
-## Important note
-The current scheduler stores appointments in `server/storage.ts` using in-memory storage. That means appointments will reset on redeploy or restart.
+## Database
+This app now supports persistent Neon/Postgres storage through `DATABASE_URL`.
 
-For live customer bookings, the next hardening step is to move appointment storage to Postgres before taking production traffic.
+- In **production**, `DATABASE_URL` is required.
+- On startup, the app will automatically create the `appointments` table if it does not exist yet.
+- If you want to pre-create it manually in Neon, use `database/aflaundry_appointments.sql` from the repo root.
+- For local development without a database, it can still fall back to in-memory storage.
+
+That means real customer bookings can now persist properly once the Render service has the Neon connection string.
