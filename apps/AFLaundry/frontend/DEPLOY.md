@@ -11,7 +11,7 @@
 - **Start Command:** `npm run start`
 - **Health Check Path:** `/health`
 
-> If Render shows `sh: 1: vite: not found`, it usually means `NODE_ENV=production` caused devDependencies to be skipped during install. The build command above fixes that.
+> If Render shows `sh: 1: vite: not found`, it means the service is skipping build-time packages. Keep `NPM_CONFIG_PRODUCTION=false`, and if the service was created manually, update the Render dashboard settings directly before redeploying.
 
 ## Production environment variables
 Set these in the Render dashboard:

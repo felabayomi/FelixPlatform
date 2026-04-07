@@ -7,6 +7,8 @@ services:
     startCommand: npm run start
     healthCheckPath: /health
     envVars:
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
       - key: AFLAUNDRY_APP_BASE_URL
         value: https://aflaundry.com
       - key: AFLAUNDRY_RESEND_API_KEY
