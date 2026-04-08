@@ -2,7 +2,7 @@
   "expo": {
     "name": "A & F Laundry",
     "slug": "af-laundry",
-    "version": "2.0.0",
+    "version": "2.0.2",
     "orientation": "portrait",
     "scheme": "aflaundry",
     "userInterfaceStyle": "automatic",
@@ -11,7 +11,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.afwebtech.aflaundry",
-      "buildNumber": "2.0.0",
+      "buildNumber": "2.0.2",
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.afwebtech.aflaundry",
-      "versionCode": 20000
+      "versionCode": 20002
     },
     "web": {
       "output": "static"
