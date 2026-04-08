@@ -24,8 +24,25 @@ const toPositiveNumberOrDefault = (value, fallback = 1) => {
 };
 
 exports.getOrders = async (req, res) => {
+    const appName = toNullableText(req.query.app_name);
+    const storefrontKey = toNullableText(req.query.storefront_key);
+    const filters = [];
+    const values = [];
+
+    if (appName) {
+        values.push(appName);
+        filters.push(`COALESCE(app_name, 'Felix Store') = $${values.length}`);
+    }
+
+    if (storefrontKey) {
+        values.push(storefrontKey);
+        filters.push(`COALESCE(storefront_key, '') = $${values.length}`);
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
     try {
-        const ordersResult = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
+        const ordersResult = await pool.query(`SELECT * FROM orders ${whereClause} ORDER BY created_at DESC`, values);
         const itemsResult = await pool.query('SELECT * FROM order_items ORDER BY id ASC');
 
         const orders = ordersResult.rows.map((order) => ({

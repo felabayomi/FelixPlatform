@@ -36,6 +36,58 @@ const normalizeMinOrderWeight = (value) => {
     return Number.isNaN(normalized) ? NaN : normalized;
 };
 
+const normalizeInteger = (value) => {
+    if (value === '' || value === null || value === undefined) {
+        return null;
+    }
+
+    const normalized = Number(String(value).replace(/[^0-9-]/g, ''));
+    return Number.isNaN(normalized) ? NaN : Math.trunc(normalized);
+};
+
+const normalizeBoolean = (value, fallback = false) => {
+    if (value === undefined || value === null || value === '') {
+        return fallback;
+    }
+
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    const normalized = String(value).trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(normalized)) {
+        return true;
+    }
+
+    if (['false', '0', 'no', 'off'].includes(normalized)) {
+        return false;
+    }
+
+    return fallback;
+};
+
+const normalizeImageList = (value, imageUrl = null) => {
+    const values = [];
+
+    if (Array.isArray(value)) {
+        values.push(...value);
+    } else if (typeof value === 'string' && value.trim()) {
+        values.push(...value.split(/[\r\n,]+/));
+    }
+
+    if (imageUrl) {
+        values.unshift(imageUrl);
+    }
+
+    return [...new Set(values.map((item) => String(item || '').trim()).filter(Boolean))];
+};
+
+const generateSlug = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || null;
+
 const normalizeCategoryIds = (categoryIds, fallbackCategoryId = null) => {
     const values = [];
 
@@ -116,9 +168,26 @@ const sendProductsResponse = (res, products, source) => {
     return res.json(products);
 };
 
-exports.getProducts = async (_req, res) => {
+exports.getProducts = async (req, res) => {
     try {
         await ensureProductCategoriesTable();
+
+        const appName = normalizeOptionalText(req.query?.app_name);
+        const storefrontKey = normalizeOptionalText(req.query?.storefront_key);
+        const filters = [];
+        const values = [];
+
+        if (appName) {
+            values.push(appName);
+            filters.push(`COALESCE(p.app_name, 'Felix Store') = $${values.length}`);
+        }
+
+        if (storefrontKey) {
+            values.push(storefrontKey);
+            filters.push(`COALESCE(p.storefront_key, 'felix-store') = $${values.length}`);
+        }
+
+        const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
         const result = await pool.query(`
             SELECT
@@ -154,8 +223,9 @@ exports.getProducts = async (_req, res) => {
                 ) AS mapping
                 GROUP BY mapping.product_id
             ) AS category_map ON category_map.product_id = p.id
+            ${whereClause}
             ORDER BY p.created_at DESC, p.name ASC
-        `);
+        `, values);
 
         const products = updateProductsCache(result.rows);
         return sendProductsResponse(res, products, 'database');
@@ -180,7 +250,11 @@ exports.addProduct = async (req, res) => {
     const {
         name,
         description,
+        short_description,
+        long_description,
+        slug,
         price,
+        compare_at_price,
         category_id,
         category_ids,
         type,
@@ -190,15 +264,31 @@ exports.addProduct = async (req, res) => {
         subscription_interval,
         action_label,
         image_url,
-        download_url
+        images,
+        download_url,
+        featured,
+        active,
+        inventory_count,
+        stock,
+        app_name,
+        storefront_key,
     } = req.body;
 
     const normalizedPrice = normalizePrice(price);
+    const normalizedCompareAtPrice = normalizePrice(compare_at_price);
     const normalizedMinOrderWeight = normalizeMinOrderWeight(min_order_weight);
+    const normalizedInventoryCount = normalizeInteger(inventory_count ?? stock);
     const resolvedCategoryIds = normalizeCategoryIds(category_ids, category_id);
     const primaryCategoryId = resolvedCategoryIds[0] || null;
+    const normalizedDescription = normalizeOptionalText(description);
+    const normalizedShortDescription = normalizeOptionalText(short_description) || normalizedDescription;
+    const normalizedLongDescription = normalizeOptionalText(long_description) || normalizedDescription || normalizedShortDescription;
+    const normalizedImageUrl = normalizeOptionalText(image_url);
+    const normalizedImages = normalizeImageList(images, normalizedImageUrl);
+    const productName = String(name || '').trim();
+    const normalizedSlug = normalizeOptionalText(slug) || generateSlug(productName);
 
-    if (!name || !name.trim()) {
+    if (!productName) {
         return res.status(400).send('Product name is required');
     }
 
@@ -210,6 +300,10 @@ exports.addProduct = async (req, res) => {
         return res.status(400).send('Invalid price');
     }
 
+    if (compare_at_price !== '' && compare_at_price !== null && compare_at_price !== undefined && Number.isNaN(normalizedCompareAtPrice)) {
+        return res.status(400).send('Invalid compare-at price');
+    }
+
     if (
         min_order_weight !== '' &&
         min_order_weight !== null &&
@@ -217,6 +311,15 @@ exports.addProduct = async (req, res) => {
         Number.isNaN(normalizedMinOrderWeight)
     ) {
         return res.status(400).send('Invalid minimum order weight');
+    }
+
+    if (
+        inventory_count !== '' &&
+        inventory_count !== null &&
+        inventory_count !== undefined &&
+        Number.isNaN(normalizedInventoryCount)
+    ) {
+        return res.status(400).send('Invalid inventory count');
     }
 
     const client = await pool.connect();
@@ -229,7 +332,11 @@ exports.addProduct = async (req, res) => {
             `INSERT INTO products (
                 name,
                 description,
+                short_description,
+                long_description,
+                slug,
                 price,
+                compare_at_price,
                 category_id,
                 type,
                 price_type,
@@ -238,14 +345,25 @@ exports.addProduct = async (req, res) => {
                 subscription_interval,
                 action_label,
                 image_url,
-                download_url
+                images,
+                download_url,
+                featured,
+                active,
+                inventory_count,
+                stock,
+                app_name,
+                storefront_key
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18,$19,$20,$21,$22,$23)
             RETURNING *`,
             [
-                name.trim(),
-                normalizeOptionalText(description),
+                productName,
+                normalizedDescription || normalizedShortDescription || normalizedLongDescription,
+                normalizedShortDescription,
+                normalizedLongDescription,
+                normalizedSlug,
                 normalizedPrice,
+                normalizedCompareAtPrice,
                 primaryCategoryId,
                 normalizeOptionalText(type) || 'service',
                 normalizeOptionalText(price_type) || 'fixed',
@@ -253,8 +371,15 @@ exports.addProduct = async (req, res) => {
                 normalizedMinOrderWeight,
                 normalizeOptionalText(subscription_interval),
                 normalizeOptionalText(action_label),
-                normalizeOptionalText(image_url),
-                normalizeOptionalText(download_url)
+                normalizedImageUrl,
+                JSON.stringify(normalizedImages),
+                normalizeOptionalText(download_url),
+                normalizeBoolean(featured, false),
+                normalizeBoolean(active, true),
+                normalizedInventoryCount,
+                normalizedInventoryCount,
+                normalizeOptionalText(app_name),
+                normalizeOptionalText(storefront_key)
             ]
         );
 
@@ -282,7 +407,11 @@ exports.updateProduct = async (req, res) => {
     const {
         name,
         description,
+        short_description,
+        long_description,
+        slug,
         price,
+        compare_at_price,
         category_id,
         category_ids,
         type,
@@ -292,15 +421,31 @@ exports.updateProduct = async (req, res) => {
         subscription_interval,
         action_label,
         image_url,
-        download_url
+        images,
+        download_url,
+        featured,
+        active,
+        inventory_count,
+        stock,
+        app_name,
+        storefront_key,
     } = req.body;
 
     const normalizedPrice = normalizePrice(price);
+    const normalizedCompareAtPrice = normalizePrice(compare_at_price);
     const normalizedMinOrderWeight = normalizeMinOrderWeight(min_order_weight);
+    const normalizedInventoryCount = normalizeInteger(inventory_count ?? stock);
     const resolvedCategoryIds = normalizeCategoryIds(category_ids, category_id);
     const primaryCategoryId = resolvedCategoryIds[0] || null;
+    const normalizedDescription = normalizeOptionalText(description);
+    const normalizedShortDescription = normalizeOptionalText(short_description) || normalizedDescription;
+    const normalizedLongDescription = normalizeOptionalText(long_description) || normalizedDescription || normalizedShortDescription;
+    const normalizedImageUrl = normalizeOptionalText(image_url);
+    const normalizedImages = normalizeImageList(images, normalizedImageUrl);
+    const productName = String(name || '').trim();
+    const normalizedSlug = normalizeOptionalText(slug) || generateSlug(productName);
 
-    if (!name || !name.trim()) {
+    if (!productName) {
         return res.status(400).send('Product name is required');
     }
 
@@ -312,6 +457,10 @@ exports.updateProduct = async (req, res) => {
         return res.status(400).send('Invalid price');
     }
 
+    if (compare_at_price !== '' && compare_at_price !== null && compare_at_price !== undefined && Number.isNaN(normalizedCompareAtPrice)) {
+        return res.status(400).send('Invalid compare-at price');
+    }
+
     if (
         min_order_weight !== '' &&
         min_order_weight !== null &&
@@ -319,6 +468,15 @@ exports.updateProduct = async (req, res) => {
         Number.isNaN(normalizedMinOrderWeight)
     ) {
         return res.status(400).send('Invalid minimum order weight');
+    }
+
+    if (
+        inventory_count !== '' &&
+        inventory_count !== null &&
+        inventory_count !== undefined &&
+        Number.isNaN(normalizedInventoryCount)
+    ) {
+        return res.status(400).send('Invalid inventory count');
     }
 
     const client = await pool.connect();
@@ -331,22 +489,37 @@ exports.updateProduct = async (req, res) => {
             `UPDATE products
              SET name=$1,
                  description=$2,
-                 price=$3,
-                 category_id=$4,
-                 type=$5,
-                 price_type=$6,
-                 unit=$7,
-                 min_order_weight=$8,
-                 subscription_interval=$9,
-                 action_label=$10,
-                 image_url=$11,
-                 download_url=$12
-             WHERE id=$13
+                 short_description=$3,
+                 long_description=$4,
+                 slug=$5,
+                 price=$6,
+                 compare_at_price=$7,
+                 category_id=$8,
+                 type=$9,
+                 price_type=$10,
+                 unit=$11,
+                 min_order_weight=$12,
+                 subscription_interval=$13,
+                 action_label=$14,
+                 image_url=$15,
+                 images=$16::jsonb,
+                 download_url=$17,
+                 featured=$18,
+                 active=$19,
+                 inventory_count=$20,
+                 stock=$21,
+                 app_name=$22,
+                 storefront_key=$23
+             WHERE id=$24
              RETURNING *`,
             [
-                name.trim(),
-                normalizeOptionalText(description),
+                productName,
+                normalizedDescription || normalizedShortDescription || normalizedLongDescription,
+                normalizedShortDescription,
+                normalizedLongDescription,
+                normalizedSlug,
                 normalizedPrice,
+                normalizedCompareAtPrice,
                 primaryCategoryId,
                 normalizeOptionalText(type) || 'service',
                 normalizeOptionalText(price_type) || 'fixed',
@@ -354,8 +527,15 @@ exports.updateProduct = async (req, res) => {
                 normalizedMinOrderWeight,
                 normalizeOptionalText(subscription_interval),
                 normalizeOptionalText(action_label),
-                normalizeOptionalText(image_url),
+                normalizedImageUrl,
+                JSON.stringify(normalizedImages),
                 normalizeOptionalText(download_url),
+                normalizeBoolean(featured, false),
+                normalizeBoolean(active, true),
+                normalizedInventoryCount,
+                normalizedInventoryCount,
+                normalizeOptionalText(app_name),
+                normalizeOptionalText(storefront_key),
                 id
             ]
         );

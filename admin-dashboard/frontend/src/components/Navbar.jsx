@@ -2,6 +2,7 @@ import { useLocation } from 'react-router-dom';
 
 const pageTitles = {
     '/dashboard': 'Overview',
+    '/adrian-store': 'Adrian Store',
     '/products': 'Products',
     '/quote-requests': 'Quote Requests',
     '/orders': 'Orders',

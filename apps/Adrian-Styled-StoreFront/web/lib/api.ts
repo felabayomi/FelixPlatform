@@ -1,0 +1,227 @@
+import axios from "axios";
+import type { Product } from "@/types/product";
+
+export type StorefrontContentService = {
+    id: string;
+    title: string;
+    text: string;
+};
+
+export type StorefrontContent = {
+    heroEyebrow: string;
+    heroTitle: string;
+    heroText: string;
+    heroPrimaryLabel: string;
+    heroPrimaryLink: string;
+    heroSecondaryLabel: string;
+    heroSecondaryLink: string;
+    heroImageOne: string;
+    heroImageTwo: string;
+    featuredEyebrow: string;
+    featuredTitle: string;
+    featuredText: string;
+    servicesEyebrow: string;
+    servicesTitle: string;
+    servicesText: string;
+    services: StorefrontContentService[];
+    successEyebrow: string;
+    successTitle: string;
+    successText: string;
+    footerTitle: string;
+    footerText: string;
+    footerSubtext: string;
+    supportEmail: string;
+};
+
+export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
+    heroEyebrow: "Adrian Store",
+    heroTitle: "Elegant kaftans for effortless statement style.",
+    heroText: "Discover bold, flowing silhouettes curated by Adrian — perfect for dinners, travel, special occasions, and everyday confidence.",
+    heroPrimaryLabel: "Shop the collection",
+    heroPrimaryLink: "/shop",
+    heroSecondaryLabel: "Explore services",
+    heroSecondaryLink: "/services",
+    heroImageOne: "/products/chic-green-kaftan.svg",
+    heroImageTwo: "/products/wild-elegance-leopard-kaftan.svg",
+    featuredEyebrow: "Featured pieces",
+    featuredTitle: "Fresh arrivals from Adrian Store",
+    featuredText: "Curated looks designed for comfort, movement, and standout style.",
+    servicesEyebrow: "Services",
+    servicesTitle: "Boutique styling support",
+    servicesText: "Adrian’s Styled Collection is more than a storefront — it is a curated fashion experience centered on effortless elegance.",
+    services: [
+        {
+            id: "style-curation",
+            title: "Style Curation",
+            text: "Get help selecting standout pieces and coordinated looks that match your event, mood, or travel plans.",
+        },
+        {
+            id: "wardrobe-refresh",
+            title: "Wardrobe Refresh",
+            text: "Build a fresh capsule of bold, confidence-first outfits with Adrian’s boutique eye and flowing silhouettes.",
+        },
+        {
+            id: "special-occasion-styling",
+            title: "Special Occasion Styling",
+            text: "Choose elegant kaftans and elevated statement looks for celebrations, dinners, gatherings, and getaways.",
+        },
+    ],
+    successEyebrow: "Thank you",
+    successTitle: "Your Adrian order is on its way",
+    successText: "Your checkout has been submitted successfully. We will send updates to the email address you used at checkout.",
+    footerTitle: "Adrian's Styled Collection",
+    footerText: "Curated statement pieces, flowing silhouettes, and confidence-first style.",
+    footerSubtext: "Powered by Felix Platform's shared storefront, checkout, and support tools.",
+    supportEmail: "order@shopwithadrian.com",
+};
+
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000").replace(/\/$/, "");
+const STOREFRONT_PARAMS = {
+    app_name: "Adrian Store",
+    storefront_key: "adrian-store",
+};
+
+const API = axios.create({
+    baseURL: API_BASE_URL,
+    timeout: 15000,
+});
+
+const toText = (value: unknown, fallback = "") => {
+    if (value === undefined || value === null) {
+        return fallback;
+    }
+
+    const normalized = String(value).trim();
+    return normalized || fallback;
+};
+
+const normalizeStorefrontContent = (value: unknown): StorefrontContent => {
+    const incoming = typeof value === "object" && value !== null
+        ? (value as Partial<StorefrontContent>)
+        : {};
+
+    const incomingServices = Array.isArray(incoming.services) && incoming.services.length
+        ? incoming.services
+        : DEFAULT_STOREFRONT_CONTENT.services;
+
+    return {
+        heroEyebrow: toText(incoming.heroEyebrow, DEFAULT_STOREFRONT_CONTENT.heroEyebrow),
+        heroTitle: toText(incoming.heroTitle, DEFAULT_STOREFRONT_CONTENT.heroTitle),
+        heroText: toText(incoming.heroText, DEFAULT_STOREFRONT_CONTENT.heroText),
+        heroPrimaryLabel: toText(incoming.heroPrimaryLabel, DEFAULT_STOREFRONT_CONTENT.heroPrimaryLabel),
+        heroPrimaryLink: toText(incoming.heroPrimaryLink, DEFAULT_STOREFRONT_CONTENT.heroPrimaryLink),
+        heroSecondaryLabel: toText(incoming.heroSecondaryLabel, DEFAULT_STOREFRONT_CONTENT.heroSecondaryLabel),
+        heroSecondaryLink: toText(incoming.heroSecondaryLink, DEFAULT_STOREFRONT_CONTENT.heroSecondaryLink),
+        heroImageOne: toText(incoming.heroImageOne, DEFAULT_STOREFRONT_CONTENT.heroImageOne),
+        heroImageTwo: toText(incoming.heroImageTwo, DEFAULT_STOREFRONT_CONTENT.heroImageTwo),
+        featuredEyebrow: toText(incoming.featuredEyebrow, DEFAULT_STOREFRONT_CONTENT.featuredEyebrow),
+        featuredTitle: toText(incoming.featuredTitle, DEFAULT_STOREFRONT_CONTENT.featuredTitle),
+        featuredText: toText(incoming.featuredText, DEFAULT_STOREFRONT_CONTENT.featuredText),
+        servicesEyebrow: toText(incoming.servicesEyebrow, DEFAULT_STOREFRONT_CONTENT.servicesEyebrow),
+        servicesTitle: toText(incoming.servicesTitle, DEFAULT_STOREFRONT_CONTENT.servicesTitle),
+        servicesText: toText(incoming.servicesText, DEFAULT_STOREFRONT_CONTENT.servicesText),
+        services: DEFAULT_STOREFRONT_CONTENT.services.map((service, index) => {
+            const incomingService = incomingServices[index] || service;
+
+            return {
+                id: toText(incomingService?.id, service.id),
+                title: toText(incomingService?.title, service.title),
+                text: toText(incomingService?.text, service.text),
+            };
+        }),
+        successEyebrow: toText(incoming.successEyebrow, DEFAULT_STOREFRONT_CONTENT.successEyebrow),
+        successTitle: toText(incoming.successTitle, DEFAULT_STOREFRONT_CONTENT.successTitle),
+        successText: toText(incoming.successText, DEFAULT_STOREFRONT_CONTENT.successText),
+        footerTitle: toText(incoming.footerTitle, DEFAULT_STOREFRONT_CONTENT.footerTitle),
+        footerText: toText(incoming.footerText, DEFAULT_STOREFRONT_CONTENT.footerText),
+        footerSubtext: toText(incoming.footerSubtext, DEFAULT_STOREFRONT_CONTENT.footerSubtext),
+        supportEmail: toText(incoming.supportEmail, DEFAULT_STOREFRONT_CONTENT.supportEmail),
+    };
+};
+
+export const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+    }).format(value || 0);
+
+export async function getProducts(featured = false): Promise<Product[]> {
+    try {
+        const res = await API.get("/api/storefront/products", {
+            params: {
+                ...STOREFRONT_PARAMS,
+                featured,
+            },
+        });
+
+        return Array.isArray(res.data) ? res.data : [];
+    } catch (error) {
+        console.error("Unable to fetch Adrian storefront products", error);
+        return [];
+    }
+}
+
+export async function getProduct(slug: string): Promise<Product | null> {
+    try {
+        const res = await API.get(`/api/storefront/products/${slug}`, {
+            params: STOREFRONT_PARAMS,
+        });
+
+        return res.data ?? null;
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+            return null;
+        }
+
+        console.error("Unable to fetch Adrian storefront product", error);
+        return null;
+    }
+}
+
+export async function getStorefrontContent(): Promise<StorefrontContent> {
+    try {
+        const res = await API.get("/api/storefront/content", {
+            params: STOREFRONT_PARAMS,
+        });
+
+        return normalizeStorefrontContent(res.data?.content || res.data);
+    } catch (error) {
+        console.error("Unable to fetch Adrian storefront content", error);
+        return DEFAULT_STOREFRONT_CONTENT;
+    }
+}
+
+type CheckoutCartItem = {
+    productId: string;
+    title: string;
+    price: number;
+    image: string;
+    quantity: number;
+    slug?: string | null;
+};
+
+type CheckoutCustomer = {
+    name?: string;
+    email?: string;
+    phone?: string;
+};
+
+export async function createCheckout(
+    cart: CheckoutCartItem[],
+    customer?: CheckoutCustomer,
+) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+
+    const res = await API.post("/api/storefront/create-checkout-session", {
+        cart,
+        app_name: "Adrian Store",
+        storefront_key: "adrian-store",
+        customer_name: customer?.name,
+        customer_email: customer?.email,
+        customer_phone: customer?.phone,
+        success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/cart?checkout=cancelled`,
+    });
+
+    return res.data as { orderId: string; sessionId: string; url: string };
+}

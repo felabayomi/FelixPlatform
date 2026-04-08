@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 760" role="img" aria-labelledby="title desc">
+  <title id="title">Wild Elegance Leopard Print Kaftan</title>
+  <desc id="desc">Illustrated boutique card for Adrian's Styled Collection sample product.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#fafaf9" />
+      <stop offset="100%" stop-color="#fef3c7" />
+    </linearGradient>
+    <pattern id="spots" width="70" height="70" patternUnits="userSpaceOnUse">
+      <rect width="70" height="70" fill="#f3e8d1" />
+      <ellipse cx="20" cy="18" rx="10" ry="8" fill="#6b4f3a" opacity="0.8" />
+      <ellipse cx="48" cy="36" rx="12" ry="10" fill="#7c5c3f" opacity="0.78" />
+      <ellipse cx="28" cy="56" rx="9" ry="7" fill="#5b4633" opacity="0.72" />
+    </pattern>
+  </defs>
+  <rect width="600" height="760" fill="url(#bg)" />
+  <rect x="60" y="90" width="480" height="580" rx="34" fill="#fffaf0" opacity="0.96" />
+  <path d="M198 170h204l-42 76v220c0 55-45 100-100 100h-20c-55 0-100-45-100-100V246z" fill="url(#spots)" stroke="#c9a227" stroke-width="5" />
+  <circle cx="230" cy="188" r="15" fill="#a16207" />
+  <circle cx="370" cy="188" r="15" fill="#a16207" />
+  <text x="300" y="615" text-anchor="middle" font-size="28" font-family="Arial, Helvetica, sans-serif" fill="#78350f" font-weight="700">
+    Wild Elegance
+  </text>
+  <text x="300" y="648" text-anchor="middle" font-size="20" font-family="Arial, Helvetica, sans-serif" fill="#1f2937">
+    Leopard Print Kaftan
+  </text>
+</svg>
