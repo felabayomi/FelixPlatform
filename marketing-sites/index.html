@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Felix Platforms</title>
     <meta name="description"
-        content="Felix Platforms connects customers to Felix Store, A & F Laundry, and admin operations through one modern service ecosystem." />
+        content="Felix Platforms brings together Document Formatter, Felix Store web and mobile experiences, A & F Laundry web and iOS access, and shared platform operations in one ecosystem." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#0f172a" />
@@ -114,14 +114,30 @@
             min-height: 72px;
         }
 
-        .card a {
-            display: inline-block;
+        .card a,
+        .coming-soon {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
             margin-top: 10px;
             padding: 11px 16px;
-            background: #2563eb;
-            color: white;
             border-radius: 8px;
             font-weight: 700;
+        }
+
+        .card a {
+            background: #2563eb;
+            color: white;
+        }
+
+        .coming-soon {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
+        .apple-icon {
+            font-size: 16px;
+            line-height: 1;
         }
 
         .card small {
@@ -172,39 +188,76 @@
     <header>
         <span class="eyebrow">FELIX PLATFORMS</span>
         <h1>Digital tools, services, and logistics solutions</h1>
-        <p>Discover the Felix Platforms ecosystem — from product and service requests in <strong>Felix Store</strong>,
-            to pickup and delivery operations in <strong>A & F Laundry</strong>, to the admin tools that power the
-            business.</p>
+        <p>Discover the Felix Platforms ecosystem — from <strong>Document Formatter</strong>, to <strong>Felix Store</strong>
+            across web and mobile, to <strong>A & F Laundry</strong> across its web app, brand site, and iOS experience.</p>
     </header>
 
     <div class="container">
         <div class="intro">
             <h2>Our Apps & Services</h2>
-            <p>The main site is your entry point. Each card below opens its own dedicated experience so customers,
-                staff, and admins land on the right platform page instead of the same screen.</p>
+            <p>The main site is your entry point. Each card below now separates the live web apps, branded sites,
+                and upcoming iOS destinations so customers land exactly where they need to go.</p>
         </div>
 
         <div class="apps">
             <div class="card">
                 <img class="thumb"
+                    src="https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=900&q=80"
+                    alt="Document Formatter preview" />
+                <h3>Document Formatter</h3>
+                <p>Turn messy text into polished academic papers, business reports, and export-ready documents with the Felix Platform formatter.</p>
+                <a href="mailto:support@felixplatforms.com?subject=Document%20Formatter%20Access">Request Formatter Access</a>
+                <small>Private web tool with Word, PDF, and text export workflows</small>
+            </div>
+
+            <div class="card">
+                <img class="thumb"
                     src="https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=900&q=80"
-                    alt="Felix Store marketplace preview" />
-                <h3>Felix Store</h3>
-                <p>Explore digital tools, quote-based services, subscriptions, consulting, and marketplace offerings in
-                    the dedicated Felix Store marketing site.</p>
-                <a href="https://felixstore.felixplatforms.com/">Visit Felix Store</a>
-                <small>Dedicated Felix Store site at felixstore.felixplatforms.com</small>
+                    alt="Felix Store web app preview" />
+                <h3>Felix Store Web App</h3>
+                <p>Open the live Felix Store web app for browsing products, services, subscriptions, and quote-based requests.</p>
+                <a href="https://storeapp.felixplatforms.com/">Open Felix Store Web App</a>
+                <small>Live at storeapp.felixplatforms.com</small>
+            </div>
+
+            <div class="card">
+                <img class="thumb"
+                    src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=900&q=80"
+                    alt="Felix Store mobile app preview" />
+                <h3>Felix Store Mobile App</h3>
+                <p>The iOS version of Felix Store will be linked here once App Store approval is complete.</p>
+                <span class="coming-soon"><span class="apple-icon"></span> App Store link coming soon</span>
+                <small>Apple link will be attached after approval</small>
             </div>
 
             <div class="card">
                 <img class="thumb"
                     src="https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=900&q=80"
-                    alt="Laundry service preview" />
-                <h3>A & F Laundry</h3>
-                <p>Open the dedicated laundry marketing page for pickup and delivery, commercial laundry, Airbnb linen
-                    support, and service-area information.</p>
-                <a href="https://aflaundry.com/">Visit A & F Laundry</a>
-                <small>Dedicated laundry web app at aflaundry.com</small>
+                    alt="A and F Laundry web app preview" />
+                <h3>A &amp; F Laundry Web App</h3>
+                <p>Use the dedicated laundry web app for booking, quote requests, service tracking, and customer actions.</p>
+                <a href="https://laundryapp.felixplatforms.com/">Open Laundry Web App</a>
+                <small>Live at laundryapp.felixplatforms.com</small>
+            </div>
+
+            <div class="card">
+                <img class="thumb"
+                    src="https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=900&q=80"
+                    alt="A and F Laundry branded site preview" />
+                <h3>A &amp; F Laundry at aflaundry.com</h3>
+                <p>Visit the branded A &amp; F Laundry site for the public-facing service experience, contact details, and business information.</p>
+                <a href="https://aflaundry.com/">Visit aflaundry.com</a>
+                <small>Branded laundry site at aflaundry.com</small>
+            </div>
+
+            <div class="card">
+                <img class="thumb"
+                    src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&q=80"
+                    alt="A and F Laundry mobile app preview" />
+                <h3>A &amp; F Laundry Mobile App</h3>
+                <p>The A &amp; F Laundry iOS app will be linked here once it clears App Store review and goes live.</p>
+                <span class="coming-soon"><span class="apple-icon"></span> App Store link coming soon</span>
+                <small>Apple link will be attached after approval</small>
             </div>
 
             <div class="card">
@@ -212,8 +265,7 @@
                     src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=80"
                     alt="Admin dashboard preview" />
                 <h3>Shared Admin Dashboard</h3>
-                <p>Manage both Felix Store and A & F Laundry from one central admin login for quotes, products, orders,
-                    bookings, and customer operations.</p>
+                <p>Manage Felix Store, A &amp; F Laundry, and platform operations from one central admin login.</p>
                 <a href="https://admin.felixplatforms.com/">Open Admin Dashboard</a>
                 <small>One shared admin dashboard at admin.felixplatforms.com</small>
             </div>
