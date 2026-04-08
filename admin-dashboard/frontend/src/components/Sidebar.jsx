@@ -4,6 +4,7 @@ const links = [
     { to: '/dashboard', label: 'Dashboard' },
     { to: '/document-formatter', label: 'Document Formatter' },
     { to: '/quote-requests', label: 'Quote Requests' },
+    { to: '/platform-content', label: 'Platform Content' },
     { to: '/products', label: 'Products' },
     { to: '/orders', label: 'Orders' },
     { to: '/bookings', label: 'Bookings' },

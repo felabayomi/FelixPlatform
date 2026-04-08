@@ -222,10 +222,28 @@
 }
 
 .edit-form input,
-.edit-form select {
+.edit-form select,
+.edit-form textarea {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid #d1d5db;
+  background: #ffffff;
+  font: inherit;
+}
+
+.edit-form textarea {
+  resize: vertical;
+}
+
+.edit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-form label span {
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .edit-button,
@@ -279,6 +297,12 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .refresh-button {
@@ -584,6 +608,21 @@
   align-items: center;
   font-size: 0.95rem;
   color: #1f2937;
+}
+
+.content-editor-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.content-card-editor .product-image-preview {
+  margin: 6px 0 10px;
+}
+
+.inline-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 @media (max-width: 900px) {

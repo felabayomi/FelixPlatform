@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth');
 const categoriesRoutes = require('./routes/categories');
 const documentFormatterRoutes = require('./routes/documentFormatter');
 const afLaundryAppointmentsRoutes = require('./routes/afLaundryAppointments');
+const platformContentRoutes = require('./routes/platformContent');
 
 const PORT = Number(process.env.PORT) || 5000;
 const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -25,6 +26,12 @@ const defaultAllowedOrigins = [
     'http://127.0.0.1:8084',
     'http://localhost:19006',
     'http://127.0.0.1:19006',
+    'https://felixplatforms.com',
+    'https://www.felixplatforms.com',
+    'https://admin.felixplatforms.com',
+    'https://storeapp.felixplatforms.com',
+    'https://laundryapp.felixplatforms.com',
+    'https://aflaundry.com',
 ];
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
@@ -83,6 +90,7 @@ app.use('/auth', authRoutes);
 app.use('/categories', categoriesRoutes);
 app.use('/api', documentFormatterRoutes);
 app.use('/api/admin/aflaundry/appointments', afLaundryAppointmentsRoutes);
+app.use(platformContentRoutes);
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
