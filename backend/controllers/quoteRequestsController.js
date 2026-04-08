@@ -63,6 +63,10 @@ const upsertDetailLine = (details, label, value) => {
 const inferAppName = (details) => {
     const text = String(details || '').toLowerCase();
 
+    if (text.includes('adrian store') || text.includes("adrian's styled") || text.includes('shopwithadrian')) {
+        return 'Adrian Store';
+    }
+
     if (text.includes('a & f laundry')) {
         return 'A & F Laundry';
     }
@@ -76,7 +80,9 @@ const inferAppName = (details) => {
 
 const decorateQuoteRequest = (row) => ({
     ...row,
-    app_name: inferAppName(row.details),
+    app_name: getDetailValue(row.details, 'App') || inferAppName(row.details),
+    storefront_key: getDetailValue(row.details, 'Storefront key') || getDetailValue(row.details, 'Storefront'),
+    product_name: row.product_name || getDetailValue(row.details, 'Product'),
     contact_name: getDetailValue(row.details, 'Customer'),
     contact_phone: getDetailValue(row.details, 'Phone'),
     contact_email: getDetailValue(row.details, 'Email'),

@@ -1,58 +1,35 @@
 "use client";
 
-import clsx from "clsx";
-import { ShoppingBag } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useCart } from "@/lib/cart";
 
-const links = [
-    { href: "/", label: "Home" },
-    { href: "/shop", label: "Shop" },
-    { href: "/services", label: "Services" },
-    { href: "/cart", label: "Cart" },
-];
-
 export default function Header() {
-    const pathname = usePathname();
     const { items } = useCart();
 
-    const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
-
     return (
-        <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-                <Link href="/" className="flex flex-col">
-                    <span className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-700">
-                        Adrian Store
-                    </span>
-                    <span className="text-lg font-semibold text-stone-900 sm:text-xl">
-                        Adrian&apos;s Styled Collection
-                    </span>
-                </Link>
+        <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur">
+            <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+                <div>
+                    <p className="text-xs tracking-[0.3em] text-gray-500">
+                        ADRIAN STORE
+                    </p>
+                    <h1 className="text-lg font-semibold">
+                        Adrian’s Styled Collection
+                    </h1>
+                </div>
 
-                <nav className="flex items-center gap-2 sm:gap-4">
-                    {links.map((link) => (
-                        <Link
-                            key={link.href}
-                            href={link.href}
-                            className={clsx(
-                                "rounded-full px-3 py-2 text-sm font-medium transition-colors",
-                                pathname === link.href
-                                    ? "bg-stone-900 text-white"
-                                    : "text-stone-700 hover:bg-stone-100",
-                            )}
-                        >
-                            {link.label}
-                        </Link>
-                    ))}
-
+                <nav className="flex items-center gap-6 text-sm">
+                    <Link href="/" className="hover:text-gray-500">Home</Link>
+                    <Link href="/shop" className="hover:text-gray-500">Shop</Link>
+                    <Link href="/services" className="hover:text-gray-500">Services</Link>
+                    <Link href="/cart" className="hover:text-gray-500">
+                        Cart ({items.length})
+                    </Link>
                     <Link
-                        href="/cart"
-                        className="flex items-center gap-2 rounded-full border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-900"
+                        href="/quote"
+                        className="rounded-full border border-stone-900 px-4 py-2 font-medium transition hover:bg-stone-900 hover:text-white"
                     >
-                        <ShoppingBag className="h-4 w-4" />
-                        <span>{cartCount}</span>
+                        Request a Quote
                     </Link>
                 </nav>
             </div>

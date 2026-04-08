@@ -12,6 +12,8 @@ const defaultContent = {
     heroSecondaryLink: '/services',
     heroImageOne: '/products/chic-green-kaftan.svg',
     heroImageTwo: '/products/wild-elegance-leopard-kaftan.svg',
+    heroImageThree: '',
+    heroImageFour: '',
     featuredEyebrow: 'Featured pieces',
     featuredTitle: 'Fresh arrivals from Adrian Store',
     featuredText: 'Curated looks designed for comfort, movement, and standout style.',
@@ -104,6 +106,7 @@ function AdrianStore() {
     const [error, setError] = useState('');
     const [updatedAt, setUpdatedAt] = useState('');
     const [updatedByEmail, setUpdatedByEmail] = useState('');
+    const [uploadingImageTarget, setUploadingImageTarget] = useState('');
 
     const featuredCount = useMemo(
         () => products.filter((product) => Boolean(product.featured)).length,
@@ -216,6 +219,47 @@ function AdrianStore() {
             ...current,
             [field]: value,
         }));
+    };
+
+    const handleImageUpload = async (field, file, bucket = 'content') => {
+        if (!file) {
+            return;
+        }
+
+        const target = `${bucket}:${field}`;
+        setUploadingImageTarget(target);
+        setMessage('');
+        setError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const res = await API.post('/products/upload-image', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const uploadedUrl = res.data?.imageUrl || res.data?.secureUrl || res.data?.url || '';
+
+            if (!uploadedUrl) {
+                throw new Error('Cloudinary upload did not return an image URL.');
+            }
+
+            if (bucket === 'product') {
+                updateProductField(field, uploadedUrl);
+            } else {
+                updateContentField(field, uploadedUrl);
+            }
+
+            setMessage('Image uploaded to Cloudinary successfully. Save to publish the change.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || err.message || 'Unable to upload image to Cloudinary.');
+        } finally {
+            setUploadingImageTarget('');
+        }
     };
 
     const updateService = (index, field, value) => {
@@ -529,15 +573,43 @@ function AdrianStore() {
                                 </label>
                             </div>
                             <div className="two-column-grid">
-                                <label>
-                                    <span>Hero image 1</span>
-                                    <input value={content.heroImageOne || ''} onChange={(event) => updateContentField('heroImageOne', event.target.value)} />
-                                </label>
-                                <label>
-                                    <span>Hero image 2</span>
-                                    <input value={content.heroImageTwo || ''} onChange={(event) => updateContentField('heroImageTwo', event.target.value)} />
-                                </label>
+                                {[
+                                    { label: 'Hero image 1', field: 'heroImageOne' },
+                                    { label: 'Hero image 2', field: 'heroImageTwo' },
+                                    { label: 'Hero image 3', field: 'heroImageThree' },
+                                    { label: 'Hero image 4', field: 'heroImageFour' },
+                                ].map(({ label, field }) => (
+                                    <div key={field} className="helper-card">
+                                        <div className="edit-form">
+                                            <label>
+                                                <span>{label}</span>
+                                                <input
+                                                    value={content[field] || ''}
+                                                    onChange={(event) => updateContentField(field, event.target.value)}
+                                                    placeholder="https://res.cloudinary.com/..."
+                                                />
+                                            </label>
+                                            <div className="toolbar-actions" style={{ justifyContent: 'flex-start' }}>
+                                                <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        style={{ display: 'none' }}
+                                                        onChange={(event) => {
+                                                            const file = event.target.files?.[0];
+                                                            event.target.value = '';
+                                                            handleImageUpload(field, file, 'content');
+                                                        }}
+                                                    />
+                                                    {uploadingImageTarget === `content:${field}` ? 'Uploading…' : 'Upload to Cloudinary'}
+                                                </label>
+                                            </div>
+                                            {content[field] ? <img className="product-image-preview" src={content[field]} alt={label} /> : null}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
+                            <p className="muted">Add 2–4 hero images here. The storefront will rotate them automatically on the homepage.</p>
                         </div>
                     </div>
 
@@ -703,9 +775,32 @@ function AdrianStore() {
                                 </label>
                                 <label>
                                     <span>Image URL</span>
-                                    <input value={productForm.image_url} onChange={(event) => updateProductField('image_url', event.target.value)} placeholder="/products/chic-green-kaftan.svg" />
+                                    <input
+                                        value={productForm.image_url}
+                                        onChange={(event) => updateProductField('image_url', event.target.value)}
+                                        placeholder="https://res.cloudinary.com/..."
+                                    />
                                 </label>
                             </div>
+
+                            <div className="toolbar-actions" style={{ justifyContent: 'flex-start' }}>
+                                <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={(event) => {
+                                            const file = event.target.files?.[0];
+                                            event.target.value = '';
+                                            handleImageUpload('image_url', file, 'product');
+                                        }}
+                                    />
+                                    {uploadingImageTarget === 'product:image_url' ? 'Uploading…' : 'Upload product image to Cloudinary'}
+                                </label>
+                                <span className="muted">Use upload for all new Adrian product and hero images.</span>
+                            </div>
+
+                            {productForm.image_url ? <img className="product-image-preview" src={productForm.image_url} alt="Product preview" /> : null}
 
                             <div className="inline-checkboxes">
                                 <label className="category-checkbox">

@@ -4,7 +4,9 @@ export type Product = {
     name?: string;
     slug: string | null;
     description: string;
+    shortDescription?: string;
     short_description?: string;
+    longDescription?: string;
     long_description?: string;
     price: number;
     compare_at_price?: number | null;

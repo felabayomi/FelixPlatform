@@ -12,6 +12,8 @@ const DEFAULT_CONTENT = {
     heroSecondaryLink: '/services',
     heroImageOne: '/products/chic-green-kaftan.svg',
     heroImageTwo: '/products/wild-elegance-leopard-kaftan.svg',
+    heroImageThree: '',
+    heroImageFour: '',
     featuredEyebrow: 'Featured pieces',
     featuredTitle: 'Fresh arrivals from Adrian Store',
     featuredText: 'Curated looks designed for comfort, movement, and standout style.',
@@ -41,7 +43,7 @@ const DEFAULT_CONTENT = {
     footerTitle: "Adrian's Styled Collection",
     footerText: 'Curated statement pieces, flowing silhouettes, and confidence-first style.',
     footerSubtext: "Powered by Felix Platform's shared storefront, checkout, and support tools.",
-    supportEmail: process.env.ADRIAN_STORE_SUPPORT_NOTIFICATION_EMAIL || 'order@shopwithadrian.com',
+    supportEmail: 'order@shopwithadrian.com',
 };
 
 let ensureTablePromise = null;
@@ -68,6 +70,13 @@ const normalizeContent = (content = {}) => {
     const incomingServices = Array.isArray(content.services) && content.services.length
         ? content.services
         : defaults.services;
+    const heroImageOne = toText(content.heroImageOne, defaults.heroImageOne);
+    const heroImageTwo = toText(content.heroImageTwo, defaults.heroImageTwo);
+    const heroImageThree = toText(content.heroImageThree, defaults.heroImageThree);
+    const heroImageFour = toText(content.heroImageFour, defaults.heroImageFour);
+    const heroImages = [heroImageOne, heroImageTwo, heroImageThree, heroImageFour]
+        .filter(Boolean)
+        .filter((value, index, items) => items.indexOf(value) === index);
 
     return {
         heroEyebrow: toText(content.heroEyebrow, defaults.heroEyebrow),
@@ -77,8 +86,11 @@ const normalizeContent = (content = {}) => {
         heroPrimaryLink: toText(content.heroPrimaryLink, defaults.heroPrimaryLink),
         heroSecondaryLabel: toText(content.heroSecondaryLabel, defaults.heroSecondaryLabel),
         heroSecondaryLink: toText(content.heroSecondaryLink, defaults.heroSecondaryLink),
-        heroImageOne: toText(content.heroImageOne, defaults.heroImageOne),
-        heroImageTwo: toText(content.heroImageTwo, defaults.heroImageTwo),
+        heroImageOne,
+        heroImageTwo,
+        heroImageThree,
+        heroImageFour,
+        heroImages,
         featuredEyebrow: toText(content.featuredEyebrow, defaults.featuredEyebrow),
         featuredTitle: toText(content.featuredTitle, defaults.featuredTitle),
         featuredText: toText(content.featuredText, defaults.featuredText),

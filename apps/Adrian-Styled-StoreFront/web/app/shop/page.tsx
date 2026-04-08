@@ -5,17 +5,11 @@ export default async function ShopPage() {
     const products = await getProducts();
 
     return (
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-10 sm:px-6 lg:px-8">
-            <div className="mb-8 space-y-2">
-                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-700">Shop</p>
-                <h1 className="text-3xl font-semibold text-stone-900 sm:text-4xl">Adrian&apos;s latest collection</h1>
-                <p className="max-w-2xl text-stone-600">
-                    Explore statement kaftans and standout pieces curated for effortless elegance, comfort, and confidence.
-                </p>
-            </div>
+        <div className="max-w-7xl mx-auto px-6 py-16">
+            <h2 className="mb-10 text-3xl">Shop Collection</h2>
 
             {products.length ? (
-                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
                     {products.map((product) => (
                         <ProductCard key={product.id} product={product} />
                     ))}

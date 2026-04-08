@@ -33,9 +33,11 @@ services:
         sync: false
       - key: ADRIAN_STORE_RESEND_FROM_EMAIL
         sync: false
+      - key: ADRIAN_STORE_QUOTE_FROM_EMAIL
+        value: Adrian's Styled Collection Quotes <quotes@shopwithadrian.com>
       - key: ADRIAN_STORE_QUOTE_NOTIFICATION_EMAIL
-        value: order@shopwithadrian.com
+        value: order@shopwithadrian.com,adrianfelix0928@gmail.com
       - key: ADRIAN_STORE_SUPPORT_NOTIFICATION_EMAIL
-        value: order@shopwithadrian.com
+        value: order@shopwithadrian.com,adrianfelix0928@gmail.com
       - key: ADRIAN_STORE_APP_BASE_URL
         value: https://shopwithadrian.com

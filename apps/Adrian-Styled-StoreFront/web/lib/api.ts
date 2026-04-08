@@ -17,6 +17,9 @@ export type StorefrontContent = {
     heroSecondaryLink: string;
     heroImageOne: string;
     heroImageTwo: string;
+    heroImageThree: string;
+    heroImageFour: string;
+    heroImages: string[];
     featuredEyebrow: string;
     featuredTitle: string;
     featuredText: string;
@@ -43,6 +46,9 @@ export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
     heroSecondaryLink: "/services",
     heroImageOne: "/products/chic-green-kaftan.svg",
     heroImageTwo: "/products/wild-elegance-leopard-kaftan.svg",
+    heroImageThree: "",
+    heroImageFour: "",
+    heroImages: ["/products/chic-green-kaftan.svg", "/products/wild-elegance-leopard-kaftan.svg"],
     featuredEyebrow: "Featured pieces",
     featuredTitle: "Fresh arrivals from Adrian Store",
     featuredText: "Curated looks designed for comfort, movement, and standout style.",
@@ -103,6 +109,13 @@ const normalizeStorefrontContent = (value: unknown): StorefrontContent => {
     const incomingServices = Array.isArray(incoming.services) && incoming.services.length
         ? incoming.services
         : DEFAULT_STOREFRONT_CONTENT.services;
+    const heroImageOne = toText(incoming.heroImageOne, DEFAULT_STOREFRONT_CONTENT.heroImageOne);
+    const heroImageTwo = toText(incoming.heroImageTwo, DEFAULT_STOREFRONT_CONTENT.heroImageTwo);
+    const heroImageThree = toText(incoming.heroImageThree, DEFAULT_STOREFRONT_CONTENT.heroImageThree);
+    const heroImageFour = toText(incoming.heroImageFour, DEFAULT_STOREFRONT_CONTENT.heroImageFour);
+    const heroImages = [heroImageOne, heroImageTwo, heroImageThree, heroImageFour]
+        .filter(Boolean)
+        .filter((entry, index, items) => items.indexOf(entry) === index);
 
     return {
         heroEyebrow: toText(incoming.heroEyebrow, DEFAULT_STOREFRONT_CONTENT.heroEyebrow),
@@ -112,8 +125,11 @@ const normalizeStorefrontContent = (value: unknown): StorefrontContent => {
         heroPrimaryLink: toText(incoming.heroPrimaryLink, DEFAULT_STOREFRONT_CONTENT.heroPrimaryLink),
         heroSecondaryLabel: toText(incoming.heroSecondaryLabel, DEFAULT_STOREFRONT_CONTENT.heroSecondaryLabel),
         heroSecondaryLink: toText(incoming.heroSecondaryLink, DEFAULT_STOREFRONT_CONTENT.heroSecondaryLink),
-        heroImageOne: toText(incoming.heroImageOne, DEFAULT_STOREFRONT_CONTENT.heroImageOne),
-        heroImageTwo: toText(incoming.heroImageTwo, DEFAULT_STOREFRONT_CONTENT.heroImageTwo),
+        heroImageOne,
+        heroImageTwo,
+        heroImageThree,
+        heroImageFour,
+        heroImages,
         featuredEyebrow: toText(incoming.featuredEyebrow, DEFAULT_STOREFRONT_CONTENT.featuredEyebrow),
         featuredTitle: toText(incoming.featuredTitle, DEFAULT_STOREFRONT_CONTENT.featuredTitle),
         featuredText: toText(incoming.featuredText, DEFAULT_STOREFRONT_CONTENT.featuredText),
@@ -232,6 +248,48 @@ type CheckoutCustomer = {
 };
 
 type CheckoutCustomerInput = CheckoutCustomer | string | undefined;
+
+export type QuoteRequestInput = {
+    productId?: string;
+    productName?: string;
+    quantity?: number;
+    contactName: string;
+    contactEmail: string;
+    contactPhone: string;
+    details?: string;
+};
+
+export async function submitQuoteRequest(input: QuoteRequestInput) {
+    const detailLines = [
+        "App: Adrian Store",
+        "Storefront key: adrian-store",
+        `Customer: ${input.contactName}`,
+        `Email: ${input.contactEmail}`,
+        `Phone: ${input.contactPhone}`,
+        `Product: ${input.productName || "Styling request"}`,
+        `Quantity: ${input.quantity || 1}`,
+        input.details ? `Message: ${input.details}` : "Message: No additional details provided.",
+    ].filter(Boolean);
+
+    const res = await API.post("/quote-requests", {
+        product_id: input.productId || null,
+        quantity: input.quantity || 1,
+        status: "pending",
+        details: detailLines.join("\n"),
+        app_name: "Adrian Store",
+        storefront_key: "adrian-store",
+    });
+
+    return res.data as {
+        id: string;
+        status: string;
+        email_sent?: boolean;
+        admin_email_sent?: boolean;
+        customer_email_sent?: boolean;
+        notification_recipient?: string | null;
+        customer_email_recipient?: string | null;
+    };
+}
 
 export async function createCheckout(
     cart: CheckoutCartItem[],

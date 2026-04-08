@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import AddToCartButton from "@/components/AddToCartButton";
 import { formatCurrency, getProduct } from "@/lib/api";
@@ -18,8 +19,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
     return (
         <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-10 sm:px-6 lg:px-8">
-            <div className="grid gap-8 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm md:grid-cols-2 md:p-8">
-                <div className="overflow-hidden rounded-[1.5rem] bg-stone-100">
+            <div className="grid gap-8 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm transition hover:shadow-lg md:grid-cols-2 md:p-8">
+                <div className="overflow-hidden rounded-2xl bg-stone-100 shadow-sm transition hover:shadow-lg">
                     <img src={image} alt={product.title} className="h-full w-full object-cover" />
                 </div>
 
@@ -36,6 +37,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
                     </div>
 
                     <AddToCartButton product={product} />
+
+                    <Link
+                        href={`/quote?productId=${product.id}&title=${encodeURIComponent(product.title)}`}
+                        className="mt-3 inline-flex w-fit items-center rounded-full border border-stone-900 px-5 py-3 text-sm font-semibold text-stone-900 transition hover:bg-stone-900 hover:text-white"
+                    >
+                        Request a Quote
+                    </Link>
                 </div>
             </div>
         </div>

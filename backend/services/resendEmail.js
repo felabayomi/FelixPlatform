@@ -31,14 +31,21 @@ const getNotificationRecipient = (type = 'support', context = {}) => {
     return type === 'quote' ? QUOTE_NOTIFICATION_EMAIL : SUPPORT_NOTIFICATION_EMAIL;
 };
 
-const getResendConfig = (context = {}) => {
+const getResendConfig = (context = {}, type = 'default') => {
     const prefix = resolveStorePrefix(context);
+    const normalizedType = toEnvPrefix(type);
     const scopedApiKey = prefix ? process.env[`${prefix}_RESEND_API_KEY`] : null;
+    const scopedTypeFromEmail = prefix && normalizedType && normalizedType !== 'DEFAULT'
+        ? process.env[`${prefix}_${normalizedType}_FROM_EMAIL`] || process.env[`${prefix}_${normalizedType}_RESEND_FROM_EMAIL`]
+        : null;
     const scopedFromEmail = prefix ? process.env[`${prefix}_RESEND_FROM_EMAIL`] : null;
+    const sharedTypeFromEmail = normalizedType && normalizedType !== 'DEFAULT'
+        ? process.env[`${normalizedType}_FROM_EMAIL`] || process.env[`${normalizedType}_RESEND_FROM_EMAIL`]
+        : null;
 
     return {
         apiKey: scopedApiKey || process.env.RESEND_API_KEY,
-        fromEmail: scopedFromEmail || RESEND_FROM_EMAIL,
+        fromEmail: scopedTypeFromEmail || scopedFromEmail || sharedTypeFromEmail || RESEND_FROM_EMAIL,
     };
 };
 
@@ -90,6 +97,15 @@ const toEmail = (value) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
 };
 
+const parseRecipients = (value) => {
+    const values = Array.isArray(value) ? value : [value];
+
+    return [...new Set(values
+        .flatMap((entry) => String(entry || '').split(/[;,]/))
+        .map((entry) => toEmail(entry))
+        .filter(Boolean))];
+};
+
 const formatStatusLabel = (value) => {
     const normalized = toNullableText(value) || 'pending';
     return normalized.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -111,24 +127,37 @@ const escapeHtml = (value) => String(value)
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const sendEmail = async ({ to, subject, text, html, appName, storefrontKey }) => {
+const sendEmail = async ({ to, subject, text, html, appName, storefrontKey, type = 'default' }) => {
     const context = { appName, storefrontKey };
     const resend = getResendClient(context);
-    const { fromEmail } = getResendConfig(context);
+    const { fromEmail } = getResendConfig(context, type);
+    const recipients = parseRecipients(to);
+    const recipientLabel = recipients.join(', ');
+
+    if (!recipients.length) {
+        return {
+            sent: false,
+            skipped: true,
+            reason: 'Recipient email was not provided',
+            recipient: recipientLabel || null,
+            from: fromEmail,
+        };
+    }
 
     if (!resend) {
         return {
             sent: false,
             skipped: true,
             reason: 'RESEND_API_KEY is not configured',
-            recipient: to,
+            recipient: recipientLabel,
+            from: fromEmail,
         };
     }
 
     try {
         const { data, error } = await resend.emails.send({
             from: fromEmail,
-            to: [to],
+            to: recipients,
             subject,
             text,
             html,
@@ -138,20 +167,23 @@ const sendEmail = async ({ to, subject, text, html, appName, storefrontKey }) =>
             return {
                 sent: false,
                 error: error.message || 'Resend returned an error',
-                recipient: to,
+                recipient: recipientLabel,
+                from: fromEmail,
             };
         }
 
         return {
             sent: true,
             id: data?.id || null,
-            recipient: to,
+            recipient: recipientLabel,
+            from: fromEmail,
         };
     } catch (error) {
         return {
             sent: false,
             error: error instanceof Error ? error.message : 'Unable to send email',
-            recipient: to,
+            recipient: recipientLabel,
+            from: fromEmail,
         };
     }
 };
@@ -169,6 +201,7 @@ exports.sendQuoteRequestNotification = async (quoteRequest = {}) => {
         to: getNotificationRecipient('quote', { appName, storefrontKey }),
         appName,
         storefrontKey,
+        type: 'quote',
         subject: `New ${appName} quote request #${quoteRequest.id || 'pending'}`,
         text: [
             `A new quote request was submitted from ${appName}.`,
@@ -207,6 +240,7 @@ exports.sendQuoteRequestNotification = async (quoteRequest = {}) => {
             to: customerEmail,
             appName,
             storefrontKey,
+            type: 'quote',
             subject: `We received your ${appName} quote request #${quoteRequest.id || 'pending'}`,
             text: [
                 `Hello ${customerName},`,
@@ -258,6 +292,7 @@ exports.sendQuoteStatusUpdateEmail = async (quoteRequest = {}) => {
         to: customerEmail,
         appName,
         storefrontKey,
+        type: 'quote',
         subject: `${appName} quote update: ${statusLabel}`,
         text: [
             `Hello ${customerName},`,
@@ -296,6 +331,7 @@ exports.sendCustomerResponseNotification = async (quoteRequest = {}) => {
         to: getNotificationRecipient('quote', { appName, storefrontKey }),
         appName,
         storefrontKey,
+        type: 'quote',
         subject: `Customer response for ${appName} request #${quoteRequest.id || 'pending'}`,
         text: [
             `${customerName} has responded to a quote request.`,
