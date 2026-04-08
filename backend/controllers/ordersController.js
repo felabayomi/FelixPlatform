@@ -1,4 +1,5 @@
 const pool = require('../db');
+const { sendStoreOrderStatusUpdateEmail } = require('../services/resendEmail');
 
 const toNullableText = (value) => {
     if (value === '' || value === null || value === undefined) {
@@ -239,7 +240,24 @@ exports.updateOrderStatus = async (req, res) => {
         );
 
         const itemsResult = await pool.query('SELECT * FROM order_items WHERE order_id = $1 ORDER BY id ASC', [id]);
-        res.json({ ...result.rows[0], items: itemsResult.rows });
+        const updatedOrder = { ...result.rows[0], items: itemsResult.rows };
+
+        if (nextStatus !== (currentOrder.status || 'pending') || nextPaymentStatus !== (currentOrder.payment_status || 'pending')) {
+            try {
+                const emailResult = await sendStoreOrderStatusUpdateEmail(updatedOrder, {
+                    previousStatus: currentOrder.status,
+                    previousPaymentStatus: currentOrder.payment_status,
+                });
+
+                if (!emailResult.sent && !emailResult.skipped) {
+                    console.warn('Order status update email was not sent:', emailResult.error || emailResult.reason || 'Unknown email issue');
+                }
+            } catch (emailError) {
+                console.warn('Order status update email failed:', emailError.message || emailError);
+            }
+        }
+
+        res.json(updatedOrder);
     } catch (err) {
         console.error(err);
         res.status(500).send('Error updating order status');

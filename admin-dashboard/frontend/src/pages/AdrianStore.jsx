@@ -54,6 +54,7 @@ const ADRIAN_PARAMS = {
 const ORDER_STATUS_OPTIONS = [
     { label: 'Pending', status: 'pending' },
     { label: 'Processing', status: 'processing' },
+    { label: 'Shipped', status: 'shipped' },
     { label: 'Completed', status: 'completed' },
     { label: 'Cancelled', status: 'cancelled' },
 ];

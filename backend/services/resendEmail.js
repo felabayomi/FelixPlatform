@@ -4,20 +4,56 @@ const QUOTE_NOTIFICATION_EMAIL = process.env.QUOTE_NOTIFICATION_EMAIL || 'felixc
 const SUPPORT_NOTIFICATION_EMAIL = process.env.SUPPORT_NOTIFICATION_EMAIL || QUOTE_NOTIFICATION_EMAIL;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Felix Platform <onboarding@resend.dev>';
 
-let resendClient = null;
+const resendClients = new Map();
 
-const getResendClient = () => {
-    const apiKey = process.env.RESEND_API_KEY;
+const toEnvPrefix = (value) => String(value || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
+
+const resolveStorePrefix = (context = {}) => {
+    const storefrontKey = context.storefrontKey || context.storefront_key;
+    const appName = context.appName || context.app_name;
+
+    return toEnvPrefix(storefrontKey) || toEnvPrefix(appName);
+};
+
+const getNotificationRecipient = (type = 'support', context = {}) => {
+    const prefix = resolveStorePrefix(context);
+    const suffix = type === 'quote' ? 'QUOTE_NOTIFICATION_EMAIL' : 'SUPPORT_NOTIFICATION_EMAIL';
+    const scopedRecipient = prefix ? process.env[`${prefix}_${suffix}`] : null;
+
+    if (scopedRecipient) {
+        return scopedRecipient;
+    }
+
+    return type === 'quote' ? QUOTE_NOTIFICATION_EMAIL : SUPPORT_NOTIFICATION_EMAIL;
+};
+
+const getResendConfig = (context = {}) => {
+    const prefix = resolveStorePrefix(context);
+    const scopedApiKey = prefix ? process.env[`${prefix}_RESEND_API_KEY`] : null;
+    const scopedFromEmail = prefix ? process.env[`${prefix}_RESEND_FROM_EMAIL`] : null;
+
+    return {
+        apiKey: scopedApiKey || process.env.RESEND_API_KEY,
+        fromEmail: scopedFromEmail || RESEND_FROM_EMAIL,
+    };
+};
+
+const getResendClient = (context = {}) => {
+    const { apiKey } = getResendConfig(context);
 
     if (!apiKey) {
         return null;
     }
 
-    if (!resendClient) {
-        resendClient = new Resend(apiKey);
+    if (!resendClients.has(apiKey)) {
+        resendClients.set(apiKey, new Resend(apiKey));
     }
 
-    return resendClient;
+    return resendClients.get(apiKey);
 };
 
 const toNullableText = (value) => {
@@ -75,8 +111,10 @@ const escapeHtml = (value) => String(value)
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const sendEmail = async ({ to, subject, text, html }) => {
-    const resend = getResendClient();
+const sendEmail = async ({ to, subject, text, html, appName, storefrontKey }) => {
+    const context = { appName, storefrontKey };
+    const resend = getResendClient(context);
+    const { fromEmail } = getResendConfig(context);
 
     if (!resend) {
         return {
@@ -89,7 +127,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
 
     try {
         const { data, error } = await resend.emails.send({
-            from: RESEND_FROM_EMAIL,
+            from: fromEmail,
             to: [to],
             subject,
             text,
@@ -120,6 +158,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
 
 exports.sendQuoteRequestNotification = async (quoteRequest = {}) => {
     const appName = quoteRequest.app_name || 'Felix Platform';
+    const storefrontKey = quoteRequest.storefront_key || quoteRequest.storefrontKey || '';
     const productName = quoteRequest.product_name || 'General request';
     const detailsText = String(quoteRequest.details || '').trim() || 'No additional details provided.';
     const detailsLines = detailsText.split(/\r?\n/).filter(Boolean);
@@ -127,7 +166,9 @@ exports.sendQuoteRequestNotification = async (quoteRequest = {}) => {
     const customerEmail = toEmail(quoteRequest.contact_email || getDetailValue(detailsText, 'Email'));
 
     const adminResult = await sendEmail({
-        to: QUOTE_NOTIFICATION_EMAIL,
+        to: getNotificationRecipient('quote', { appName, storefrontKey }),
+        appName,
+        storefrontKey,
         subject: `New ${appName} quote request #${quoteRequest.id || 'pending'}`,
         text: [
             `A new quote request was submitted from ${appName}.`,
@@ -164,6 +205,8 @@ exports.sendQuoteRequestNotification = async (quoteRequest = {}) => {
     if (customerEmail) {
         customerResult = await sendEmail({
             to: customerEmail,
+            appName,
+            storefrontKey,
             subject: `We received your ${appName} quote request #${quoteRequest.id || 'pending'}`,
             text: [
                 `Hello ${customerName},`,
@@ -204,6 +247,7 @@ exports.sendQuoteStatusUpdateEmail = async (quoteRequest = {}) => {
     }
 
     const appName = quoteRequest.app_name || 'Felix Platform';
+    const storefrontKey = quoteRequest.storefront_key || quoteRequest.storefrontKey || '';
     const productName = quoteRequest.product_name || 'your request';
     const customerName = quoteRequest.contact_name || getDetailValue(detailsText, 'Customer') || 'there';
     const statusLabel = formatStatusLabel(quoteRequest.status);
@@ -212,6 +256,8 @@ exports.sendQuoteStatusUpdateEmail = async (quoteRequest = {}) => {
 
     return sendEmail({
         to: customerEmail,
+        appName,
+        storefrontKey,
         subject: `${appName} quote update: ${statusLabel}`,
         text: [
             `Hello ${customerName},`,
@@ -241,12 +287,15 @@ exports.sendQuoteStatusUpdateEmail = async (quoteRequest = {}) => {
 
 exports.sendCustomerResponseNotification = async (quoteRequest = {}) => {
     const appName = quoteRequest.app_name || 'Felix Platform';
+    const storefrontKey = quoteRequest.storefront_key || quoteRequest.storefrontKey || '';
     const productName = quoteRequest.product_name || 'request';
     const customerName = quoteRequest.contact_name || 'Customer';
     const statusLabel = formatStatusLabel(quoteRequest.status);
 
     return sendEmail({
-        to: QUOTE_NOTIFICATION_EMAIL,
+        to: getNotificationRecipient('quote', { appName, storefrontKey }),
+        appName,
+        storefrontKey,
         subject: `Customer response for ${appName} request #${quoteRequest.id || 'pending'}`,
         text: [
             `${customerName} has responded to a quote request.`,
@@ -267,6 +316,7 @@ exports.sendCustomerResponseNotification = async (quoteRequest = {}) => {
 
 exports.sendSupportRequestNotification = async (supportRequest = {}) => {
     const appName = supportRequest.app_name || 'Felix Platform';
+    const storefrontKey = supportRequest.storefront_key || supportRequest.storefrontKey || '';
     const customerName = supportRequest.contact_name || 'there';
     const customerEmail = toEmail(supportRequest.contact_email);
     const customerPhone = toNullableText(supportRequest.contact_phone) || 'Not provided';
@@ -274,7 +324,9 @@ exports.sendSupportRequestNotification = async (supportRequest = {}) => {
     const messageText = toNullableText(supportRequest.message) || 'No additional message provided.';
 
     const adminResult = await sendEmail({
-        to: SUPPORT_NOTIFICATION_EMAIL,
+        to: getNotificationRecipient('support', { appName, storefrontKey }),
+        appName,
+        storefrontKey,
         subject: `New ${appName} support request: ${subjectLine}`,
         text: [
             `A new support request was submitted from ${appName}.`,
@@ -309,6 +361,8 @@ exports.sendSupportRequestNotification = async (supportRequest = {}) => {
     if (customerEmail) {
         customerResult = await sendEmail({
             to: customerEmail,
+            appName,
+            storefrontKey,
             subject: `We received your ${appName} support request`,
             text: [
                 `Hello ${customerName},`,
@@ -333,6 +387,246 @@ exports.sendSupportRequestNotification = async (supportRequest = {}) => {
         admin: adminResult,
         customer: customerResult,
     };
+};
+
+const formatAddress = (value) => {
+    if (!value) {
+        return 'Not provided';
+    }
+
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    if (typeof value === 'object') {
+        const parts = Object.values(value)
+            .flatMap((entry) => (typeof entry === 'object' && entry !== null ? Object.values(entry) : entry))
+            .map((entry) => toNullableText(entry))
+            .filter(Boolean);
+
+        return parts.length ? parts.join(', ') : 'Not provided';
+    }
+
+    return String(value);
+};
+
+const formatOrderItemText = (item = {}) => {
+    const title = item.product_name_snapshot || item.product_title || item.title || 'Store item';
+    const quantity = Number(item.quantity || 1);
+    const lineTotal = formatMoney(item.line_total ?? item.price);
+    return `- ${title} × ${quantity} (${lineTotal})`;
+};
+
+const formatOrderItemHtml = (item = {}) => {
+    const title = item.product_name_snapshot || item.product_title || item.title || 'Store item';
+    const quantity = Number(item.quantity || 1);
+    const lineTotal = formatMoney(item.line_total ?? item.price);
+    return `<li>${escapeHtml(title)} &times; ${escapeHtml(quantity)} <strong>${escapeHtml(lineTotal)}</strong></li>`;
+};
+
+exports.sendStoreOrderNotification = async (order = {}) => {
+    const appName = order.app_name || 'Felix Store';
+    const storefrontKey = order.storefront_key || '';
+    const orderId = order.id || 'pending';
+    const customerName = toNullableText(order.customer_name) || 'there';
+    const customerEmail = toEmail(order.customer_email);
+    const customerPhone = toNullableText(order.customer_phone) || 'Not provided';
+    const paymentStatusLabel = formatStatusLabel(order.payment_status || 'pending');
+    const totalText = formatMoney(order.final_total ?? order.total ?? 0);
+    const deliveryText = formatMoney(order.delivery_fee ?? 0);
+    const taxText = formatMoney(order.tax ?? 0);
+    const shippingAddressText = formatAddress(order.shipping_address);
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemsText = items.length ? items.map(formatOrderItemText).join('\n') : 'No line items available.';
+    const itemsHtml = items.length
+        ? `<ul style="padding-left:18px;margin:8px 0 0;">${items.map(formatOrderItemHtml).join('')}</ul>`
+        : '<p style="margin:8px 0 0;">No line items available.</p>';
+
+    const adminResult = await sendEmail({
+        to: getNotificationRecipient('support', { appName, storefrontKey }),
+        appName,
+        storefrontKey,
+        subject: `New ${appName} order #${orderId}`,
+        text: [
+            `A new order was placed in ${appName}.`,
+            `Order ID: ${orderId}`,
+            `Customer: ${customerName}`,
+            `Email: ${customerEmail || 'Not provided'}`,
+            `Phone: ${customerPhone}`,
+            `Total: ${totalText}`,
+            `Payment status: ${paymentStatusLabel}`,
+            `Delivery fee: ${deliveryText}`,
+            `Tax: ${taxText}`,
+            `Shipping address: ${shippingAddressText}`,
+            '',
+            'Items:',
+            itemsText,
+        ].join('\n'),
+        html: `
+            <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
+                <h2 style="margin-bottom:8px;">New ${escapeHtml(appName)} order</h2>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;">
+                    <p style="margin:0 0 6px;"><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>
+                    <p style="margin:0 0 6px;"><strong>Customer:</strong> ${escapeHtml(customerName)}</p>
+                    <p style="margin:0 0 6px;"><strong>Email:</strong> ${escapeHtml(customerEmail || 'Not provided')}</p>
+                    <p style="margin:0 0 6px;"><strong>Phone:</strong> ${escapeHtml(customerPhone)}</p>
+                    <p style="margin:0 0 6px;"><strong>Total:</strong> ${escapeHtml(totalText)}</p>
+                    <p style="margin:0 0 6px;"><strong>Payment status:</strong> ${escapeHtml(paymentStatusLabel)}</p>
+                    <p style="margin:0 0 6px;"><strong>Delivery fee:</strong> ${escapeHtml(deliveryText)}</p>
+                    <p style="margin:0 0 6px;"><strong>Tax:</strong> ${escapeHtml(taxText)}</p>
+                    <p style="margin:0;"><strong>Shipping address:</strong> ${escapeHtml(shippingAddressText)}</p>
+                </div>
+                <h3 style="margin:16px 0 8px;">Items</h3>
+                ${itemsHtml}
+            </div>
+        `,
+    });
+
+    let customerResult = {
+        sent: false,
+        skipped: true,
+        reason: 'Customer email was not provided',
+        recipient: customerEmail,
+    };
+
+    if (customerEmail) {
+        customerResult = await sendEmail({
+            to: customerEmail,
+            appName,
+            storefrontKey,
+            subject: `We received your ${appName} order #${orderId}`,
+            text: [
+                `Hello ${customerName},`,
+                '',
+                `Thanks for shopping with ${appName}. We received your order and it is now being prepared for processing.`,
+                `Order ID: ${orderId}`,
+                `Total: ${totalText}`,
+                `Payment status: ${paymentStatusLabel}`,
+                '',
+                'Items:',
+                itemsText,
+                '',
+                'We will send another update as your order moves through processing and shipping.',
+            ].join('\n'),
+            html: `
+                <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
+                    <h2 style="margin-bottom:8px;">Your order is in</h2>
+                    <p>Hello ${escapeHtml(customerName)},</p>
+                    <p>Thanks for shopping with ${escapeHtml(appName)}. We received your order and it is now being prepared for processing.</p>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;">
+                        <p style="margin:0 0 6px;"><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>
+                        <p style="margin:0 0 6px;"><strong>Total:</strong> ${escapeHtml(totalText)}</p>
+                        <p style="margin:0;"><strong>Payment status:</strong> ${escapeHtml(paymentStatusLabel)}</p>
+                    </div>
+                    <h3 style="margin:16px 0 8px;">Items</h3>
+                    ${itemsHtml}
+                    <p style="margin-top:12px;">We will send another update as your order moves through processing and shipping.</p>
+                </div>
+            `,
+        });
+    }
+
+    return {
+        admin: adminResult,
+        customer: customerResult,
+    };
+};
+
+exports.sendStoreOrderStatusUpdateEmail = async (order = {}, previous = {}) => {
+    const appName = order.app_name || 'Felix Store';
+    const storefrontKey = order.storefront_key || '';
+    const orderId = order.id || 'pending';
+    const customerName = toNullableText(order.customer_name) || 'there';
+    const customerEmail = toEmail(order.customer_email);
+    const previousStatus = toNullableText(previous.previousStatus) || 'pending';
+    const previousPaymentStatus = toNullableText(previous.previousPaymentStatus) || 'pending';
+    const nextStatus = toNullableText(order.status) || previousStatus;
+    const nextPaymentStatus = toNullableText(order.payment_status) || previousPaymentStatus;
+    const statusChanged = nextStatus !== previousStatus;
+    const paymentChanged = nextPaymentStatus !== previousPaymentStatus;
+
+    if (!statusChanged && !paymentChanged) {
+        return {
+            sent: false,
+            skipped: true,
+            reason: 'No order changes to notify',
+            recipient: customerEmail,
+        };
+    }
+
+    if (!customerEmail) {
+        return {
+            sent: false,
+            skipped: true,
+            reason: 'Customer email was not provided',
+            recipient: customerEmail,
+        };
+    }
+
+    const statusLabel = formatStatusLabel(nextStatus);
+    const paymentStatusLabel = formatStatusLabel(nextPaymentStatus);
+    const totalText = formatMoney(order.final_total ?? order.total ?? 0);
+
+    let leadText = `Your ${appName} order has been updated.`;
+
+    switch (nextStatus) {
+        case 'processing':
+            leadText = 'Your order is now being prepared.';
+            break;
+        case 'shipped':
+            leadText = 'Great news — your order has shipped and is on its way.';
+            break;
+        case 'completed':
+            leadText = 'Your order has been completed.';
+            break;
+        case 'cancelled':
+            leadText = 'Your order has been cancelled. If you have questions, reply to the support email for your storefront.';
+            break;
+        default:
+            leadText = `Your order is now marked as ${statusLabel}.`;
+            break;
+    }
+
+    const changeLines = [];
+
+    if (statusChanged) {
+        changeLines.push(`Order status: ${formatStatusLabel(previousStatus)} → ${statusLabel}`);
+    }
+
+    if (paymentChanged) {
+        changeLines.push(`Payment status: ${formatStatusLabel(previousPaymentStatus)} → ${paymentStatusLabel}`);
+    }
+
+    return sendEmail({
+        to: customerEmail,
+        appName,
+        storefrontKey,
+        subject: `${appName} order #${orderId} update: ${statusLabel}`,
+        text: [
+            `Hello ${customerName},`,
+            '',
+            leadText,
+            `Order ID: ${orderId}`,
+            `Total: ${totalText}`,
+            ...changeLines,
+            '',
+            'Thank you for shopping with us.',
+        ].join('\n'),
+        html: `
+            <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
+                <h2 style="margin-bottom:8px;">Order update</h2>
+                <p>Hello ${escapeHtml(customerName)},</p>
+                <p>${escapeHtml(leadText)}</p>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;">
+                    <p style="margin:0 0 6px;"><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>
+                    <p style="margin:0 0 6px;"><strong>Total:</strong> ${escapeHtml(totalText)}</p>
+                    ${statusChanged ? `<p style="margin:0 0 6px;"><strong>Order status:</strong> ${escapeHtml(formatStatusLabel(previousStatus))} &rarr; ${escapeHtml(statusLabel)}</p>` : ''}
+                    ${paymentChanged ? `<p style="margin:0;"><strong>Payment status:</strong> ${escapeHtml(formatStatusLabel(previousPaymentStatus))} &rarr; ${escapeHtml(paymentStatusLabel)}</p>` : ''}
+                </div>
+                <p style="margin-top:12px;">Thank you for shopping with ${escapeHtml(appName)}.</p>
+            </div>
+        `,
+    });
 };
 
 exports.sendDocumentFormatterAccessRequestNotification = async (accessRequest = {}) => {

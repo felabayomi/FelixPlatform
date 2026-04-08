@@ -1,5 +1,9 @@
 const Stripe = require('stripe');
 const pool = require('../db');
+const {
+    sendStoreOrderNotification,
+    sendStoreOrderStatusUpdateEmail,
+} = require('../services/resendEmail');
 
 const DEFAULT_APP_NAME = 'Adrian Store';
 const DEFAULT_STOREFRONT_KEY = 'adrian-store';
@@ -119,6 +123,82 @@ const getBaseAppUrl = (req) => {
     }
 
     return process.env.ADRIAN_STORE_APP_BASE_URL || 'http://localhost:3000';
+};
+
+exports.handleStripeWebhook = async (req, res) => {
+    const stripe = getStripeClient();
+    const signature = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!stripe || !webhookSecret) {
+        return res.status(503).json({ message: 'Stripe webhook handling is not configured.' });
+    }
+
+    if (!signature) {
+        return res.status(400).send('Missing Stripe signature header.');
+    }
+
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+    } catch (error) {
+        console.error('Stripe webhook signature verification failed:', error.message || error);
+        return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+
+    try {
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object || {};
+            const orderId = toNullableText(session.metadata?.orderId);
+            const orderResult = orderId
+                ? await pool.query('SELECT * FROM orders WHERE id = $1 LIMIT 1', [orderId])
+                : await pool.query('SELECT * FROM orders WHERE stripe_session_id = $1 LIMIT 1', [session.id]);
+
+            if (orderResult.rows.length) {
+                const currentOrder = orderResult.rows[0];
+                const nextStatus = ['pending', 'reviewing'].includes(String(currentOrder.status || '').toLowerCase())
+                    ? 'processing'
+                    : (currentOrder.status || 'processing');
+                const nextPaymentStatus = 'paid';
+
+                const updatedResult = await pool.query(
+                    `UPDATE orders
+                     SET status = $1,
+                         payment_status = $2
+                     WHERE id = $3
+                     RETURNING *`,
+                    [nextStatus, nextPaymentStatus, currentOrder.id]
+                );
+
+                const itemsResult = await pool.query(
+                    'SELECT * FROM order_items WHERE order_id = $1 ORDER BY id ASC',
+                    [currentOrder.id]
+                );
+
+                try {
+                    const emailResult = await sendStoreOrderStatusUpdateEmail(
+                        { ...updatedResult.rows[0], items: itemsResult.rows },
+                        {
+                            previousStatus: currentOrder.status,
+                            previousPaymentStatus: currentOrder.payment_status,
+                        }
+                    );
+
+                    if (!emailResult.sent && !emailResult.skipped) {
+                        console.warn('Stripe webhook order update email was not sent:', emailResult.error || emailResult.reason || 'Unknown email issue');
+                    }
+                } catch (emailError) {
+                    console.warn('Stripe webhook order update email failed:', emailError.message || emailError);
+                }
+            }
+        }
+
+        res.json({ received: true, type: event.type });
+    } catch (error) {
+        console.error('Stripe webhook processing failed:', error);
+        res.status(500).json({ message: 'Unable to process Stripe webhook.' });
+    }
 };
 
 exports.getStorefrontProducts = async (req, res) => {
@@ -452,6 +532,21 @@ exports.createCheckoutSession = async (req, res) => {
 
             await client.query('COMMIT');
 
+            try {
+                const emailResult = await sendStoreOrderNotification({
+                    ...order,
+                    final_total: total,
+                    total,
+                    items: normalizedItems,
+                });
+
+                if (!emailResult.customer?.sent && !emailResult.customer?.skipped) {
+                    console.warn('Store order confirmation email was not sent:', emailResult.customer?.error || emailResult.customer?.reason || 'Unknown email issue');
+                }
+            } catch (notificationError) {
+                console.warn('Store order confirmation email failed:', notificationError.message || notificationError);
+            }
+
             res.json({
                 orderId: order.id,
                 sessionId: session.id,
@@ -466,5 +561,55 @@ exports.createCheckoutSession = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: error.message || 'Unable to create checkout session.' });
+    }
+};
+
+exports.getOrderBySession = async (req, res) => {
+    const sessionId = toNullableText(req.query.session_id || req.query.sessionId);
+    const appName = toNullableText(req.query.app_name) || DEFAULT_APP_NAME;
+    const storefrontKey = toNullableText(req.query.storefront_key) || DEFAULT_STOREFRONT_KEY;
+
+    if (!sessionId) {
+        return res.status(400).json({ message: 'Stripe session id is required.' });
+    }
+
+    try {
+        const orderResult = await pool.query(
+            `SELECT
+                o.*,
+                COALESCE(o.delivery_fee, 0) AS shipping_amount,
+                COALESCE(o.tax, 0) AS tax_amount,
+                COALESCE(o.final_total, o.total, 0) AS total_amount
+             FROM orders o
+             WHERE o.stripe_session_id = $1
+               AND COALESCE(o.app_name, 'Felix Store') = $2
+               AND COALESCE(o.storefront_key, '') = $3
+             LIMIT 1`,
+            [sessionId, appName, storefrontKey]
+        );
+
+        if (!orderResult.rows.length) {
+            return res.status(404).json({ message: 'Order not found for this session.' });
+        }
+
+        const order = orderResult.rows[0];
+        const itemsResult = await pool.query(
+            `SELECT
+                oi.*,
+                COALESCE(oi.product_name_snapshot, 'Store item') AS product_title
+             FROM order_items oi
+             WHERE oi.order_id = $1
+             ORDER BY oi.id ASC`,
+            [order.id]
+        );
+
+        res.set('Cache-Control', 'no-store, max-age=0');
+        res.json({
+            order,
+            items: itemsResult.rows,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Unable to load order details for this session.' });
     }
 };

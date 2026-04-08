@@ -17,7 +17,25 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
+      - key: SUPPORT_NOTIFICATION_EMAIL
+        value: felixconsult@myyahoo.com
       - key: QUOTE_NOTIFICATION_EMAIL
         value: felixconsult@myyahoo.com
       - key: RESEND_FROM_EMAIL
         sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: ADRIAN_STORE_RESEND_API_KEY
+        sync: false
+      - key: ADRIAN_STORE_RESEND_FROM_EMAIL
+        sync: false
+      - key: ADRIAN_STORE_QUOTE_NOTIFICATION_EMAIL
+        value: order@shopwithadrian.com
+      - key: ADRIAN_STORE_SUPPORT_NOTIFICATION_EMAIL
+        value: order@shopwithadrian.com
+      - key: ADRIAN_STORE_APP_BASE_URL
+        value: https://shopwithadrian.com

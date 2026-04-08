@@ -15,6 +15,7 @@ const afLaundryAppointmentsRoutes = require('./routes/afLaundryAppointments');
 const platformContentRoutes = require('./routes/platformContent');
 const adrianStoreRoutes = require('./routes/adrianStore');
 const storefrontRoutes = require('./routes/storefront');
+const storefrontController = require('./controllers/storefrontController');
 
 const PORT = Number(process.env.PORT) || 5000;
 const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -57,6 +58,7 @@ app.use(
         credentials: true,
     })
 );
+app.post('/api/storefront/webhook', express.raw({ type: 'application/json' }), storefrontController.handleStripeWebhook);
 app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

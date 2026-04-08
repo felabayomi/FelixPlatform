@@ -191,6 +191,31 @@ export async function getStorefrontContent(): Promise<StorefrontContent> {
     }
 }
 
+export async function getOrderBySession(sessionId: string) {
+    const res = await API.get("/api/storefront/order-by-session", {
+        params: {
+            ...STOREFRONT_PARAMS,
+            session_id: sessionId,
+        },
+    });
+
+    return res.data as {
+        order: {
+            id: string;
+            subtotal: number;
+            shipping_amount: number;
+            tax_amount: number;
+            total_amount: number;
+        } | null;
+        items: Array<{
+            id: string;
+            product_title: string;
+            quantity: number;
+            unit_price: number;
+        }>;
+    };
+}
+
 type CheckoutCartItem = {
     productId: string;
     title: string;
@@ -206,19 +231,22 @@ type CheckoutCustomer = {
     phone?: string;
 };
 
+type CheckoutCustomerInput = CheckoutCustomer | string | undefined;
+
 export async function createCheckout(
     cart: CheckoutCartItem[],
-    customer?: CheckoutCustomer,
+    customer?: CheckoutCustomerInput,
 ) {
     const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    const customerDetails = typeof customer === "string" ? { email: customer } : (customer || {});
 
     const res = await API.post("/api/storefront/create-checkout-session", {
         cart,
         app_name: "Adrian Store",
         storefront_key: "adrian-store",
-        customer_name: customer?.name,
-        customer_email: customer?.email,
-        customer_phone: customer?.phone,
+        customer_name: customerDetails?.name,
+        customer_email: customerDetails?.email,
+        customer_phone: customerDetails?.phone,
         success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/cart?checkout=cancelled`,
     });
