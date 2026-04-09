@@ -9,6 +9,11 @@ export const metadata: Metadata = {
     title: "WACI | Wildlife Africa Conservation Initiative",
     description:
         "A public WACI website powered by the Felix Platform shared backend, admin, and support infrastructure.",
+    icons: {
+        icon: "/waci-logo.svg",
+        shortcut: "/waci-logo.svg",
+        apple: "/waci-logo.svg",
+    },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

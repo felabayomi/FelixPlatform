@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Leaf, Menu, X } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
 
 const links = [
     { href: "/#about", label: "About" },
@@ -19,8 +20,15 @@ export default function SiteHeader() {
         <header className="sticky top-0 z-50 border-b border-white/10 bg-[#08120e]/80 backdrop-blur-xl">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
                 <Link href="/#top" className="flex items-center gap-3 text-white">
-                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-400/10 text-emerald-200">
-                        <Leaf className="h-5 w-5" />
+                    <span className="relative inline-flex h-12 w-12 overflow-hidden rounded-2xl border border-emerald-300/30 bg-white/10 shadow-lg shadow-emerald-950/20 sm:h-14 sm:w-14">
+                        <Image
+                            src="/waci-logo.svg"
+                            alt="Wildlife Africa CREW logo"
+                            fill
+                            sizes="56px"
+                            className="object-cover"
+                            priority
+                        />
                     </span>
                     <span>
                         <span className="block text-sm font-semibold uppercase tracking-[0.24em] text-emerald-200">WACI</span>
