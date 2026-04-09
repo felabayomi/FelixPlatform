@@ -21,6 +21,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
     return (
         <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-10 sm:px-6 lg:px-8">
+            <Link
+                href="/shop"
+                className="mb-4 inline-flex w-fit items-center gap-2 text-sm font-semibold text-stone-700 underline-offset-4 hover:text-stone-900 hover:underline"
+            >
+                ← Back to shop
+            </Link>
+
             <div className="grid gap-8 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm transition hover:shadow-lg md:grid-cols-2 md:p-8">
                 <div className="overflow-hidden rounded-2xl bg-stone-100 shadow-sm transition hover:shadow-lg">
                     <img src={image} alt={product.title} className="h-full w-full object-cover" />

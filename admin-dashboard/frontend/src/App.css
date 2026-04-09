@@ -41,6 +41,12 @@
   gap: 8px;
 }
 
+.sidebar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .sidebar-link {
   padding: 10px 12px;
   border-radius: 10px;
@@ -52,6 +58,30 @@
 .sidebar-link:hover,
 .sidebar-link.active {
   background: #2563eb;
+  color: #ffffff;
+}
+
+.sidebar-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 10px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.sidebar-sublink {
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.92rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-sublink:hover,
+.sidebar-sublink.active {
+  background: rgba(37, 99, 235, 0.55);
   color: #ffffff;
 }
 
@@ -642,6 +672,15 @@
 .content-editor-grid {
   display: grid;
   gap: 16px;
+}
+
+.waci-section-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.section-subtitle {
+  margin: 4px 0 0;
 }
 
 .content-card-editor .product-image-preview {

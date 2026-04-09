@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BrandCarousel from "@/components/BrandCarousel";
 import HeroCarousel from "@/components/HeroCarousel";
 import ProductCard from "@/components/ProductCard";
 import { getProducts, getStorefrontContent } from "@/lib/api";
@@ -19,6 +20,39 @@ export default async function Home() {
       ).filter(Boolean),
     ),
   );
+
+  const brandItems = [
+    {
+      src: "/brands/gucci-inspired.svg",
+      alt: "Gucci inspired brand image",
+      label: "Gucci",
+    },
+    {
+      src: "/brands/louis-vuitton-inspired.svg",
+      alt: "Louis Vuitton inspired brand image",
+      label: "Louis Vuitton",
+    },
+    {
+      src: "/brands/versace-inspired.svg",
+      alt: "Versace inspired brand image",
+      label: "Versace",
+    },
+    {
+      src: "/brands/chanel-inspired.svg",
+      alt: "Chanel inspired brand image",
+      label: "Chanel",
+    },
+    {
+      src: "/brands/dior-inspired.svg",
+      alt: "Dior inspired brand image",
+      label: "Dior",
+    },
+    {
+      src: "/brands/prada-inspired.svg",
+      alt: "Prada inspired brand image",
+      label: "Prada",
+    },
+  ];
 
   return (
     <div className="flex flex-1 flex-col">
@@ -52,6 +86,8 @@ export default async function Home() {
           alt="Adrian’s Styled Collection hero"
         />
       </section>
+
+      <BrandCarousel items={brandItems} />
 
       <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

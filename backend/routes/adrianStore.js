@@ -4,6 +4,8 @@ const adrianStoreController = require('../controllers/adrianStoreController');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
 router.get('/api/storefront/content', adrianStoreController.getPublicStoreContent);
+router.get('/api/admin/storefront/content', authenticateToken, requireAdmin, adrianStoreController.getAdminStoreContent);
+router.put('/api/admin/storefront/content', authenticateToken, requireAdmin, adrianStoreController.updateStoreContent);
 router.get('/api/admin/adrian-store/content', authenticateToken, requireAdmin, adrianStoreController.getAdminStoreContent);
 router.put('/api/admin/adrian-store/content', authenticateToken, requireAdmin, adrianStoreController.updateStoreContent);
 

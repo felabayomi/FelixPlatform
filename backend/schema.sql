@@ -185,3 +185,107 @@ CREATE TABLE payments (
   status text,
   created_at timestamp DEFAULT now()
 );
+
+-- WACI (reuse shared `users` and `support_requests`; add only WACI-specific records below)
+CREATE TABLE waci_newsletter_subscribers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_name text NOT NULL DEFAULT 'WACI',
+  storefront_key text NOT NULL DEFAULT 'waci',
+  full_name text,
+  email text NOT NULL,
+  interests jsonb NOT NULL DEFAULT '[]'::jsonb,
+  source text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS waci_newsletter_subscribers_app_email_idx
+  ON waci_newsletter_subscribers (app_name, LOWER(email));
+
+CREATE TABLE waci_volunteers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  full_name text NOT NULL,
+  email text NOT NULL,
+  phone text,
+  area_of_interest text,
+  availability text,
+  preferred_contact text,
+  notes text,
+  status text NOT NULL DEFAULT 'new',
+  source text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE waci_partners (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_name text NOT NULL,
+  organization text,
+  email text NOT NULL,
+  phone text,
+  partnership_type text,
+  preferred_contact text,
+  notes text,
+  status text NOT NULL DEFAULT 'new',
+  source text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE waci_donors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  full_name text NOT NULL,
+  organization text,
+  email text NOT NULL,
+  phone text,
+  support_type text,
+  amount_text text,
+  preferred_contact text,
+  notes text,
+  status text NOT NULL DEFAULT 'new',
+  source text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE waci_programs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text UNIQUE,
+  title text NOT NULL,
+  summary text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'active',
+  region text,
+  image_url text,
+  cta_label text,
+  cta_link text,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE waci_stories (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text UNIQUE,
+  title text NOT NULL,
+  summary text NOT NULL DEFAULT '',
+  location text,
+  published_at date,
+  image_url text,
+  link text,
+  featured boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE waci_media (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  media_type text NOT NULL DEFAULT 'image',
+  file_url text,
+  alt_text text,
+  caption text,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);

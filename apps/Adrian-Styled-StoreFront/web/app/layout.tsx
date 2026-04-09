@@ -21,9 +21,12 @@ export const metadata: Metadata = {
   description: "Boutique kaftans and confidence-first statement fashion powered by Felix Platform.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/icon",
-    shortcut: "/icon",
-    apple: "/apple-icon",
+    icon: [
+      { url: "/favicon.svg?v=20260408", type: "image/svg+xml" },
+      { url: "/icon?v=20260408", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/favicon.svg?v=20260408",
+    apple: "/apple-icon?v=20260408",
   },
 };
 

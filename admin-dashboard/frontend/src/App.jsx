@@ -12,6 +12,7 @@ import Bookings from './pages/Bookings';
 import QuoteRequests from './pages/QuoteRequests';
 import PlatformContent from './pages/PlatformContent';
 import AdrianStore from './pages/AdrianStore';
+import WACI from './pages/WACI';
 import Categories from './pages/Categories';
 import Users from './pages/Users';
 import { clearAuthSession, getStoredUser, hasAdminAccess } from './services/api';
@@ -64,6 +65,7 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/quote-requests" element={<ProtectedRoute user={user}><QuoteRequests /></ProtectedRoute>} />
             <Route path="/platform-content" element={<ProtectedRoute user={user}><PlatformContent /></ProtectedRoute>} />
             <Route path="/adrian-store" element={<ProtectedRoute user={user}><AdrianStore /></ProtectedRoute>} />
+            <Route path="/waci" element={<ProtectedRoute user={user}><WACI /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute user={user}><Orders /></ProtectedRoute>} />
             <Route path="/bookings" element={<ProtectedRoute user={user}><Bookings /></ProtectedRoute>} />
             <Route path="/categories" element={<ProtectedRoute user={user}><Categories /></ProtectedRoute>} />

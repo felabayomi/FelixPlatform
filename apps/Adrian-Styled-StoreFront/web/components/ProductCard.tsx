@@ -42,7 +42,10 @@ export default function ProductCard({ product }: { product: ProductCardProduct }
                     ) : null}
                 </div>
 
-                <Link href={product.slug ? `/shop/${product.slug}` : "/shop"} className="mt-3 inline-block text-sm underline">
+                <Link
+                    href={product.slug ? `/shop/${product.slug}` : "/shop"}
+                    className="mt-4 inline-flex items-center justify-center rounded-full border border-stone-900 px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-900 hover:text-white"
+                >
                     View product
                 </Link>
             </div>

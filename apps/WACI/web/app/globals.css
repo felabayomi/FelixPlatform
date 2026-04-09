@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+:root {
+    --background: #03110b;
+    --panel: rgba(8, 30, 21, 0.78);
+    --foreground: #f8fbf8;
+    --muted: #cdd8d1;
+    --accent: #d7ba6b;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top left, rgba(22, 163, 74, 0.2), transparent 0 32%),
+        radial-gradient(circle at top right, rgba(217, 180, 87, 0.18), transparent 0 28%),
+        linear-gradient(180deg, #051810 0%, #06130d 50%, #03110b 100%);
+    color: var(--foreground);
+}
+
+.glass-panel {
+    background: var(--panel);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 80px rgba(2, 10, 7, 0.28);
+}
+
+.section-shell {
+    border-radius: 1.75rem;
+    background: rgba(6, 24, 17, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.soft-label {
+    color: var(--accent);
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    font-size: 0.77rem;
+    font-weight: 700;
+}
+
+.story-hero {
+    position: relative;
+    overflow: hidden;
+    min-height: 82vh;
+    padding: 1.4rem;
+    border-radius: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.story-hero-media {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    transform: scale(1.03);
+}
+
+.identity-strip {
+    display: grid;
+    gap: 0.9rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.story-section {
+    position: relative;
+    overflow: hidden;
+}
+
+.story-visual-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.story-image-panel {
+    min-height: 360px;
+    border-radius: 1.75rem;
+    background-size: cover;
+    background-position: center;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 80px rgba(2, 10, 7, 0.22);
+}
+
+.newsletter-form {
+    border-radius: 1.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(4, 18, 13, 0.72);
+    padding: 1rem;
+}
+
+.newsletter-grid {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.newsletter-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.newsletter-form input {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: white;
+    padding: 0.85rem 1rem;
+}
+
+.newsletter-form input::placeholder {
+    color: #9fb2a8;
+}
+
+@media (min-width: 960px) {
+    .story-visual-grid {
+        grid-template-columns: 1.05fr 0.95fr;
+        align-items: stretch;
+    }
+}
+
+@media (max-width: 640px) {
+    .story-hero {
+        min-height: 76vh;
+        padding: 1rem;
+    }
+}

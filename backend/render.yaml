@@ -41,3 +41,11 @@ services:
         value: order@shopwithadrian.com,adrianfelix0928@gmail.com
       - key: ADRIAN_STORE_APP_BASE_URL
         value: https://shopwithadrian.com
+      - key: WACI_RESEND_API_KEY
+        sync: false
+      - key: WACI_RESEND_FROM_EMAIL
+        sync: false
+      - key: WACI_SUPPORT_NOTIFICATION_EMAIL
+        value: hello@wildlifeafrica.org,wildlifeaboutafrica@gmail.com
+      - key: WACI_APP_BASE_URL
+        value: https://wildlifeafrica.org

@@ -53,3 +53,22 @@ a {
   background: color-mix(in srgb, var(--accent) 28%, white);
   color: var(--primary);
 }
+
+@keyframes brand-marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.brand-marquee-track {
+  animation: brand-marquee-scroll 24s linear infinite;
+  will-change: transform;
+}
+
+.brand-marquee-track:hover {
+  animation-play-state: paused;
+}
