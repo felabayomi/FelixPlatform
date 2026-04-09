@@ -22,12 +22,13 @@ export default function SiteHeader() {
                 <Link href="/#top" className="flex items-center gap-3 text-white">
                     <span className="relative inline-flex h-12 w-12 overflow-hidden rounded-2xl border border-emerald-300/30 bg-white/10 shadow-lg shadow-emerald-950/20 sm:h-14 sm:w-14">
                         <Image
-                            src="/waci-logo.svg"
+                            src="https://mediahost.app/api/media/serve/a6a6a62c2c5d3698ffa2674ef586907e?w=400&h=400&fit=crop&crop=center&q=80"
                             alt="Wildlife Africa CREW logo"
                             fill
                             sizes="56px"
                             className="object-cover"
                             priority
+                            unoptimized
                         />
                     </span>
                     <span>

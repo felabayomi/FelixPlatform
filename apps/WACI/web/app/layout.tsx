@@ -10,9 +10,9 @@ export const metadata: Metadata = {
     description:
         "A public WACI website powered by the Felix Platform shared backend, admin, and support infrastructure.",
     icons: {
-        icon: "/waci-logo.svg",
-        shortcut: "/waci-logo.svg",
-        apple: "/waci-logo.svg",
+        icon: "https://mediahost.app/api/media/serve/a6a6a62c2c5d3698ffa2674ef586907e?w=400&h=400&fit=crop&crop=center&q=80",
+        shortcut: "https://mediahost.app/api/media/serve/a6a6a62c2c5d3698ffa2674ef586907e?w=400&h=400&fit=crop&crop=center&q=80",
+        apple: "https://mediahost.app/api/media/serve/a6a6a62c2c5d3698ffa2674ef586907e?w=400&h=400&fit=crop&crop=center&q=80",
     },
 };
 
