@@ -21,9 +21,9 @@ const defaultContent = {
     servicesTitle: 'Boutique styling support',
     servicesText: 'Adrian’s Styled Collection is more than a storefront — it is a curated fashion experience centered on effortless elegance.',
     services: [
-        { id: 'style-curation', title: 'Style Curation', text: 'Get help selecting standout pieces and coordinated looks that match your event, mood, or travel plans.' },
-        { id: 'wardrobe-refresh', title: 'Wardrobe Refresh', text: 'Build a fresh capsule of bold, confidence-first outfits with Adrian’s boutique eye and flowing silhouettes.' },
-        { id: 'special-occasion-styling', title: 'Special Occasion Styling', text: 'Choose elegant kaftans and elevated statement looks for celebrations, dinners, gatherings, and getaways.' },
+        { id: 'style-curation', title: 'Style Curation', text: 'Get help selecting standout pieces and coordinated looks that match your event, mood, or travel plans.', image: '' },
+        { id: 'wardrobe-refresh', title: 'Wardrobe Refresh', text: 'Build a fresh capsule of bold, confidence-first outfits with Adrian’s boutique eye and flowing silhouettes.', image: '' },
+        { id: 'special-occasion-styling', title: 'Special Occasion Styling', text: 'Choose elegant kaftans and elevated statement looks for celebrations, dinners, gatherings, and getaways.', image: '' },
     ],
     successEyebrow: 'Thank you',
     successTitle: 'Your Adrian order is on its way',
@@ -80,6 +80,13 @@ const formatMoney = (value) => {
 const formatStatusLabel = (value) => String(value || 'pending')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const createEmptyService = () => ({
+    id: `service-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: '',
+    text: '',
+    image: '',
+});
 
 function AdrianStore() {
     const location = useLocation();
@@ -262,6 +269,42 @@ function AdrianStore() {
         }
     };
 
+    const handleServiceImageUpload = async (index, file) => {
+        if (!file) {
+            return;
+        }
+
+        const target = `service:${index}`;
+        setUploadingImageTarget(target);
+        setMessage('');
+        setError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const res = await API.post('/products/upload-image', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const uploadedUrl = res.data?.imageUrl || res.data?.secureUrl || res.data?.url || '';
+
+            if (!uploadedUrl) {
+                throw new Error('Cloudinary upload did not return an image URL.');
+            }
+
+            updateService(index, 'image', uploadedUrl);
+            setMessage('Service image uploaded to Cloudinary successfully. Save to publish the change.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || err.message || 'Unable to upload service image to Cloudinary.');
+        } finally {
+            setUploadingImageTarget('');
+        }
+    };
+
     const updateService = (index, field, value) => {
         setContent((current) => ({
             ...current,
@@ -270,6 +313,20 @@ function AdrianStore() {
                     ? { ...service, [field]: value }
                     : service
             )),
+        }));
+    };
+
+    const addService = () => {
+        setContent((current) => ({
+            ...current,
+            services: [...(current.services || []), createEmptyService()],
+        }));
+    };
+
+    const removeService = (index) => {
+        setContent((current) => ({
+            ...current,
+            services: (current.services || []).filter((_, serviceIndex) => serviceIndex !== index),
         }));
     };
 
@@ -638,6 +695,9 @@ function AdrianStore() {
                                     <h3>Services page</h3>
                                     <p className="muted">Edit the services headline and cards shown on `/services`.</p>
                                 </div>
+                                <button type="button" className="secondary-button" onClick={addService}>
+                                    Add service
+                                </button>
                             </div>
 
                             <div className="edit-form">
@@ -656,6 +716,14 @@ function AdrianStore() {
 
                                 {(content.services || []).map((service, index) => (
                                     <div key={service.id || index} className="helper-card">
+                                        <div className="record-header">
+                                            <div>
+                                                <h4>Service {index + 1}</h4>
+                                            </div>
+                                            <button type="button" className="delete-button" onClick={() => removeService(index)}>
+                                                Remove
+                                            </button>
+                                        </div>
                                         <div className="edit-form">
                                             <label>
                                                 <span>Service title</span>
@@ -665,6 +733,30 @@ function AdrianStore() {
                                                 <span>Service text</span>
                                                 <textarea rows="3" value={service.text || ''} onChange={(event) => updateService(index, 'text', event.target.value)} />
                                             </label>
+                                            <label>
+                                                <span>Service image URL</span>
+                                                <input
+                                                    value={service.image || ''}
+                                                    onChange={(event) => updateService(index, 'image', event.target.value)}
+                                                    placeholder="https://res.cloudinary.com/..."
+                                                />
+                                            </label>
+                                            <div className="toolbar-actions" style={{ justifyContent: 'flex-start' }}>
+                                                <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        style={{ display: 'none' }}
+                                                        onChange={(event) => {
+                                                            const file = event.target.files?.[0];
+                                                            event.target.value = '';
+                                                            handleServiceImageUpload(index, file);
+                                                        }}
+                                                    />
+                                                    {uploadingImageTarget === `service:${index}` ? 'Uploading…' : 'Upload service image'}
+                                                </label>
+                                            </div>
+                                            {service.image ? <img className="product-image-preview" src={service.image} alt={service.title || `Service ${index + 1}`} /> : null}
                                         </div>
                                     </div>
                                 ))}
@@ -797,7 +889,7 @@ function AdrianStore() {
                                     />
                                     {uploadingImageTarget === 'product:image_url' ? 'Uploading…' : 'Upload product image to Cloudinary'}
                                 </label>
-                                <span className="muted">Use upload for all new Adrian product and hero images.</span>
+                                <span className="muted">Use upload for all new Adrian product, hero, and service images.</span>
                             </div>
 
                             {productForm.image_url ? <img className="product-image-preview" src={productForm.image_url} alt="Product preview" /> : null}

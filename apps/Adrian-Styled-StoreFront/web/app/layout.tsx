@@ -19,6 +19,12 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Adrian's Styled Collection",
   description: "Boutique kaftans and confidence-first statement fashion powered by Felix Platform.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon",
+    shortcut: "/icon",
+    apple: "/apple-icon",
+  },
 };
 
 export default function RootLayout({

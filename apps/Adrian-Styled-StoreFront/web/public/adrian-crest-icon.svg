@@ -1,0 +1,31 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gold" x1="84" y1="98" x2="428" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A57119"/>
+      <stop offset="0.4" stop-color="#E2C15B"/>
+      <stop offset="0.7" stop-color="#C79D38"/>
+      <stop offset="1" stop-color="#8C6318"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#F1F1F1"/>
+  <g stroke="url(#gold)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 86L266 96L285 96L272 107L278 122L256 111L234 122L240 107L227 96L246 96L256 86Z" stroke-width="8" fill="url(#gold)"/>
+    <path d="M183 144C211 136 233 122 256 98C279 122 301 136 329 144V249C329 308 298 355 256 384C214 355 183 308 183 249V144Z" stroke-width="8"/>
+    <path d="M197 158C220 152 239 141 256 122C273 141 292 152 315 158V245C315 294 291 333 256 359C221 333 197 294 197 245V158Z" stroke-width="4.5" opacity="0.9"/>
+  </g>
+
+  <text x="256" y="260" text-anchor="middle" font-size="116" font-family="Georgia, 'Times New Roman', serif" fill="url(#gold)">A</text>
+
+  <g stroke="url(#gold)" stroke-width="8" stroke-linecap="round" fill="none">
+    <path d="M171 302C140 289 121 289 104 305C92 317 93 337 108 344C122 350 135 340 129 326C121 308 91 313 78 336"/>
+    <path d="M183 315C153 302 136 309 129 323C121 340 132 357 149 357C166 356 173 338 164 326"/>
+    <path d="M193 330C167 326 154 338 154 351C154 368 171 376 187 369C203 361 206 343 195 332"/>
+
+    <path d="M341 302C372 289 391 289 408 305C420 317 419 337 404 344C390 350 377 340 383 326C391 308 421 313 434 336"/>
+    <path d="M329 315C359 302 376 309 383 323C391 340 380 357 363 357C346 356 339 338 348 326"/>
+    <path d="M319 330C345 326 358 338 358 351C358 368 341 376 325 369C309 361 306 343 317 332"/>
+
+    <path d="M122 343C163 345 191 357 219 381"/>
+    <path d="M390 343C349 345 321 357 293 381"/>
+  </g>
+</svg>

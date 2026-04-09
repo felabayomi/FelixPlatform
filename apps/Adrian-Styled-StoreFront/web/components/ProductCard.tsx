@@ -9,6 +9,8 @@ type ProductCardProduct = Product & {
 export default function ProductCard({ product }: { product: ProductCardProduct }) {
     const image = product.images?.[0] || product.image || "/products/placeholder-product.svg";
     const shortDescription = product.shortDescription || product.short_description || product.description;
+    const compareAtPrice = Number(product.compare_at_price || 0);
+    const hasComparePrice = compareAtPrice > Number(product.price || 0);
 
     return (
         <div className="group rounded-2xl bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
@@ -20,6 +22,12 @@ export default function ProductCard({ product }: { product: ProductCardProduct }
                 />
 
                 <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
+
+                {hasComparePrice ? (
+                    <span className="absolute left-3 top-3 rounded-full bg-stone-900 px-3 py-1 text-xs font-semibold text-white">
+                        Sale
+                    </span>
+                ) : null}
             </div>
 
             <div className="mt-4 space-y-1 px-1 pb-1">
@@ -27,7 +35,12 @@ export default function ProductCard({ product }: { product: ProductCardProduct }
 
                 <p className="text-sm text-gray-500">{shortDescription}</p>
 
-                <p className="mt-2 font-semibold">{formatCurrency(product.price)}</p>
+                <div className="mt-2 flex items-center gap-2">
+                    <p className="font-semibold">{formatCurrency(product.price)}</p>
+                    {hasComparePrice ? (
+                        <p className="text-sm text-stone-400 line-through">{formatCurrency(compareAtPrice)}</p>
+                    ) : null}
+                </div>
 
                 <Link href={product.slug ? `/shop/${product.slug}` : "/shop"} className="mt-3 inline-block text-sm underline">
                     View product

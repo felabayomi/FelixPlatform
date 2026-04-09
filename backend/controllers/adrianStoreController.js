@@ -25,16 +25,19 @@ const DEFAULT_CONTENT = {
             id: 'style-curation',
             title: 'Style Curation',
             text: 'Get help selecting standout pieces and coordinated looks that match your event, mood, or travel plans.',
+            image: '',
         },
         {
             id: 'wardrobe-refresh',
             title: 'Wardrobe Refresh',
             text: 'Build a fresh capsule of bold, confidence-first outfits with Adrian’s boutique eye and flowing silhouettes.',
+            image: '',
         },
         {
             id: 'special-occasion-styling',
             title: 'Special Occasion Styling',
             text: 'Choose elegant kaftans and elevated statement looks for celebrations, dinners, gatherings, and getaways.',
+            image: '',
         },
     ],
     successEyebrow: 'Thank you',
@@ -63,6 +66,7 @@ const normalizeService = (service = {}, fallback = {}, index = 0) => ({
     id: toText(service.id, fallback.id || `service-${index + 1}`),
     title: toText(service.title, fallback.title || ''),
     text: toText(service.text, fallback.text || ''),
+    image: toText(service.image, fallback.image || ''),
 });
 
 const normalizeContent = (content = {}) => {
@@ -97,7 +101,15 @@ const normalizeContent = (content = {}) => {
         servicesEyebrow: toText(content.servicesEyebrow, defaults.servicesEyebrow),
         servicesTitle: toText(content.servicesTitle, defaults.servicesTitle),
         servicesText: toText(content.servicesText, defaults.servicesText),
-        services: defaults.services.map((defaultService, index) => normalizeService(incomingServices[index] || defaultService, defaultService, index)),
+        services: (() => {
+            const normalizedServices = incomingServices
+                .map((service, index) => normalizeService(service, defaults.services[index] || {}, index))
+                .filter((service) => service.title || service.text || service.image);
+
+            return normalizedServices.length
+                ? normalizedServices
+                : defaults.services.map((defaultService, index) => normalizeService(defaultService, defaultService, index));
+        })(),
         successEyebrow: toText(content.successEyebrow, defaults.successEyebrow),
         successTitle: toText(content.successTitle, defaults.successTitle),
         successText: toText(content.successText, defaults.successText),

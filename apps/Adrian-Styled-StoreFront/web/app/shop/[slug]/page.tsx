@@ -16,6 +16,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
     }
 
     const image = product.images?.[0] || product.image || "/products/placeholder-product.svg";
+    const compareAtPrice = Number(product.compare_at_price || 0);
+    const hasComparePrice = compareAtPrice > Number(product.price || 0);
 
     return (
         <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-10 sm:px-6 lg:px-8">
@@ -27,7 +29,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <div className="flex flex-col justify-center">
                     <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-700">Adrian Store</p>
                     <h1 className="mt-3 text-3xl font-semibold text-stone-900">{product.title}</h1>
-                    <p className="mt-2 text-2xl font-semibold text-stone-900">{formatCurrency(product.price)}</p>
+                    <div className="mt-2 flex items-center gap-3">
+                        <p className="text-2xl font-semibold text-stone-900">{formatCurrency(product.price)}</p>
+                        {hasComparePrice ? (
+                            <p className="text-base text-stone-400 line-through">{formatCurrency(compareAtPrice)}</p>
+                        ) : null}
+                        {hasComparePrice ? (
+                            <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-semibold text-white">Sale</span>
+                        ) : null}
+                    </div>
                     <p className="mt-4 text-base leading-7 text-stone-600">
                         {product.long_description || product.description}
                     </p>

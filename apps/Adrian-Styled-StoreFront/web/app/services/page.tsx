@@ -24,14 +24,20 @@ export default async function ServicesPage() {
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                 {content.services.map((service) => (
                     <article
                         key={service.id}
-                        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                        className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
                     >
-                        <h2 className="text-xl font-semibold text-stone-900">{service.title}</h2>
-                        <p className="mt-3 text-sm leading-6 text-stone-600">{service.text}</p>
+                        {service.image ? (
+                            <img src={service.image} alt={service.title} className="h-48 w-full object-cover" />
+                        ) : null}
+
+                        <div className="p-6">
+                            <h2 className="text-xl font-semibold text-stone-900">{service.title}</h2>
+                            <p className="mt-3 text-sm leading-6 text-stone-600">{service.text}</p>
+                        </div>
                     </article>
                 ))}
             </div>

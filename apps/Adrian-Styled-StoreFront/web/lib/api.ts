@@ -5,6 +5,7 @@ export type StorefrontContentService = {
     id: string;
     title: string;
     text: string;
+    image?: string;
 };
 
 export type StorefrontContent = {
@@ -60,16 +61,19 @@ export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
             id: "style-curation",
             title: "Style Curation",
             text: "Get help selecting standout pieces and coordinated looks that match your event, mood, or travel plans.",
+            image: "",
         },
         {
             id: "wardrobe-refresh",
             title: "Wardrobe Refresh",
             text: "Build a fresh capsule of bold, confidence-first outfits with Adrian’s boutique eye and flowing silhouettes.",
+            image: "",
         },
         {
             id: "special-occasion-styling",
             title: "Special Occasion Styling",
             text: "Choose elegant kaftans and elevated statement looks for celebrations, dinners, gatherings, and getaways.",
+            image: "",
         },
     ],
     successEyebrow: "Thank you",
@@ -136,15 +140,27 @@ const normalizeStorefrontContent = (value: unknown): StorefrontContent => {
         servicesEyebrow: toText(incoming.servicesEyebrow, DEFAULT_STOREFRONT_CONTENT.servicesEyebrow),
         servicesTitle: toText(incoming.servicesTitle, DEFAULT_STOREFRONT_CONTENT.servicesTitle),
         servicesText: toText(incoming.servicesText, DEFAULT_STOREFRONT_CONTENT.servicesText),
-        services: DEFAULT_STOREFRONT_CONTENT.services.map((service, index) => {
-            const incomingService = incomingServices[index] || service;
+        services: (() => {
+            const normalizedServices = incomingServices
+                .map((service, index) => {
+                    const fallback = DEFAULT_STOREFRONT_CONTENT.services[index] || {
+                        id: `service-${index + 1}`,
+                        title: "",
+                        text: "",
+                        image: "",
+                    };
 
-            return {
-                id: toText(incomingService?.id, service.id),
-                title: toText(incomingService?.title, service.title),
-                text: toText(incomingService?.text, service.text),
-            };
-        }),
+                    return {
+                        id: toText(service?.id, fallback.id),
+                        title: toText(service?.title, fallback.title),
+                        text: toText(service?.text, fallback.text),
+                        image: toText(service?.image, fallback.image || ""),
+                    };
+                })
+                .filter((service) => service.title || service.text || service.image);
+
+            return normalizedServices.length ? normalizedServices : DEFAULT_STOREFRONT_CONTENT.services;
+        })(),
         successEyebrow: toText(incoming.successEyebrow, DEFAULT_STOREFRONT_CONTENT.successEyebrow),
         successTitle: toText(incoming.successTitle, DEFAULT_STOREFRONT_CONTENT.successTitle),
         successText: toText(incoming.successText, DEFAULT_STOREFRONT_CONTENT.successText),
@@ -284,6 +300,34 @@ export async function submitQuoteRequest(input: QuoteRequestInput) {
         id: string;
         status: string;
         email_sent?: boolean;
+        admin_email_sent?: boolean;
+        customer_email_sent?: boolean;
+        notification_recipient?: string | null;
+        customer_email_recipient?: string | null;
+    };
+}
+
+export type SupportRequestInput = {
+    contactName: string;
+    contactEmail: string;
+    contactPhone?: string;
+    subject?: string;
+    message: string;
+};
+
+export async function submitSupportRequest(input: SupportRequestInput) {
+    const res = await API.post("/support-requests", {
+        app_name: "Adrian Store",
+        storefront_key: "adrian-store",
+        contact_name: input.contactName,
+        contact_email: input.contactEmail,
+        contact_phone: input.contactPhone,
+        subject: input.subject || "Adrian Store contact form",
+        message: input.message,
+    });
+
+    return res.data as {
+        submitted: boolean;
         admin_email_sent?: boolean;
         customer_email_sent?: boolean;
         notification_recipient?: string | null;
