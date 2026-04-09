@@ -634,7 +634,10 @@ const submitInterestForm = async (req, res, { formType, defaultSubject }) => {
             record,
             support_request: supportRequest,
             admin_email_sent: Boolean(emailResult.admin?.sent),
+            contact_email_sent: Boolean(emailResult.customer?.sent),
+            contact_email_recipient: emailResult.customer?.recipient || contactEmail || null,
             customer_email_sent: Boolean(emailResult.customer?.sent),
+            customer_email_recipient: emailResult.customer?.recipient || contactEmail || null,
         });
     } catch (error) {
         console.error(error);
@@ -725,7 +728,10 @@ exports.subscribeNewsletter = async (req, res) => {
             alreadySubscribed,
             subscriber,
             admin_email_sent: Boolean(emailResult.admin?.sent),
+            contact_email_sent: Boolean(emailResult.customer?.sent),
+            contact_email_recipient: emailResult.customer?.recipient || email || null,
             customer_email_sent: Boolean(emailResult.customer?.sent),
+            customer_email_recipient: emailResult.customer?.recipient || email || null,
         });
     } catch (error) {
         console.error(error);

@@ -188,6 +188,8 @@ const sendEmail = async ({ to, subject, text, html, appName, storefrontKey, type
     }
 };
 
+exports.sendEmail = sendEmail;
+
 exports.sendQuoteRequestNotification = async (quoteRequest = {}) => {
     const appName = quoteRequest.app_name || 'Felix Platform';
     const storefrontKey = quoteRequest.storefront_key || quoteRequest.storefrontKey || '';
@@ -353,33 +355,36 @@ exports.sendCustomerResponseNotification = async (quoteRequest = {}) => {
 exports.sendSupportRequestNotification = async (supportRequest = {}) => {
     const appName = supportRequest.app_name || 'Felix Platform';
     const storefrontKey = supportRequest.storefront_key || supportRequest.storefrontKey || '';
-    const customerName = supportRequest.contact_name || 'there';
-    const customerEmail = toEmail(supportRequest.contact_email);
-    const customerPhone = toNullableText(supportRequest.contact_phone) || 'Not provided';
-    const subjectLine = toNullableText(supportRequest.subject) || 'Support request';
+    const contactName = supportRequest.contact_name || 'there';
+    const contactEmail = toEmail(supportRequest.contact_email);
+    const contactPhone = toNullableText(supportRequest.contact_phone) || 'Not provided';
+    const subjectLine = toNullableText(supportRequest.subject) || 'New message';
     const messageText = toNullableText(supportRequest.message) || 'No additional message provided.';
+    const acknowledgementSubject = appName === 'WACI'
+        ? `Thank you for reaching out to ${appName}`
+        : `We received your ${appName} message`;
 
     const adminResult = await sendEmail({
         to: getNotificationRecipient('support', { appName, storefrontKey }),
         appName,
         storefrontKey,
-        subject: `New ${appName} support request: ${subjectLine}`,
+        subject: `New ${appName} inquiry: ${subjectLine}`,
         text: [
-            `A new support request was submitted from ${appName}.`,
-            `Customer: ${customerName}`,
-            `Email: ${customerEmail || 'Not provided'}`,
-            `Phone: ${customerPhone}`,
+            `A new inquiry was submitted from ${appName}.`,
+            `Contact: ${contactName}`,
+            `Email: ${contactEmail || 'Not provided'}`,
+            `Phone: ${contactPhone}`,
             `Subject: ${subjectLine}`,
             '',
             messageText,
         ].join('\n'),
         html: `
             <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
-                <h2 style="margin-bottom:8px;">New ${escapeHtml(appName)} support request</h2>
+                <h2 style="margin-bottom:8px;">New ${escapeHtml(appName)} inquiry</h2>
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:12px;">
-                    <p style="margin:0 0 6px;"><strong>Customer:</strong> ${escapeHtml(customerName)}</p>
-                    <p style="margin:0 0 6px;"><strong>Email:</strong> ${escapeHtml(customerEmail || 'Not provided')}</p>
-                    <p style="margin:0 0 6px;"><strong>Phone:</strong> ${escapeHtml(customerPhone)}</p>
+                    <p style="margin:0 0 6px;"><strong>Contact:</strong> ${escapeHtml(contactName)}</p>
+                    <p style="margin:0 0 6px;"><strong>Email:</strong> ${escapeHtml(contactEmail || 'Not provided')}</p>
+                    <p style="margin:0 0 6px;"><strong>Phone:</strong> ${escapeHtml(contactPhone)}</p>
                     <p style="margin:0;"><strong>Subject:</strong> ${escapeHtml(subjectLine)}</p>
                 </div>
                 <p style="white-space:pre-wrap;">${escapeHtml(messageText)}</p>
@@ -390,30 +395,30 @@ exports.sendSupportRequestNotification = async (supportRequest = {}) => {
     let customerResult = {
         sent: false,
         skipped: true,
-        reason: 'Customer email was not provided',
-        recipient: customerEmail,
+        reason: 'Contact email was not provided',
+        recipient: contactEmail,
     };
 
-    if (customerEmail) {
+    if (contactEmail) {
         customerResult = await sendEmail({
-            to: customerEmail,
+            to: contactEmail,
             appName,
             storefrontKey,
-            subject: `We received your ${appName} support request`,
+            subject: acknowledgementSubject,
             text: [
-                `Hello ${customerName},`,
+                `Hello ${contactName},`,
                 '',
-                `We received your support request for ${appName}.`,
+                `Thank you for reaching out to ${appName}.`,
                 `Subject: ${subjectLine}`,
-                'Our team will review it and follow up with you shortly.',
+                'We received your message and our team will follow up with you shortly.',
             ].join('\n'),
             html: `
                 <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
-                    <h2 style="margin-bottom:8px;">Support request received</h2>
-                    <p>Hello ${escapeHtml(customerName)},</p>
-                    <p>We received your ${escapeHtml(appName)} support request.</p>
+                    <h2 style="margin-bottom:8px;">Message received</h2>
+                    <p>Hello ${escapeHtml(contactName)},</p>
+                    <p>Thank you for reaching out to ${escapeHtml(appName)}.</p>
                     <p><strong>Subject:</strong> ${escapeHtml(subjectLine)}</p>
-                    <p>Our team will review it and follow up with you shortly.</p>
+                    <p>We received your message and our team will follow up with you shortly.</p>
                 </div>
             `,
         });

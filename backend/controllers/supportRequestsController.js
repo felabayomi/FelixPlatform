@@ -168,16 +168,19 @@ exports.submitSupportRequest = async (req, res) => {
         }
 
         if (!emailResult.customer?.sent && !emailResult.customer?.skipped) {
-            console.warn('Support confirmation email was not sent:', emailResult.customer?.error || emailResult.customer?.reason || 'Unknown email issue');
+            console.warn('Contact confirmation email was not sent:', emailResult.customer?.error || emailResult.customer?.reason || 'Unknown email issue');
         }
 
         return res.json({
             submitted: true,
             support_request: supportRequest,
             app_name: appName,
+            storefront_key: storefrontKey,
             admin_email_sent: Boolean(emailResult.admin?.sent),
+            contact_email_sent: Boolean(emailResult.customer?.sent),
             customer_email_sent: Boolean(emailResult.customer?.sent),
             notification_recipient: emailResult.admin?.recipient || null,
+            contact_email_recipient: emailResult.customer?.recipient || contactEmail,
             customer_email_recipient: emailResult.customer?.recipient || contactEmail,
         });
     } catch (error) {
