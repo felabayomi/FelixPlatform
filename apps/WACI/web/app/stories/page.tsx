@@ -4,6 +4,16 @@ import { getWaciStories } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
+const createStorySnippet = (value?: string, maxLength = 220) => {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim();
+
+    if (!normalized || normalized.length <= maxLength) {
+        return normalized;
+    }
+
+    return `${normalized.slice(0, maxLength).trimEnd()}…`;
+};
+
 export default async function StoriesPage() {
     const stories = await getWaciStories();
 
@@ -56,7 +66,7 @@ export default async function StoriesPage() {
                                         </div>
 
                                         <h2 className="text-xl font-semibold text-white">{story.title}</h2>
-                                        <p className="mt-3 flex-1 text-sm leading-6 text-slate-300">{story.summary}</p>
+                                        <p className="mt-3 flex-1 text-sm leading-6 text-slate-300">{createStorySnippet(story.summary, 220)}</p>
 
                                         <div className="mt-4 flex items-center justify-between text-xs text-slate-300">
                                             <span>{Number(story.viewCount || 0).toLocaleString()} views</span>

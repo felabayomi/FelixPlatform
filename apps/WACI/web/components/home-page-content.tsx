@@ -162,6 +162,16 @@ const trustPoints = [
     "Powered by the Felix shared platform so public storytelling can scale with trust and operational strength.",
 ];
 
+const createStorySnippet = (value?: string | null, maxLength = 220) => {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim();
+
+    if (!normalized || normalized.length <= maxLength) {
+        return normalized;
+    }
+
+    return `${normalized.slice(0, maxLength).trimEnd()}…`;
+};
+
 const SUGGESTED_DONATION_AMOUNTS = [25, 50, 100, 250] as const;
 const DEFAULT_SUGGESTED_DONATION = 50;
 
@@ -405,9 +415,17 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
     const featuredStoryEyebrow = content.featuredStoryEyebrow || (featuredStoryRecord?.location ? `Featured Story · ${featuredStoryRecord.location}` : "Featured Story");
     const featuredStoryTitle = content.featuredStoryTitle || featuredStoryRecord?.title || "Why WACI exists: turning admiration into action";
     const featuredStoryText = content.featuredStoryText || featuredStoryRecord?.summary || "Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.";
+    const featuredStoryPreviewText = createStorySnippet(featuredStoryText, 240);
     const featuredStoryAlt = content.featuredStoryAlt || featuredStoryRecord?.title || "African landscape with wildlife";
-    const featuredStoryCtaLabel = content.featuredStoryCtaLabel || "Join Our Movement";
-    const featuredStoryCtaLink = content.featuredStoryCtaLink || featuredStoryRecord?.link || (featuredStoryRecord ? `/stories/${encodeURIComponent(featuredStoryRecord.slug || featuredStoryRecord.id)}` : "#join");
+    const featuredStoryCtaLinkValue = String(content.featuredStoryCtaLink || "").trim();
+    const featuredStoryDetailLink = featuredStoryRecord
+        ? (featuredStoryRecord.link || `/stories/${encodeURIComponent(featuredStoryRecord.slug || featuredStoryRecord.id)}`)
+        : "#join";
+    const useFeaturedStoryDetailLink = !featuredStoryCtaLinkValue || ["#join", "/#join", "#stories", "/#stories"].includes(featuredStoryCtaLinkValue);
+    const featuredStoryCtaLabel = useFeaturedStoryDetailLink && featuredStoryRecord
+        ? "Open story"
+        : (content.featuredStoryCtaLabel || "Join Our Movement");
+    const featuredStoryCtaLink = useFeaturedStoryDetailLink ? featuredStoryDetailLink : featuredStoryCtaLinkValue;
     const whoWeAreEyebrow = content.whoWeAreEyebrow || "Who We Are";
     const whoWeAreTitle = content.whoWeAreTitle || "A platform for wildlife people";
     const whoWeAreText = content.whoWeAreText || "WACI was born from a simple truth: Africa’s wildlife needs more people who care, and those people need a place to connect, learn, and act. We exist to make conservation more inclusive, more informed, and more community-driven.";
@@ -442,7 +460,7 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                 return remainingStories.slice(0, 3).map((story) => ({
                     category: story.location || (story.publishedAt ? `Story · ${story.publishedAt}` : 'Story'),
                     title: story.title,
-                    excerpt: story.summary,
+                    excerpt: createStorySnippet(story.summary, 160),
                     link: story.link || `/stories/${encodeURIComponent(story.slug || story.id)}`,
                 }));
             }
@@ -1044,7 +1062,7 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                             {featuredStoryTitle}
                                         </h3>
                                         <p className="mt-4 text-sm leading-7 text-white/70">
-                                            {featuredStoryText}
+                                            {featuredStoryPreviewText}
                                         </p>
                                         <a
                                             href={featuredStoryCtaLink}
