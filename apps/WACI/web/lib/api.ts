@@ -16,6 +16,7 @@ export type SiteContent = {
     heroPrimaryLink: string;
     heroSecondaryLabel: string;
     heroSecondaryLink: string;
+    headerLogoUrl: string;
     heroImageOne: string;
     heroImageTwo: string;
     heroImageThree: string;
@@ -32,6 +33,16 @@ export type SiteContent = {
     featuredEyebrow: string;
     featuredTitle: string;
     featuredText: string;
+    storiesEyebrow: string;
+    storiesTitle: string;
+    storiesText: string;
+    featuredStoryEyebrow: string;
+    featuredStoryTitle: string;
+    featuredStoryText: string;
+    featuredStoryImage: string;
+    featuredStoryAlt: string;
+    featuredStoryCtaLabel: string;
+    featuredStoryCtaLink: string;
     servicesEyebrow: string;
     servicesTitle: string;
     servicesText: string;
@@ -54,6 +65,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     heroPrimaryLink: "#join",
     heroSecondaryLabel: "Explore Wildlife",
     heroSecondaryLink: "#learn",
+    headerLogoUrl: "https://mediahost.app/api/media/serve/a6a6a62c2c5d3698ffa2674ef586907e?w=400&h=400&fit=crop&crop=center&q=80",
     heroImageOne: "https://images.unsplash.com/photo-1516426122078-c23e76319801?auto=format&fit=crop&w=1200&q=80",
     heroImageTwo: "https://images.unsplash.com/photo-1549366021-9f761d040a94?auto=format&fit=crop&w=1200&q=80",
     heroImageThree: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
@@ -71,6 +83,16 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     featuredTitle: "Where WACI is focusing now",
     featuredText:
         "These featured initiatives can be highlighted through the shared Felix content library on the public WACI site.",
+    storiesEyebrow: "Stories & Media",
+    storiesTitle: "Conservation comes alive when people can see it, hear it, and feel it",
+    storiesText: "WACI uses storytelling to connect people to real ecosystems, real communities, and real conservation work across Africa.",
+    featuredStoryEyebrow: "Featured Story",
+    featuredStoryTitle: "Why WACI exists: turning admiration into action",
+    featuredStoryText: "Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.",
+    featuredStoryImage: "",
+    featuredStoryAlt: "African landscape with wildlife",
+    featuredStoryCtaLabel: "Join Our Movement",
+    featuredStoryCtaLink: "#join",
     servicesEyebrow: "Our Work",
     servicesTitle: "Five pillars that turn care into conservation action",
     servicesText:
@@ -116,7 +138,9 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     supportEmail: "hello@wildlifeafrica.org",
 };
 
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000").replace(/\/$/, "");
+const DEFAULT_API_BASE_URL = "https://felix-platform-backend.onrender.com";
+
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || DEFAULT_API_BASE_URL).replace(/\/$/, "");
 export const WACI_CONTEXT_PARAMS = {
     app_name: "WACI",
     storefront_key: "waci",
@@ -154,6 +178,7 @@ const normalizeSiteContent = (value: unknown): SiteContent => {
         heroPrimaryLink: toText(incoming.heroPrimaryLink, defaults.heroPrimaryLink),
         heroSecondaryLabel: toText(incoming.heroSecondaryLabel, defaults.heroSecondaryLabel),
         heroSecondaryLink: toText(incoming.heroSecondaryLink, defaults.heroSecondaryLink),
+        headerLogoUrl: toText(incoming.headerLogoUrl, defaults.headerLogoUrl),
         heroImageOne,
         heroImageTwo,
         heroImageThree,
@@ -170,6 +195,16 @@ const normalizeSiteContent = (value: unknown): SiteContent => {
         featuredEyebrow: toText(incoming.featuredEyebrow, defaults.featuredEyebrow),
         featuredTitle: toText(incoming.featuredTitle, defaults.featuredTitle),
         featuredText: toText(incoming.featuredText, defaults.featuredText),
+        storiesEyebrow: toText(incoming.storiesEyebrow, toText(incoming.featuredEyebrow, defaults.storiesEyebrow)),
+        storiesTitle: toText(incoming.storiesTitle, toText(incoming.featuredTitle, defaults.storiesTitle)),
+        storiesText: toText(incoming.storiesText, toText(incoming.featuredText, defaults.storiesText)),
+        featuredStoryEyebrow: toText(incoming.featuredStoryEyebrow, defaults.featuredStoryEyebrow),
+        featuredStoryTitle: toText(incoming.featuredStoryTitle, defaults.featuredStoryTitle),
+        featuredStoryText: toText(incoming.featuredStoryText, defaults.featuredStoryText),
+        featuredStoryImage: toText(incoming.featuredStoryImage, heroImageTwo || defaults.featuredStoryImage),
+        featuredStoryAlt: toText(incoming.featuredStoryAlt, defaults.featuredStoryAlt),
+        featuredStoryCtaLabel: toText(incoming.featuredStoryCtaLabel, defaults.featuredStoryCtaLabel),
+        featuredStoryCtaLink: toText(incoming.featuredStoryCtaLink, defaults.featuredStoryCtaLink),
         servicesEyebrow: toText(incoming.servicesEyebrow, defaults.servicesEyebrow),
         servicesTitle: toText(incoming.servicesTitle, defaults.servicesTitle),
         servicesText: toText(incoming.servicesText, defaults.servicesText),

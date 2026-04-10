@@ -5,6 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Menu, X } from "lucide-react";
 
+type SiteHeaderProps = {
+    logoUrl?: string;
+};
+
+const defaultLogoUrl = "https://mediahost.app/api/media/serve/a6a6a62c2c5d3698ffa2674ef586907e?w=400&h=400&fit=crop&crop=center&q=80";
+
 const links = [
     { href: "/#about", label: "About" },
     { href: "/#programs", label: "Programs" },
@@ -13,8 +19,9 @@ const links = [
     { href: "/#involved", label: "Get Involved" },
 ];
 
-export default function SiteHeader() {
+export default function SiteHeader({ logoUrl }: SiteHeaderProps) {
     const [mobileOpen, setMobileOpen] = useState(false);
+    const resolvedLogoUrl = String(logoUrl || "").trim() || defaultLogoUrl;
 
     return (
         <header className="sticky top-0 z-50 border-b border-white/10 bg-[#08120e]/80 backdrop-blur-xl">
@@ -22,7 +29,7 @@ export default function SiteHeader() {
                 <Link href="/#top" className="flex items-center gap-3 text-white">
                     <span className="relative inline-flex h-12 w-12 overflow-hidden rounded-2xl border border-emerald-300/30 bg-white/10 shadow-lg shadow-emerald-950/20 sm:h-14 sm:w-14">
                         <Image
-                            src="https://mediahost.app/api/media/serve/a6a6a62c2c5d3698ffa2674ef586907e?w=400&h=400&fit=crop&crop=center&q=80"
+                            src={resolvedLogoUrl}
                             alt="Wildlife Africa CREW logo"
                             fill
                             sizes="56px"

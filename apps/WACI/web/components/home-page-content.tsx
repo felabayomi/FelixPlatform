@@ -32,6 +32,25 @@ const fallbackHeroImages = [
     "https://images.unsplash.com/photo-1546182990-dffeafbe841d?auto=format&fit=crop&w=1200&q=80",
 ];
 
+const resolveHeroImageUrl = (value?: string | null) => {
+    const normalized = String(value || "").trim();
+
+    if (!normalized) {
+        return "";
+    }
+
+    if (/^(https?:)?\/\//i.test(normalized) || normalized.startsWith("data:") || normalized.startsWith("blob:")) {
+        return normalized;
+    }
+
+    if (normalized.startsWith("/uploads/")) {
+        const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://felix-platform-backend.onrender.com").replace(/\/$/, "");
+        return `${apiBaseUrl}${normalized}`;
+    }
+
+    return normalized;
+};
+
 const fallbackServices = [
     {
         id: "education-awareness",
@@ -164,6 +183,7 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
     const [success, setSuccess] = useState("");
     const [error, setError] = useState("");
     const [activeHeroImageIndex, setActiveHeroImageIndex] = useState(0);
+    const [failedHeroImages, setFailedHeroImages] = useState<string[]>([]);
     const year = useMemo(() => new Date().getFullYear(), []);
 
     const heroBadgeText = content.heroEyebrow || "A home for Africans and friends of Africa who care about wildlife";
@@ -184,14 +204,29 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
             content.heroImageThree,
             content.heroImageFour,
         ]
+            .map((value) => resolveHeroImageUrl(value))
             .filter(Boolean)
-            .filter((value, index, items) => items.indexOf(value) === index);
+            .filter((value, index, items) => items.indexOf(value) === index)
+            .filter((value) => !failedHeroImages.includes(value));
 
-        return configuredImages.length ? configuredImages : fallbackHeroImages;
-    }, [content.heroImageFour, content.heroImageOne, content.heroImageThree, content.heroImageTwo, content.heroImages]);
+        if (configuredImages.length) {
+            return configuredImages;
+        }
 
-    const heroImage = heroImages[activeHeroImageIndex % heroImages.length] || fallbackHeroImages[0];
-    const storyImage = heroImages[1] || heroImages[0] || fallbackHeroImages[0];
+        return fallbackHeroImages.filter((value) => !failedHeroImages.includes(value));
+    }, [content.heroImageFour, content.heroImageOne, content.heroImageThree, content.heroImageTwo, content.heroImages, failedHeroImages]);
+
+    const heroImage = heroImages[activeHeroImageIndex % Math.max(heroImages.length, 1)] || fallbackHeroImages[0];
+    const storyImage = resolveHeroImageUrl(content.featuredStoryImage) || heroImages[1] || heroImages[0] || fallbackHeroImages[0];
+    const storiesEyebrow = content.storiesEyebrow || content.featuredEyebrow || "Stories & Media";
+    const storiesTitle = content.storiesTitle || content.featuredTitle || "Conservation comes alive when people can see it, hear it, and feel it";
+    const storiesText = content.storiesText || content.featuredText || "WACI uses storytelling to connect people to real ecosystems, real communities, and real conservation work across Africa.";
+    const featuredStoryEyebrow = content.featuredStoryEyebrow || "Featured Story";
+    const featuredStoryTitle = content.featuredStoryTitle || "Why WACI exists: turning admiration into action";
+    const featuredStoryText = content.featuredStoryText || "Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.";
+    const featuredStoryAlt = content.featuredStoryAlt || "African landscape with wildlife";
+    const featuredStoryCtaLabel = content.featuredStoryCtaLabel || "Join Our Movement";
+    const featuredStoryCtaLink = content.featuredStoryCtaLink || "#join";
     const serviceCards = useMemo(() => {
         if (Array.isArray(content.services) && content.services.length) {
             return content.services.filter((service) => service?.title || service?.text).slice(0, 5);
@@ -205,16 +240,20 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
     }, [heroImages.length]);
 
     useEffect(() => {
+        setFailedHeroImages([]);
+    }, [content.heroImageFour, content.heroImageOne, content.heroImageThree, content.heroImageTwo, content.heroImages]);
+
+    useEffect(() => {
         if (heroImages.length <= 1) {
             return undefined;
         }
 
-        const interval = window.setInterval(() => {
+        const timeout = window.setTimeout(() => {
             setActiveHeroImageIndex((current) => (current + 1) % heroImages.length);
-        }, 4500);
+        }, 3200);
 
-        return () => window.clearInterval(interval);
-    }, [heroImages.length]);
+        return () => window.clearTimeout(timeout);
+    }, [activeHeroImageIndex, heroImages]);
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -279,7 +318,7 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
                         <div className="max-w-3xl">
                             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/75 backdrop-blur">
                                 <Globe className="h-4 w-4 text-emerald-300" />
-                                A home for Africans and friends of Africa who care about wildlife
+                                {heroBadgeText}
                             </div>
                             <h1 className="max-w-4xl text-4xl font-semibold leading-[0.95] tracking-tight text-white sm:text-5xl md:text-6xl xl:text-7xl">
                                 {heroTitle}
@@ -340,6 +379,14 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
                                         initial={{ opacity: 0.45, scale: 1.03 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         transition={{ duration: 0.6 }}
+                                        onError={(event) => {
+                                            const brokenSrc = event.currentTarget.currentSrc || event.currentTarget.src;
+                                            setFailedHeroImages((current) => (
+                                                current.includes(brokenSrc)
+                                                    ? current
+                                                    : [...current, brokenSrc]
+                                            ));
+                                        }}
                                     />
                                 </div>
 
@@ -542,36 +589,36 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
                 <section className="scroll-mt-28 px-4 py-14 md:scroll-mt-32 md:px-6 lg:px-8" id="stories">
                     <div className="mx-auto max-w-7xl">
                         <SectionHeading
-                            eyebrow="Stories & Media"
-                            title="Conservation comes alive when people can see it, hear it, and feel it"
-                            body="WACI uses storytelling to connect people to real ecosystems, real communities, and real conservation work across Africa."
+                            eyebrow={storiesEyebrow}
+                            title={storiesTitle}
+                            body={storiesText}
                         />
                         <div className="mt-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                             <GlassCard className="overflow-hidden p-0">
                                 <div className="grid md:grid-cols-2">
                                     <img
                                         src={storyImage}
-                                        alt="African landscape with wildlife"
+                                        alt={featuredStoryAlt}
                                         className="h-full min-h-[320px] w-full object-cover"
                                     />
                                     <div className="p-8">
                                         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-300/80">
-                                            Featured Story
+                                            {featuredStoryEyebrow}
                                         </p>
                                         <h3 className="mt-4 text-3xl font-semibold leading-tight">
-                                            Why WACI exists: turning admiration into action
+                                            {featuredStoryTitle}
                                         </h3>
                                         <p className="mt-4 text-sm leading-7 text-white/70">
-                                            Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.
+                                            {featuredStoryText}
                                         </p>
                                         <p className="mt-4 text-sm leading-7 text-white/60">
                                             Current shared campaign previews available through Felix: {featuredCampaigns.length}
                                         </p>
                                         <a
-                                            href="#join"
+                                            href={featuredStoryCtaLink}
                                             className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300"
                                         >
-                                            Join Our Movement <ArrowRight className="h-4 w-4" />
+                                            {featuredStoryCtaLabel} <ArrowRight className="h-4 w-4" />
                                         </a>
                                     </div>
                                 </div>

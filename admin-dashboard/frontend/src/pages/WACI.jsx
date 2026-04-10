@@ -26,6 +26,7 @@ const defaultContent = {
     heroPrimaryLink: '#join',
     heroSecondaryLabel: 'Explore Wildlife',
     heroSecondaryLink: '#learn',
+    headerLogoUrl: 'https://mediahost.app/api/media/serve/a6a6a62c2c5d3698ffa2674ef586907e?w=400&h=400&fit=crop&crop=center&q=80',
     heroImageOne: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?auto=format&fit=crop&w=1200&q=80',
     heroImageTwo: 'https://images.unsplash.com/photo-1549366021-9f761d040a94?auto=format&fit=crop&w=1200&q=80',
     heroImageThree: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
@@ -41,6 +42,16 @@ const defaultContent = {
     featuredEyebrow: 'Priority campaigns',
     featuredTitle: 'Where WACI is focusing now',
     featuredText: 'Highlight live WACI campaigns, updates, and initiatives here through the shared Felix content system.',
+    storiesEyebrow: 'Stories & Media',
+    storiesTitle: 'Conservation comes alive when people can see it, hear it, and feel it',
+    storiesText: 'WACI uses storytelling to connect people to real ecosystems, real communities, and real conservation work across Africa.',
+    featuredStoryEyebrow: 'Featured Story',
+    featuredStoryTitle: 'Why WACI exists: turning admiration into action',
+    featuredStoryText: 'Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.',
+    featuredStoryImage: '',
+    featuredStoryAlt: 'African landscape with wildlife',
+    featuredStoryCtaLabel: 'Join Our Movement',
+    featuredStoryCtaLink: '#join',
     servicesEyebrow: 'Our Work',
     servicesTitle: 'Five pillars that turn care into conservation action',
     servicesText:
@@ -77,6 +88,30 @@ const formatDateTime = (value) => {
     return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString();
 };
 
+const resolveImageUrl = (value) => {
+    const normalized = String(value || '').trim();
+
+    if (!normalized) {
+        return '';
+    }
+
+    if (/^(https?:)?\/\//i.test(normalized) || normalized.startsWith('data:') || normalized.startsWith('blob:')) {
+        return normalized;
+    }
+
+    const baseUrl = String(API.defaults?.baseURL || '').replace(/\/$/, '');
+
+    if (normalized.startsWith('/')) {
+        return baseUrl ? `${baseUrl}${normalized}` : normalized;
+    }
+
+    if (/^(uploads|api\/|media\/)/i.test(normalized)) {
+        return baseUrl ? `${baseUrl}/${normalized.replace(/^\/+/, '')}` : normalized;
+    }
+
+    return normalized;
+};
+
 function WACI() {
     const [content, setContent] = useState(defaultContent);
     const [supportRequests, setSupportRequests] = useState([]);
@@ -97,6 +132,7 @@ function WACI() {
     const [error, setError] = useState('');
     const [updatedAt, setUpdatedAt] = useState('');
     const [updatedByEmail, setUpdatedByEmail] = useState('');
+    const [uploadingImageTarget, setUploadingImageTarget] = useState('');
 
     const openSupportCount = useMemo(
         () => supportRequests.filter((request) => !['resolved', 'closed'].includes(String(request.status || 'new').toLowerCase())).length,
@@ -198,6 +234,78 @@ function WACI() {
                     : service
             )),
         }));
+    };
+
+    const handleImageUpload = async (field, file, scope = 'content') => {
+        if (!file) {
+            return;
+        }
+
+        const target = `${scope}:${field}`;
+        setUploadingImageTarget(target);
+        setMessage('');
+        setError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const res = await API.post('/products/upload-image', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const uploadedUrl = res.data?.imageUrl || res.data?.secureUrl || res.data?.url || '';
+
+            if (!uploadedUrl) {
+                throw new Error('Image upload did not return a usable image URL.');
+            }
+
+            updateField(field, uploadedUrl);
+            setMessage('WACI image uploaded successfully. Save WACI to publish the change.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || err.message || 'Unable to upload WACI image.');
+        } finally {
+            setUploadingImageTarget('');
+        }
+    };
+
+    const handleServiceImageUpload = async (index, file) => {
+        if (!file) {
+            return;
+        }
+
+        const target = `service:${index}`;
+        setUploadingImageTarget(target);
+        setMessage('');
+        setError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const res = await API.post('/products/upload-image', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const uploadedUrl = res.data?.imageUrl || res.data?.secureUrl || res.data?.url || '';
+
+            if (!uploadedUrl) {
+                throw new Error('Image upload did not return a usable image URL.');
+            }
+
+            updateService(index, 'image', uploadedUrl);
+            setMessage('WACI service image uploaded successfully. Save WACI to publish the change.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || err.message || 'Unable to upload WACI service image.');
+        } finally {
+            setUploadingImageTarget('');
+        }
     };
 
     const handleSave = async () => {
@@ -353,22 +461,63 @@ function WACI() {
                                 <span>Secondary CTA link</span>
                                 <input value={content.heroSecondaryLink || ''} onChange={(event) => updateField('heroSecondaryLink', event.target.value)} />
                             </label>
-                            <label>
-                                <span>Hero image 1 URL</span>
-                                <input value={content.heroImageOne || ''} onChange={(event) => updateField('heroImageOne', event.target.value)} />
-                            </label>
-                            <label>
-                                <span>Hero image 2 URL</span>
-                                <input value={content.heroImageTwo || ''} onChange={(event) => updateField('heroImageTwo', event.target.value)} />
-                            </label>
-                            <label>
-                                <span>Hero image 3 URL</span>
-                                <input value={content.heroImageThree || ''} onChange={(event) => updateField('heroImageThree', event.target.value)} />
-                            </label>
-                            <label>
-                                <span>Hero image 4 URL</span>
-                                <input value={content.heroImageFour || ''} onChange={(event) => updateField('heroImageFour', event.target.value)} />
-                            </label>
+                            <div className="image-upload-block">
+                                <label>
+                                    <span>Site logo URL</span>
+                                    <input value={content.headerLogoUrl || ''} onChange={(event) => updateField('headerLogoUrl', event.target.value)} />
+                                </label>
+                                <div className="product-actions">
+                                    <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                        {uploadingImageTarget === 'content:headerLogoUrl' ? 'Uploading…' : 'Upload logo'}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                            onChange={(event) => handleImageUpload('headerLogoUrl', event.target.files?.[0])}
+                                        />
+                                    </label>
+                                    <span className="muted">Used in the top navbar and site icon.</span>
+                                </div>
+                                {resolveImageUrl(content.headerLogoUrl) ? (
+                                    <div className="image-preview-wrapper">
+                                        <img className="product-image-preview" src={resolveImageUrl(content.headerLogoUrl)} alt="WACI logo preview" />
+                                    </div>
+                                ) : null}
+                            </div>
+                            {[
+                                { field: 'heroImageOne', label: 'Hero image 1 URL' },
+                                { field: 'heroImageTwo', label: 'Hero image 2 URL' },
+                                { field: 'heroImageThree', label: 'Hero image 3 URL' },
+                                { field: 'heroImageFour', label: 'Hero image 4 URL' },
+                            ].map(({ field, label }) => {
+                                const previewUrl = resolveImageUrl(content[field]);
+
+                                return (
+                                    <div key={field} className="image-upload-block">
+                                        <label>
+                                            <span>{label}</span>
+                                            <input value={content[field] || ''} onChange={(event) => updateField(field, event.target.value)} />
+                                        </label>
+                                        <div className="product-actions">
+                                            <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                                {uploadingImageTarget === `content:${field}` ? 'Uploading…' : 'Upload image'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    onChange={(event) => handleImageUpload(field, event.target.files?.[0])}
+                                                />
+                                            </label>
+                                            <span className="muted">Use upload for the WACI homepage carousel.</span>
+                                        </div>
+                                        {previewUrl ? (
+                                            <div className="image-preview-wrapper">
+                                                <img className="product-image-preview" src={previewUrl} alt={label} />
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                );
+                            })}
                             <label>
                                 <span>Wild places title</span>
                                 <input value={content.heroWildPlacesTitle || ''} onChange={(event) => updateField('heroWildPlacesTitle', event.target.value)} />
@@ -414,12 +563,63 @@ function WACI() {
                                 <textarea rows="3" value={content.servicesText || ''} onChange={(event) => updateField('servicesText', event.target.value)} />
                             </label>
                             <label>
-                                <span>Featured section title</span>
-                                <input value={content.featuredTitle || ''} onChange={(event) => updateField('featuredTitle', event.target.value)} />
+                                <span>Stories & Media eyebrow</span>
+                                <input value={content.storiesEyebrow || ''} onChange={(event) => updateField('storiesEyebrow', event.target.value)} />
                             </label>
                             <label>
-                                <span>Featured section text</span>
-                                <textarea rows="3" value={content.featuredText || ''} onChange={(event) => updateField('featuredText', event.target.value)} />
+                                <span>Stories & Media title</span>
+                                <input value={content.storiesTitle || ''} onChange={(event) => updateField('storiesTitle', event.target.value)} />
+                            </label>
+                            <label>
+                                <span>Stories & Media intro</span>
+                                <textarea rows="3" value={content.storiesText || ''} onChange={(event) => updateField('storiesText', event.target.value)} />
+                            </label>
+                            <div className="image-upload-block">
+                                <label>
+                                    <span>Featured story image URL</span>
+                                    <input value={content.featuredStoryImage || ''} onChange={(event) => updateField('featuredStoryImage', event.target.value)} />
+                                </label>
+                                <div className="product-actions">
+                                    <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                        {uploadingImageTarget === 'content:featuredStoryImage' ? 'Uploading…' : 'Upload featured image'}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                            onChange={(event) => handleImageUpload('featuredStoryImage', event.target.files?.[0])}
+                                        />
+                                    </label>
+                                    <span className="muted">This is the large image shown in the Stories & Media block.</span>
+                                </div>
+                                {resolveImageUrl(content.featuredStoryImage) ? (
+                                    <div className="image-preview-wrapper">
+                                        <img className="product-image-preview" src={resolveImageUrl(content.featuredStoryImage)} alt="Featured story preview" />
+                                    </div>
+                                ) : null}
+                            </div>
+                            <label>
+                                <span>Featured story label</span>
+                                <input value={content.featuredStoryEyebrow || ''} onChange={(event) => updateField('featuredStoryEyebrow', event.target.value)} />
+                            </label>
+                            <label>
+                                <span>Featured story title</span>
+                                <input value={content.featuredStoryTitle || ''} onChange={(event) => updateField('featuredStoryTitle', event.target.value)} />
+                            </label>
+                            <label>
+                                <span>Featured story text</span>
+                                <textarea rows="4" value={content.featuredStoryText || ''} onChange={(event) => updateField('featuredStoryText', event.target.value)} />
+                            </label>
+                            <label>
+                                <span>Featured story image alt text</span>
+                                <input value={content.featuredStoryAlt || ''} onChange={(event) => updateField('featuredStoryAlt', event.target.value)} />
+                            </label>
+                            <label>
+                                <span>Featured story CTA label</span>
+                                <input value={content.featuredStoryCtaLabel || ''} onChange={(event) => updateField('featuredStoryCtaLabel', event.target.value)} />
+                            </label>
+                            <label>
+                                <span>Featured story CTA link</span>
+                                <input value={content.featuredStoryCtaLink || ''} onChange={(event) => updateField('featuredStoryCtaLink', event.target.value)} />
                             </label>
                             <label>
                                 <span>Footer title</span>
@@ -466,6 +666,28 @@ function WACI() {
                                         <span>Description</span>
                                         <textarea rows="3" value={service.text || ''} onChange={(event) => updateService(index, 'text', event.target.value)} />
                                     </label>
+                                    <div className="image-upload-block">
+                                        <label>
+                                            <span>Card image URL</span>
+                                            <input value={service.image || ''} onChange={(event) => updateService(index, 'image', event.target.value)} />
+                                        </label>
+                                        <div className="product-actions">
+                                            <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                                {uploadingImageTarget === `service:${index}` ? 'Uploading…' : 'Upload card image'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    onChange={(event) => handleServiceImageUpload(index, event.target.files?.[0])}
+                                                />
+                                            </label>
+                                        </div>
+                                        {resolveImageUrl(service.image) ? (
+                                            <div className="image-preview-wrapper">
+                                                <img className="product-image-preview" src={resolveImageUrl(service.image)} alt={service.title || `Service ${index + 1}`} />
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </div>
                             ))}
                         </div>
