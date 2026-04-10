@@ -75,6 +75,29 @@ const DEFAULT_CONFIG_BY_KEY = {
             heroVisionText: 'A future where African biodiversity thrives because enough people stood up to protect it.',
             heroMissionTitle: 'Mission',
             heroMissionText: 'Bridge the gap between passion and practical action through learning, collaboration, and community.',
+            whoWeAreEyebrow: 'Who We Are',
+            whoWeAreTitle: 'A platform for wildlife people',
+            whoWeAreText: 'WACI was born from a simple truth: Africa’s wildlife needs more people who care, and those people need a place to connect, learn, and act. We exist to make conservation more inclusive, more informed, and more community-driven.',
+            whoWeAreItems: [
+                {
+                    id: 'community-inclusion',
+                    title: 'Community & Inclusion',
+                    text: 'Conservation belongs to everyone. We welcome professionals, students, creators, local communities, and global allies.',
+                    icon: 'users',
+                },
+                {
+                    id: 'knowledge-curiosity',
+                    title: 'Knowledge & Curiosity',
+                    text: 'We foster understanding of species, ecosystems, and conservation challenges so people can act with clarity.',
+                    icon: 'trees',
+                },
+                {
+                    id: 'action-accountability',
+                    title: 'Action & Accountability',
+                    text: 'We believe awareness matters, but measurable action for wildlife and habitats matters more.',
+                    icon: 'shield',
+                },
+            ],
             featuredEyebrow: 'Priority campaigns',
             featuredTitle: 'Where WACI is focusing now',
             featuredText: 'Highlight live WACI campaigns, updates, and initiatives here through the shared Felix content system.',
@@ -171,11 +194,21 @@ const normalizeService = (service = {}, fallback = {}, index = 0) => ({
     image: toText(service.image, fallback.image || ''),
 });
 
+const normalizeInfoCard = (item = {}, fallback = {}, index = 0) => ({
+    id: toText(item.id, fallback.id || `info-card-${index + 1}`),
+    title: toText(item.title, fallback.title || ''),
+    text: toText(item.text, fallback.text || ''),
+    icon: toText(item.icon, fallback.icon || 'users'),
+});
+
 const normalizeContent = (content = {}, defaultsSource = DEFAULT_CONFIG.defaults) => {
     const defaults = cloneDefaults(defaultsSource);
     const incomingServices = Array.isArray(content.services) && content.services.length
         ? content.services
         : defaults.services;
+    const incomingWhoWeAreItems = Array.isArray(content.whoWeAreItems) && content.whoWeAreItems.length
+        ? content.whoWeAreItems
+        : (Array.isArray(defaults.whoWeAreItems) ? defaults.whoWeAreItems : []);
     const heroImageOne = toText(content.heroImageOne, defaults.heroImageOne);
     const heroImageTwo = toText(content.heroImageTwo, defaults.heroImageTwo);
     const heroImageThree = toText(content.heroImageThree, defaults.heroImageThree);
@@ -206,6 +239,18 @@ const normalizeContent = (content = {}, defaultsSource = DEFAULT_CONFIG.defaults
         heroVisionText: toText(content.heroVisionText, defaults.heroVisionText),
         heroMissionTitle: toText(content.heroMissionTitle, defaults.heroMissionTitle),
         heroMissionText: toText(content.heroMissionText, defaults.heroMissionText),
+        whoWeAreEyebrow: toText(content.whoWeAreEyebrow, defaults.whoWeAreEyebrow || ''),
+        whoWeAreTitle: toText(content.whoWeAreTitle, defaults.whoWeAreTitle || ''),
+        whoWeAreText: toText(content.whoWeAreText, defaults.whoWeAreText || ''),
+        whoWeAreItems: (() => {
+            const normalizedItems = incomingWhoWeAreItems
+                .map((item, index) => normalizeInfoCard(item, defaults.whoWeAreItems?.[index] || {}, index))
+                .filter((item) => item.title || item.text);
+
+            return normalizedItems.length
+                ? normalizedItems
+                : (defaults.whoWeAreItems || []).map((item, index) => normalizeInfoCard(item, item, index));
+        })(),
         featuredEyebrow: toText(content.featuredEyebrow, defaults.featuredEyebrow),
         featuredTitle: toText(content.featuredTitle, defaults.featuredTitle),
         featuredText: toText(content.featuredText, defaults.featuredText),

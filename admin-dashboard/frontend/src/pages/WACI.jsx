@@ -39,6 +39,14 @@ const defaultContent = {
     heroVisionText: 'A future where African biodiversity thrives because enough people stood up to protect it.',
     heroMissionTitle: 'Mission',
     heroMissionText: 'Bridge the gap between passion and practical action through learning, collaboration, and community.',
+    whoWeAreEyebrow: 'Who We Are',
+    whoWeAreTitle: 'A platform for wildlife people',
+    whoWeAreText: 'WACI was born from a simple truth: Africa’s wildlife needs more people who care, and those people need a place to connect, learn, and act. We exist to make conservation more inclusive, more informed, and more community-driven.',
+    whoWeAreItems: [
+        { id: 'community-inclusion', title: 'Community & Inclusion', text: 'Conservation belongs to everyone. We welcome professionals, students, creators, local communities, and global allies.', icon: 'users' },
+        { id: 'knowledge-curiosity', title: 'Knowledge & Curiosity', text: 'We foster understanding of species, ecosystems, and conservation challenges so people can act with clarity.', icon: 'trees' },
+        { id: 'action-accountability', title: 'Action & Accountability', text: 'We believe awareness matters, but measurable action for wildlife and habitats matters more.', icon: 'shield' },
+    ],
     featuredEyebrow: 'Priority campaigns',
     featuredTitle: 'Where WACI is focusing now',
     featuredText: 'Highlight live WACI campaigns, updates, and initiatives here through the shared Felix content system.',
@@ -92,6 +100,17 @@ const RESOURCE_TYPE_OPTIONS = [
     { label: 'Article', value: 'article' },
     { label: 'PDF', value: 'pdf' },
     { label: 'Link', value: 'link' },
+];
+
+const WHO_WE_ARE_ICON_OPTIONS = [
+    { label: 'People', value: 'users' },
+    { label: 'Trees / Nature', value: 'trees' },
+    { label: 'Shield', value: 'shield' },
+    { label: 'Globe', value: 'globe' },
+    { label: 'Heart / Partnership', value: 'heart-handshake' },
+    { label: 'Book / Learning', value: 'book-open' },
+    { label: 'Camera / Media', value: 'camera' },
+    { label: 'Bird / Wildlife', value: 'bird' },
 ];
 
 const createDraftId = (prefix) => `draft-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -174,7 +193,10 @@ function WACI() {
             const res = await API.get('/api/admin/storefront/content', {
                 params: WACI_CONTEXT_PARAMS,
             });
-            setContent(res.data?.content || defaultContent);
+            setContent({
+                ...defaultContent,
+                ...(res.data?.content || {}),
+            });
             setUpdatedAt(res.data?.updatedAt || '');
             setUpdatedByEmail(res.data?.updatedByEmail || '');
         } catch (err) {
@@ -253,6 +275,37 @@ function WACI() {
                     ? { ...service, [field]: value }
                     : service
             )),
+        }));
+    };
+
+    const updateWhoWeAreItem = (index, field, value) => {
+        setContent((current) => ({
+            ...current,
+            whoWeAreItems: (Array.isArray(current.whoWeAreItems) ? current.whoWeAreItems : []).map((item, itemIndex) => (
+                itemIndex === index ? { ...item, [field]: value } : item
+            )),
+        }));
+    };
+
+    const addWhoWeAreItem = () => {
+        setContent((current) => ({
+            ...current,
+            whoWeAreItems: [
+                ...(Array.isArray(current.whoWeAreItems) ? current.whoWeAreItems : []),
+                {
+                    id: createDraftId('who-we-are'),
+                    title: '',
+                    text: '',
+                    icon: 'users',
+                },
+            ],
+        }));
+    };
+
+    const removeWhoWeAreItem = (index) => {
+        setContent((current) => ({
+            ...current,
+            whoWeAreItems: (Array.isArray(current.whoWeAreItems) ? current.whoWeAreItems : []).filter((_, itemIndex) => itemIndex !== index),
         }));
     };
 
@@ -930,6 +983,60 @@ function WACI() {
                                 {updatedByEmail ? ` by ${updatedByEmail}` : ''}
                             </p>
                         ) : null}
+                    </div>
+
+                    <div className="record-card">
+                        <div className="record-header">
+                            <div>
+                                <h3>Who We Are section</h3>
+                                <p className="muted">This controls the public “Who We Are” block, and you can add more cards here.</p>
+                            </div>
+                            <button type="button" className="secondary-button" onClick={addWhoWeAreItem}>
+                                Add card
+                            </button>
+                        </div>
+
+                        <div className="edit-form">
+                            <label>
+                                <span>Who We Are eyebrow</span>
+                                <input value={content.whoWeAreEyebrow || ''} onChange={(event) => updateField('whoWeAreEyebrow', event.target.value)} />
+                            </label>
+                            <label>
+                                <span>Who We Are title</span>
+                                <input value={content.whoWeAreTitle || ''} onChange={(event) => updateField('whoWeAreTitle', event.target.value)} />
+                            </label>
+                            <label>
+                                <span>Who We Are intro</span>
+                                <textarea rows="4" value={content.whoWeAreText || ''} onChange={(event) => updateField('whoWeAreText', event.target.value)} />
+                            </label>
+
+                            {(Array.isArray(content.whoWeAreItems) ? content.whoWeAreItems : []).map((item, index) => (
+                                <div key={item.id || index} className="product-card">
+                                    <div className="record-header" style={{ marginBottom: '12px' }}>
+                                        <strong>Card {index + 1}</strong>
+                                        <button type="button" className="secondary-button" onClick={() => removeWhoWeAreItem(index)}>
+                                            Remove
+                                        </button>
+                                    </div>
+                                    <label>
+                                        <span>Title</span>
+                                        <input value={item.title || ''} onChange={(event) => updateWhoWeAreItem(index, 'title', event.target.value)} />
+                                    </label>
+                                    <label>
+                                        <span>Description</span>
+                                        <textarea rows="3" value={item.text || ''} onChange={(event) => updateWhoWeAreItem(index, 'text', event.target.value)} />
+                                    </label>
+                                    <label>
+                                        <span>Icon</span>
+                                        <select value={item.icon || 'users'} onChange={(event) => updateWhoWeAreItem(index, 'icon', event.target.value)}>
+                                            {WHO_WE_ARE_ICON_OPTIONS.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="record-card">

@@ -24,7 +24,6 @@ import {
     type WaciResource,
     type WaciStory,
 } from "@/lib/api";
-import type { Product } from "@/types/product";
 
 const pillarIcons = [BookOpen, HeartHandshake, Bird, Camera, Users];
 
@@ -163,9 +162,49 @@ const trustPoints = [
     "Powered by the Felix shared platform so public storytelling can scale with trust and operational strength.",
 ];
 
+const fallbackWhoWeAreItems: Array<{
+    id?: string;
+    title: string;
+    text: string;
+    icon?: string;
+}> = [
+        {
+            id: "community-inclusion",
+            title: "Community & Inclusion",
+            text: "Conservation belongs to everyone. We welcome professionals, students, creators, local communities, and global allies.",
+            icon: "users",
+        },
+        {
+            id: "knowledge-curiosity",
+            title: "Knowledge & Curiosity",
+            text: "We foster understanding of species, ecosystems, and conservation challenges so people can act with clarity.",
+            icon: "trees",
+        },
+        {
+            id: "action-accountability",
+            title: "Action & Accountability",
+            text: "We believe awareness matters, but measurable action for wildlife and habitats matters more.",
+            icon: "shield",
+        },
+    ];
+
+const whoWeAreIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    users: Users,
+    people: Users,
+    trees: Trees,
+    tree: Trees,
+    shield: Shield,
+    globe: Globe,
+    bird: Bird,
+    camera: Camera,
+    book: BookOpen,
+    "book-open": BookOpen,
+    heart: HeartHandshake,
+    "heart-handshake": HeartHandshake,
+};
+
 type Props = {
     content: SiteContent;
-    featuredCampaigns: Product[];
     waciPrograms: WaciProgram[];
     waciStories: WaciStory[];
     waciResources: WaciResource[];
@@ -197,7 +236,7 @@ function GlassCard({ children, className = "" }: { children: React.ReactNode; cl
     );
 }
 
-export default function HomePageContent({ content, featuredCampaigns, waciPrograms, waciStories, waciResources }: Props) {
+export default function HomePageContent({ content, waciPrograms, waciStories, waciResources }: Props) {
     const [form, setForm] = useState({ name: "", email: "", interest: "Volunteer" });
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState("");
@@ -254,6 +293,19 @@ export default function HomePageContent({ content, featuredCampaigns, waciProgra
     const featuredStoryAlt = content.featuredStoryAlt || featuredStoryRecord?.title || "African landscape with wildlife";
     const featuredStoryCtaLabel = content.featuredStoryCtaLabel || "Join Our Movement";
     const featuredStoryCtaLink = content.featuredStoryCtaLink || featuredStoryRecord?.link || "#join";
+    const whoWeAreEyebrow = content.whoWeAreEyebrow || "Who We Are";
+    const whoWeAreTitle = content.whoWeAreTitle || "A platform for wildlife people";
+    const whoWeAreText = content.whoWeAreText || "WACI was born from a simple truth: Africa’s wildlife needs more people who care, and those people need a place to connect, learn, and act. We exist to make conservation more inclusive, more informed, and more community-driven.";
+    const whoWeAreItems = useMemo(() => {
+        if (Array.isArray(content.whoWeAreItems) && content.whoWeAreItems.length) {
+            const configuredItems = content.whoWeAreItems.filter((item) => item?.title || item?.text);
+            if (configuredItems.length) {
+                return configuredItems;
+            }
+        }
+
+        return fallbackWhoWeAreItems;
+    }, [content.whoWeAreItems]);
     const programCards = useMemo(() => {
         if (Array.isArray(waciPrograms) && waciPrograms.length) {
             return waciPrograms.filter((program) => program?.title || program?.text).slice(0, 6);
@@ -495,31 +547,18 @@ export default function HomePageContent({ content, featuredCampaigns, waciProgra
                 <section className="scroll-mt-28 px-4 py-14 md:scroll-mt-32 md:px-6 lg:px-8" id="about">
                     <div className="mx-auto max-w-7xl">
                         <SectionHeading
-                            eyebrow="Who We Are"
-                            title="A platform for wildlife people"
-                            body="WACI was born from a simple truth: Africa’s wildlife needs more people who care, and those people need a place to connect, learn, and act. We exist to make conservation more inclusive, more informed, and more community-driven."
+                            eyebrow={whoWeAreEyebrow}
+                            title={whoWeAreTitle}
+                            body={whoWeAreText}
                         />
                         <div className="mt-10 grid gap-6 lg:grid-cols-3">
-                            {[
-                                {
-                                    title: "Community & Inclusion",
-                                    text: "Conservation belongs to everyone. We welcome professionals, students, creators, local communities, and global allies.",
-                                    icon: Users,
-                                },
-                                {
-                                    title: "Knowledge & Curiosity",
-                                    text: "We foster understanding of species, ecosystems, and conservation challenges so people can act with clarity.",
-                                    icon: Trees,
-                                },
-                                {
-                                    title: "Action & Accountability",
-                                    text: "We believe awareness matters, but measurable action for wildlife and habitats matters more.",
-                                    icon: Shield,
-                                },
-                            ].map((item) => {
-                                const Icon = item.icon;
+                            {whoWeAreItems.map((item, index) => {
+                                const iconKey = String(item.icon || "").trim().toLowerCase();
+                                const FallbackIcon = [Users, Trees, Shield][index % 3] || Users;
+                                const Icon = whoWeAreIconMap[iconKey] || FallbackIcon;
+
                                 return (
-                                    <GlassCard key={item.title}>
+                                    <GlassCard key={item.id || item.title || index}>
                                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-300/10 text-emerald-300">
                                             <Icon className="h-5 w-5" />
                                         </div>
@@ -699,9 +738,6 @@ export default function HomePageContent({ content, featuredCampaigns, waciProgra
                                         </h3>
                                         <p className="mt-4 text-sm leading-7 text-white/70">
                                             {featuredStoryText}
-                                        </p>
-                                        <p className="mt-4 text-sm leading-7 text-white/60">
-                                            Current shared campaign previews available through Felix: {featuredCampaigns.length}
                                         </p>
                                         <a
                                             href={featuredStoryCtaLink}

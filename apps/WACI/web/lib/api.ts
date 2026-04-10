@@ -12,6 +12,13 @@ export type SiteContentService = {
     ctaLink?: string;
 };
 
+export type SiteContentInfoItem = {
+    id: string;
+    title: string;
+    text: string;
+    icon?: string;
+};
+
 export type WaciProgram = {
     id: string;
     title: string;
@@ -72,6 +79,10 @@ export type SiteContent = {
     heroVisionText: string;
     heroMissionTitle: string;
     heroMissionText: string;
+    whoWeAreEyebrow: string;
+    whoWeAreTitle: string;
+    whoWeAreText: string;
+    whoWeAreItems: SiteContentInfoItem[];
     featuredEyebrow: string;
     featuredTitle: string;
     featuredText: string;
@@ -121,6 +132,30 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     heroVisionText: "A future where African biodiversity thrives because enough people stood up to protect it.",
     heroMissionTitle: "Mission",
     heroMissionText: "Bridge the gap between passion and practical action through learning, collaboration, and community.",
+    whoWeAreEyebrow: "Who We Are",
+    whoWeAreTitle: "A platform for wildlife people",
+    whoWeAreText:
+        "WACI was born from a simple truth: Africa’s wildlife needs more people who care, and those people need a place to connect, learn, and act. We exist to make conservation more inclusive, more informed, and more community-driven.",
+    whoWeAreItems: [
+        {
+            id: "community-inclusion",
+            title: "Community & Inclusion",
+            text: "Conservation belongs to everyone. We welcome professionals, students, creators, local communities, and global allies.",
+            icon: "users",
+        },
+        {
+            id: "knowledge-curiosity",
+            title: "Knowledge & Curiosity",
+            text: "We foster understanding of species, ecosystems, and conservation challenges so people can act with clarity.",
+            icon: "trees",
+        },
+        {
+            id: "action-accountability",
+            title: "Action & Accountability",
+            text: "We believe awareness matters, but measurable action for wildlife and habitats matters more.",
+            icon: "shield",
+        },
+    ],
     featuredEyebrow: "Priority campaigns",
     featuredTitle: "Where WACI is focusing now",
     featuredText:
@@ -206,6 +241,9 @@ const normalizeSiteContent = (value: unknown): SiteContent => {
     const incoming = typeof value === "object" && value !== null ? (value as Partial<SiteContent>) : {};
     const defaults = DEFAULT_SITE_CONTENT;
     const incomingServices = Array.isArray(incoming.services) && incoming.services.length ? incoming.services : defaults.services;
+    const incomingWhoWeAreItems = Array.isArray(incoming.whoWeAreItems) && incoming.whoWeAreItems.length
+        ? incoming.whoWeAreItems
+        : defaults.whoWeAreItems;
     const heroImageOne = toText(incoming.heroImageOne, defaults.heroImageOne);
     const heroImageTwo = toText(incoming.heroImageTwo, defaults.heroImageTwo);
     const heroImageThree = toText(incoming.heroImageThree, defaults.heroImageThree);
@@ -234,6 +272,17 @@ const normalizeSiteContent = (value: unknown): SiteContent => {
         heroVisionText: toText(incoming.heroVisionText, defaults.heroVisionText),
         heroMissionTitle: toText(incoming.heroMissionTitle, defaults.heroMissionTitle),
         heroMissionText: toText(incoming.heroMissionText, defaults.heroMissionText),
+        whoWeAreEyebrow: toText(incoming.whoWeAreEyebrow, defaults.whoWeAreEyebrow),
+        whoWeAreTitle: toText(incoming.whoWeAreTitle, defaults.whoWeAreTitle),
+        whoWeAreText: toText(incoming.whoWeAreText, defaults.whoWeAreText),
+        whoWeAreItems: incomingWhoWeAreItems
+            .map((item, index) => ({
+                id: toText(item?.id, defaults.whoWeAreItems[index]?.id || `info-card-${index + 1}`),
+                title: toText(item?.title, defaults.whoWeAreItems[index]?.title || ""),
+                text: toText(item?.text, defaults.whoWeAreItems[index]?.text || ""),
+                icon: toText(item?.icon, defaults.whoWeAreItems[index]?.icon || "users"),
+            }))
+            .filter((item) => item.title || item.text),
         featuredEyebrow: toText(incoming.featuredEyebrow, defaults.featuredEyebrow),
         featuredTitle: toText(incoming.featuredTitle, defaults.featuredTitle),
         featuredText: toText(incoming.featuredText, defaults.featuredText),
