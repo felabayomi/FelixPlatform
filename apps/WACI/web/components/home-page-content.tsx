@@ -773,9 +773,19 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                 const metaText = [pillar.region, pillar.status].filter(Boolean).join(' · ');
                                 const programSourceValue = String(pillar.title || ("slug" in pillar ? pillar.slug || "" : "") || pillar.id || `focus-area-${index + 1}`);
                                 const joinContext = resolveJoinSourceConfig(programSourceValue);
+                                const programImage = resolveHeroImageUrl(pillar.image);
                                 return (
                                     <div key={pillar.id || pillar.title || index}>
-                                        <GlassCard className="h-full">
+                                        <GlassCard className="h-full overflow-hidden">
+                                            {programImage ? (
+                                                <div className="-m-6 mb-5 overflow-hidden border-b border-white/10 bg-[#07100c]">
+                                                    <img
+                                                        src={programImage}
+                                                        alt={pillar.title || `Focus area ${index + 1}`}
+                                                        className="h-48 w-full object-cover"
+                                                    />
+                                                </div>
+                                            ) : null}
                                             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-emerald-300">
                                                 <Icon className="h-5 w-5" />
                                             </div>
