@@ -243,6 +243,8 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
     const [error, setError] = useState("");
     const [activeHeroImageIndex, setActiveHeroImageIndex] = useState(0);
     const [failedHeroImages, setFailedHeroImages] = useState<string[]>([]);
+    const [activeFeaturedStoryImageIndex, setActiveFeaturedStoryImageIndex] = useState(0);
+    const [failedFeaturedStoryImages, setFailedFeaturedStoryImages] = useState<string[]>([]);
     const year = useMemo(() => new Date().getFullYear(), []);
 
     const heroBadgeText = content.heroEyebrow || "A home for Africans and friends of Africa who care about wildlife";
@@ -283,7 +285,40 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
 
         return waciStories.find((story) => story?.featured !== false) || waciStories[0];
     }, [waciStories]);
-    const storyImage = resolveHeroImageUrl(content.featuredStoryImage || featuredStoryRecord?.image) || heroImages[1] || heroImages[0] || fallbackHeroImages[0];
+    const featuredStoryImages = useMemo(() => {
+        const configuredImages = [
+            ...(Array.isArray(content.featuredStoryImages) ? content.featuredStoryImages : []),
+            content.featuredStoryImage,
+            content.featuredStoryImageTwo,
+            content.featuredStoryImageThree,
+            content.featuredStoryImageFour,
+            featuredStoryRecord?.image,
+        ]
+            .map((value) => resolveHeroImageUrl(value))
+            .filter(Boolean)
+            .filter((value, index, items) => items.indexOf(value) === index)
+            .filter((value) => !failedFeaturedStoryImages.includes(value));
+
+        if (configuredImages.length) {
+            return configuredImages;
+        }
+
+        return [heroImages[1], heroImages[0], fallbackHeroImages[0]]
+            .map((value) => resolveHeroImageUrl(value))
+            .filter(Boolean)
+            .filter((value, index, items) => items.indexOf(value) === index)
+            .filter((value) => !failedFeaturedStoryImages.includes(value));
+    }, [
+        content.featuredStoryImage,
+        content.featuredStoryImageTwo,
+        content.featuredStoryImageThree,
+        content.featuredStoryImageFour,
+        content.featuredStoryImages,
+        failedFeaturedStoryImages,
+        featuredStoryRecord?.image,
+        heroImages,
+    ]);
+    const storyImage = featuredStoryImages[activeFeaturedStoryImageIndex % Math.max(featuredStoryImages.length, 1)] || heroImages[1] || heroImages[0] || fallbackHeroImages[0];
     const storiesEyebrow = content.storiesEyebrow || content.featuredEyebrow || "Stories & Media";
     const storiesTitle = content.storiesTitle || content.featuredTitle || "Conservation comes alive when people can see it, hear it, and feel it";
     const storiesText = content.storiesText || content.featuredText || "WACI uses storytelling to connect people to real ecosystems, real communities, and real conservation work across Africa.";
@@ -352,6 +387,20 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
     }, [content.heroImageFour, content.heroImageOne, content.heroImageThree, content.heroImageTwo, content.heroImages]);
 
     useEffect(() => {
+        setActiveFeaturedStoryImageIndex(0);
+    }, [featuredStoryImages.length]);
+
+    useEffect(() => {
+        setFailedFeaturedStoryImages([]);
+    }, [
+        content.featuredStoryImage,
+        content.featuredStoryImageTwo,
+        content.featuredStoryImageThree,
+        content.featuredStoryImageFour,
+        content.featuredStoryImages,
+    ]);
+
+    useEffect(() => {
         if (heroImages.length <= 1) {
             return undefined;
         }
@@ -362,6 +411,18 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
 
         return () => window.clearTimeout(timeout);
     }, [activeHeroImageIndex, heroImages]);
+
+    useEffect(() => {
+        if (featuredStoryImages.length <= 1) {
+            return undefined;
+        }
+
+        const timeout = window.setTimeout(() => {
+            setActiveFeaturedStoryImageIndex((current) => (current + 1) % featuredStoryImages.length);
+        }, 3600);
+
+        return () => window.clearTimeout(timeout);
+    }, [activeFeaturedStoryImageIndex, featuredStoryImages]);
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -724,11 +785,38 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                         <div className="mt-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                             <GlassCard className="overflow-hidden p-0">
                                 <div className="grid md:grid-cols-2">
-                                    <img
-                                        src={storyImage}
-                                        alt={featuredStoryAlt}
-                                        className="h-full min-h-[320px] w-full object-cover"
-                                    />
+                                    <div className="flex flex-col">
+                                        <motion.img
+                                            key={storyImage}
+                                            src={storyImage}
+                                            alt={featuredStoryAlt}
+                                            className="h-full min-h-[320px] w-full object-cover"
+                                            initial={{ opacity: 0.45, scale: 1.03 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ duration: 0.6 }}
+                                            onError={(event) => {
+                                                const brokenSrc = event.currentTarget.currentSrc || event.currentTarget.src;
+                                                setFailedFeaturedStoryImages((current) => (
+                                                    current.includes(brokenSrc)
+                                                        ? current
+                                                        : [...current, brokenSrc]
+                                                ));
+                                            }}
+                                        />
+                                        {featuredStoryImages.length > 1 ? (
+                                            <div className="flex items-center justify-center gap-2 border-t border-white/10 bg-[#07100c]/60 px-4 py-3 md:justify-start">
+                                                {featuredStoryImages.map((image, index) => (
+                                                    <button
+                                                        key={`${image}-${index}`}
+                                                        type="button"
+                                                        onClick={() => setActiveFeaturedStoryImageIndex(index)}
+                                                        aria-label={`Show featured story image ${index + 1}`}
+                                                        className={`h-2.5 rounded-full transition ${index === activeFeaturedStoryImageIndex ? "w-7 bg-emerald-300" : "w-2.5 bg-white/30 hover:bg-white/50"}`}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                    </div>
                                     <div className="p-8">
                                         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-300/80">
                                             {featuredStoryEyebrow}

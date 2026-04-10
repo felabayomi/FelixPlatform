@@ -108,6 +108,10 @@ const DEFAULT_CONFIG_BY_KEY = {
             featuredStoryTitle: 'Why WACI exists: turning admiration into action',
             featuredStoryText: 'Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.',
             featuredStoryImage: '',
+            featuredStoryImageTwo: '',
+            featuredStoryImageThree: '',
+            featuredStoryImageFour: '',
+            featuredStoryImages: [],
             featuredStoryAlt: 'African landscape with wildlife',
             featuredStoryCtaLabel: 'Join Our Movement',
             featuredStoryCtaLink: '#join',
@@ -216,6 +220,20 @@ const normalizeContent = (content = {}, defaultsSource = DEFAULT_CONFIG.defaults
     const heroImages = [heroImageOne, heroImageTwo, heroImageThree, heroImageFour]
         .filter(Boolean)
         .filter((value, index, items) => items.indexOf(value) === index);
+    const featuredStoryImage = toText(content.featuredStoryImage, defaults.featuredStoryImage || '');
+    const featuredStoryImageTwo = toText(content.featuredStoryImageTwo, defaults.featuredStoryImageTwo || '');
+    const featuredStoryImageThree = toText(content.featuredStoryImageThree, defaults.featuredStoryImageThree || '');
+    const featuredStoryImageFour = toText(content.featuredStoryImageFour, defaults.featuredStoryImageFour || '');
+    const featuredStoryImages = [
+        ...(Array.isArray(content.featuredStoryImages) ? content.featuredStoryImages : []),
+        featuredStoryImage,
+        featuredStoryImageTwo,
+        featuredStoryImageThree,
+        featuredStoryImageFour,
+    ]
+        .map((value) => toText(value, ''))
+        .filter(Boolean)
+        .filter((value, index, items) => items.indexOf(value) === index);
 
     return {
         heroEyebrow: toText(content.heroEyebrow, defaults.heroEyebrow),
@@ -260,7 +278,11 @@ const normalizeContent = (content = {}, defaultsSource = DEFAULT_CONFIG.defaults
         featuredStoryEyebrow: toText(content.featuredStoryEyebrow, defaults.featuredStoryEyebrow || ''),
         featuredStoryTitle: toText(content.featuredStoryTitle, defaults.featuredStoryTitle || ''),
         featuredStoryText: toText(content.featuredStoryText, defaults.featuredStoryText || ''),
-        featuredStoryImage: toText(content.featuredStoryImage, defaults.featuredStoryImage || ''),
+        featuredStoryImage: featuredStoryImage || featuredStoryImages[0] || '',
+        featuredStoryImageTwo,
+        featuredStoryImageThree,
+        featuredStoryImageFour,
+        featuredStoryImages,
         featuredStoryAlt: toText(content.featuredStoryAlt, defaults.featuredStoryAlt || ''),
         featuredStoryCtaLabel: toText(content.featuredStoryCtaLabel, defaults.featuredStoryCtaLabel || ''),
         featuredStoryCtaLink: toText(content.featuredStoryCtaLink, defaults.featuredStoryCtaLink || ''),

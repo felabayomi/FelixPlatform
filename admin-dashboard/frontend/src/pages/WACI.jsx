@@ -61,6 +61,10 @@ const defaultContent = {
     featuredStoryTitle: 'Why WACI exists: turning admiration into action',
     featuredStoryText: 'Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.',
     featuredStoryImage: '',
+    featuredStoryImageTwo: '',
+    featuredStoryImageThree: '',
+    featuredStoryImageFour: '',
+    featuredStoryImages: [],
     featuredStoryAlt: 'African landscape with wildlife',
     featuredStoryCtaLabel: 'Join Our Movement',
     featuredStoryCtaLink: '#join',
@@ -975,29 +979,40 @@ function WACI() {
                                 <span>Stories & Media intro</span>
                                 <textarea rows="3" value={content.storiesText || ''} onChange={(event) => updateField('storiesText', event.target.value)} />
                             </label>
-                            <div className="image-upload-block">
-                                <label>
-                                    <span>Featured story image URL</span>
-                                    <input value={content.featuredStoryImage || ''} onChange={(event) => updateField('featuredStoryImage', event.target.value)} />
-                                </label>
-                                <div className="product-actions">
-                                    <label className="secondary-button" style={{ cursor: 'pointer' }}>
-                                        {uploadingImageTarget === 'content:featuredStoryImage' ? 'Uploading…' : 'Upload featured image'}
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            style={{ display: 'none' }}
-                                            onChange={(event) => handleImageUpload('featuredStoryImage', event.target.files?.[0])}
-                                        />
-                                    </label>
-                                    <span className="muted">This is the large image shown in the Stories & Media block.</span>
-                                </div>
-                                {resolveImageUrl(content.featuredStoryImage) ? (
-                                    <div className="image-preview-wrapper">
-                                        <img className="product-image-preview" src={resolveImageUrl(content.featuredStoryImage)} alt="Featured story preview" />
+                            {[
+                                { field: 'featuredStoryImage', label: 'Featured story image 1 URL' },
+                                { field: 'featuredStoryImageTwo', label: 'Featured story image 2 URL' },
+                                { field: 'featuredStoryImageThree', label: 'Featured story image 3 URL' },
+                                { field: 'featuredStoryImageFour', label: 'Featured story image 4 URL' },
+                            ].map(({ field, label }, index) => {
+                                const previewUrl = resolveImageUrl(content[field]);
+
+                                return (
+                                    <div key={field} className="image-upload-block">
+                                        <label>
+                                            <span>{label}</span>
+                                            <input value={content[field] || ''} onChange={(event) => updateField(field, event.target.value)} />
+                                        </label>
+                                        <div className="product-actions">
+                                            <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                                {uploadingImageTarget === `content:${field}` ? 'Uploading…' : `Upload image ${index + 1}`}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    onChange={(event) => handleImageUpload(field, event.target.files?.[0])}
+                                                />
+                                            </label>
+                                            <span className="muted">Add up to 4 images here — they will auto-rotate on the public Stories & Media block.</span>
+                                        </div>
+                                        {previewUrl ? (
+                                            <div className="image-preview-wrapper">
+                                                <img className="product-image-preview" src={previewUrl} alt={`${label} preview`} />
+                                            </div>
+                                        ) : null}
                                     </div>
-                                ) : null}
-                            </div>
+                                );
+                            })}
                             <label>
                                 <span>Featured story label</span>
                                 <input value={content.featuredStoryEyebrow || ''} onChange={(event) => updateField('featuredStoryEyebrow', event.target.value)} />

@@ -93,6 +93,10 @@ export type SiteContent = {
     featuredStoryTitle: string;
     featuredStoryText: string;
     featuredStoryImage: string;
+    featuredStoryImageTwo: string;
+    featuredStoryImageThree: string;
+    featuredStoryImageFour: string;
+    featuredStoryImages: string[];
     featuredStoryAlt: string;
     featuredStoryCtaLabel: string;
     featuredStoryCtaLink: string;
@@ -167,6 +171,10 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     featuredStoryTitle: "Why WACI exists: turning admiration into action",
     featuredStoryText: "Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.",
     featuredStoryImage: "",
+    featuredStoryImageTwo: "",
+    featuredStoryImageThree: "",
+    featuredStoryImageFour: "",
+    featuredStoryImages: [],
     featuredStoryAlt: "African landscape with wildlife",
     featuredStoryCtaLabel: "Join Our Movement",
     featuredStoryCtaLink: "#join",
@@ -249,6 +257,17 @@ const normalizeSiteContent = (value: unknown): SiteContent => {
     const heroImageThree = toText(incoming.heroImageThree, defaults.heroImageThree);
     const heroImageFour = toText(incoming.heroImageFour, defaults.heroImageFour);
     const heroImages = [heroImageOne, heroImageTwo, heroImageThree, heroImageFour].filter(Boolean);
+    const featuredStoryImage = toText(incoming.featuredStoryImage, defaults.featuredStoryImage);
+    const featuredStoryImageTwo = toText(incoming.featuredStoryImageTwo, defaults.featuredStoryImageTwo);
+    const featuredStoryImageThree = toText(incoming.featuredStoryImageThree, defaults.featuredStoryImageThree);
+    const featuredStoryImageFour = toText(incoming.featuredStoryImageFour, defaults.featuredStoryImageFour);
+    const featuredStoryImages = [
+        ...(Array.isArray(incoming.featuredStoryImages) ? incoming.featuredStoryImages : []),
+        featuredStoryImage,
+        featuredStoryImageTwo,
+        featuredStoryImageThree,
+        featuredStoryImageFour,
+    ].filter(Boolean);
 
     return {
         heroEyebrow: toText(incoming.heroEyebrow, defaults.heroEyebrow),
@@ -292,7 +311,11 @@ const normalizeSiteContent = (value: unknown): SiteContent => {
         featuredStoryEyebrow: toText(incoming.featuredStoryEyebrow, defaults.featuredStoryEyebrow),
         featuredStoryTitle: toText(incoming.featuredStoryTitle, defaults.featuredStoryTitle),
         featuredStoryText: toText(incoming.featuredStoryText, defaults.featuredStoryText),
-        featuredStoryImage: toText(incoming.featuredStoryImage, heroImageTwo || defaults.featuredStoryImage),
+        featuredStoryImage: featuredStoryImage || featuredStoryImages[0] || heroImageTwo || defaults.featuredStoryImage,
+        featuredStoryImageTwo,
+        featuredStoryImageThree,
+        featuredStoryImageFour,
+        featuredStoryImages: featuredStoryImages.filter((value, index, items) => items.indexOf(value) === index),
         featuredStoryAlt: toText(incoming.featuredStoryAlt, defaults.featuredStoryAlt),
         featuredStoryCtaLabel: toText(incoming.featuredStoryCtaLabel, defaults.featuredStoryCtaLabel),
         featuredStoryCtaLink: toText(incoming.featuredStoryCtaLink, defaults.featuredStoryCtaLink),
