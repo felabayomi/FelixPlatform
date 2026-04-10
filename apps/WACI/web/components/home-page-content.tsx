@@ -20,6 +20,9 @@ import {
     submitPartnerInterest,
     submitVolunteerInterest,
     type SiteContent,
+    type WaciProgram,
+    type WaciResource,
+    type WaciStory,
 } from "@/lib/api";
 import type { Product } from "@/types/product";
 
@@ -51,38 +54,47 @@ const resolveHeroImageUrl = (value?: string | null) => {
     return normalized;
 };
 
-const fallbackServices = [
-    {
-        id: "education-awareness",
-        title: "Education & Awareness",
-        text:
-            "School outreach, youth wildlife clubs, community workshops, and digital learning experiences that make conservation practical and inspiring.",
-    },
-    {
-        id: "community-conservation",
-        title: "Community Conservation",
-        text:
-            "Projects that elevate local voices, strengthen capacity, and support communities living alongside wildlife and wild places.",
-    },
-    {
-        id: "research-citizen-science",
-        title: "Research & Citizen Science",
-        text:
-            "Field data, student research, citizen science, and ecosystem knowledge that help improve conservation decisions across Africa.",
-    },
-    {
-        id: "storytelling-media",
-        title: "Storytelling & Media",
-        text:
-            "Documentaries, podcasts, blogs, and photo stories that move hearts, shape public understanding, and inspire action.",
-    },
-    {
-        id: "professional-network",
-        title: "Professional Network",
-        text:
-            "A growing cross-border community connecting rangers, researchers, students, NGOs, artists, and supporters of African wildlife.",
-    },
-];
+const fallbackServices: Array<{
+    id: string;
+    title: string;
+    text: string;
+    region?: string;
+    status?: string;
+    image?: string;
+    ctaLabel?: string;
+    ctaLink?: string;
+}> = [
+        {
+            id: "education-awareness",
+            title: "Education & Awareness",
+            text:
+                "School outreach, youth wildlife clubs, community workshops, and digital learning experiences that make conservation practical and inspiring.",
+        },
+        {
+            id: "community-conservation",
+            title: "Community Conservation",
+            text:
+                "Projects that elevate local voices, strengthen capacity, and support communities living alongside wildlife and wild places.",
+        },
+        {
+            id: "research-citizen-science",
+            title: "Research & Citizen Science",
+            text:
+                "Field data, student research, citizen science, and ecosystem knowledge that help improve conservation decisions across Africa.",
+        },
+        {
+            id: "storytelling-media",
+            title: "Storytelling & Media",
+            text:
+                "Documentaries, podcasts, blogs, and photo stories that move hearts, shape public understanding, and inspire action.",
+        },
+        {
+            id: "professional-network",
+            title: "Professional Network",
+            text:
+                "A growing cross-border community connecting rangers, researchers, students, NGOs, artists, and supporters of African wildlife.",
+        },
+    ];
 
 const habitats = [
     {
@@ -112,26 +124,31 @@ const careerPaths = [
     "Wildlife Veterinarian",
 ];
 
-const stories = [
-    {
-        category: "Field Story",
-        title: "Why local voices belong at the center of conservation",
-        excerpt:
-            "When conservation becomes community-led, protection becomes more resilient, more practical, and more just.",
-    },
-    {
-        category: "Learning",
-        title: "What every young wildlife advocate should understand first",
-        excerpt:
-            "From habitats to human-wildlife conflict, strong foundations turn passion into useful action.",
-    },
-    {
-        category: "Media",
-        title: "How storytelling helps people care enough to act",
-        excerpt:
-            "Images, podcasts, documentaries, and field notes can connect distant audiences to living ecosystems.",
-    },
-];
+const fallbackStoryCards: Array<{
+    category: string;
+    title: string;
+    excerpt: string;
+    link?: string;
+}> = [
+        {
+            category: "Field Story",
+            title: "Why local voices belong at the center of conservation",
+            excerpt:
+                "When conservation becomes community-led, protection becomes more resilient, more practical, and more just.",
+        },
+        {
+            category: "Learning",
+            title: "What every young wildlife advocate should understand first",
+            excerpt:
+                "From habitats to human-wildlife conflict, strong foundations turn passion into useful action.",
+        },
+        {
+            category: "Media",
+            title: "How storytelling helps people care enough to act",
+            excerpt:
+                "Images, podcasts, documentaries, and field notes can connect distant audiences to living ecosystems.",
+        },
+    ];
 
 const stats = [
     { label: "Core pillars", value: "5" },
@@ -149,6 +166,9 @@ const trustPoints = [
 type Props = {
     content: SiteContent;
     featuredCampaigns: Product[];
+    waciPrograms: WaciProgram[];
+    waciStories: WaciStory[];
+    waciResources: WaciResource[];
 };
 
 function SectionHeading({ eyebrow, title, body }: { eyebrow: string; title: string; body?: string }) {
@@ -177,7 +197,7 @@ function GlassCard({ children, className = "" }: { children: React.ReactNode; cl
     );
 }
 
-export default function HomePageContent({ content, featuredCampaigns }: Props) {
+export default function HomePageContent({ content, featuredCampaigns, waciPrograms, waciStories, waciResources }: Props) {
     const [form, setForm] = useState({ name: "", email: "", interest: "Volunteer" });
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState("");
@@ -217,23 +237,59 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
     }, [content.heroImageFour, content.heroImageOne, content.heroImageThree, content.heroImageTwo, content.heroImages, failedHeroImages]);
 
     const heroImage = heroImages[activeHeroImageIndex % Math.max(heroImages.length, 1)] || fallbackHeroImages[0];
-    const storyImage = resolveHeroImageUrl(content.featuredStoryImage) || heroImages[1] || heroImages[0] || fallbackHeroImages[0];
+    const featuredStoryRecord = useMemo(() => {
+        if (!Array.isArray(waciStories) || !waciStories.length) {
+            return null;
+        }
+
+        return waciStories.find((story) => story?.featured !== false) || waciStories[0];
+    }, [waciStories]);
+    const storyImage = resolveHeroImageUrl(content.featuredStoryImage || featuredStoryRecord?.image) || heroImages[1] || heroImages[0] || fallbackHeroImages[0];
     const storiesEyebrow = content.storiesEyebrow || content.featuredEyebrow || "Stories & Media";
     const storiesTitle = content.storiesTitle || content.featuredTitle || "Conservation comes alive when people can see it, hear it, and feel it";
     const storiesText = content.storiesText || content.featuredText || "WACI uses storytelling to connect people to real ecosystems, real communities, and real conservation work across Africa.";
-    const featuredStoryEyebrow = content.featuredStoryEyebrow || "Featured Story";
-    const featuredStoryTitle = content.featuredStoryTitle || "Why WACI exists: turning admiration into action";
-    const featuredStoryText = content.featuredStoryText || "Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.";
-    const featuredStoryAlt = content.featuredStoryAlt || "African landscape with wildlife";
+    const featuredStoryEyebrow = content.featuredStoryEyebrow || (featuredStoryRecord?.location ? `Featured Story · ${featuredStoryRecord.location}` : "Featured Story");
+    const featuredStoryTitle = content.featuredStoryTitle || featuredStoryRecord?.title || "Why WACI exists: turning admiration into action";
+    const featuredStoryText = content.featuredStoryText || featuredStoryRecord?.summary || "Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.";
+    const featuredStoryAlt = content.featuredStoryAlt || featuredStoryRecord?.title || "African landscape with wildlife";
     const featuredStoryCtaLabel = content.featuredStoryCtaLabel || "Join Our Movement";
-    const featuredStoryCtaLink = content.featuredStoryCtaLink || "#join";
-    const serviceCards = useMemo(() => {
+    const featuredStoryCtaLink = content.featuredStoryCtaLink || featuredStoryRecord?.link || "#join";
+    const programCards = useMemo(() => {
+        if (Array.isArray(waciPrograms) && waciPrograms.length) {
+            return waciPrograms.filter((program) => program?.title || program?.text).slice(0, 6);
+        }
+
         if (Array.isArray(content.services) && content.services.length) {
             return content.services.filter((service) => service?.title || service?.text).slice(0, 5);
         }
 
         return fallbackServices;
-    }, [content.services]);
+    }, [content.services, waciPrograms]);
+    const storyCards = useMemo(() => {
+        if (Array.isArray(waciStories) && waciStories.length) {
+            const remainingStories = featuredStoryRecord
+                ? waciStories.filter((story) => story.id !== featuredStoryRecord.id)
+                : waciStories;
+
+            if (remainingStories.length) {
+                return remainingStories.slice(0, 3).map((story) => ({
+                    category: story.location || (story.publishedAt ? `Story · ${story.publishedAt}` : 'Story'),
+                    title: story.title,
+                    excerpt: story.summary,
+                    link: story.link || '#stories',
+                }));
+            }
+        }
+
+        return fallbackStoryCards;
+    }, [featuredStoryRecord, waciStories]);
+    const resourceCards = useMemo(() => {
+        if (Array.isArray(waciResources) && waciResources.length) {
+            return waciResources.filter((resource) => resource?.title || resource?.caption || resource?.file_url || resource?.fileUrl).slice(0, 4);
+        }
+
+        return [];
+    }, [waciResources]);
 
     useEffect(() => {
         setActiveHeroImageIndex(0);
@@ -484,8 +540,9 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
                             body={content.servicesText || "Through education, community engagement, research, storytelling, and collaboration, WACI helps people move from admiration of wildlife to active stewardship."}
                         />
                         <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                            {serviceCards.map((pillar, index) => {
+                            {programCards.map((pillar, index) => {
                                 const Icon = pillarIcons[index % pillarIcons.length];
+                                const metaText = [pillar.region, pillar.status].filter(Boolean).join(' · ');
                                 return (
                                     <div key={pillar.id || pillar.title || index}>
                                         <GlassCard className="h-full">
@@ -493,7 +550,13 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
                                                 <Icon className="h-5 w-5" />
                                             </div>
                                             <h3 className="mt-5 text-xl font-semibold">{pillar.title}</h3>
+                                            {metaText ? <p className="mt-2 text-xs uppercase tracking-[0.18em] text-emerald-300/70">{metaText}</p> : null}
                                             <p className="mt-3 text-sm leading-7 text-white/70">{pillar.text}</p>
+                                            {pillar.ctaLink ? (
+                                                <a href={pillar.ctaLink} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                                                    {pillar.ctaLabel || 'Learn more'} <ArrowRight className="h-4 w-4" />
+                                                </a>
+                                            ) : null}
                                         </GlassCard>
                                     </div>
                                 );
@@ -583,6 +646,32 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
                                 </div>
                             </GlassCard>
                         </div>
+
+                        {resourceCards.length ? (
+                            <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+                                {resourceCards.map((resource) => (
+                                    <GlassCard key={resource.id} className="h-full">
+                                        <p className="text-xs uppercase tracking-[0.22em] text-emerald-300/75">
+                                            {resource.mediaType || resource.media_type || 'Resource'}
+                                        </p>
+                                        <h3 className="mt-3 text-lg font-semibold">{resource.title}</h3>
+                                        <p className="mt-3 text-sm leading-7 text-white/70">
+                                            {resource.caption || resource.altText || resource.alt_text || 'Explore this WACI resource.'}
+                                        </p>
+                                        {(resource.fileUrl || resource.file_url) ? (
+                                            <a
+                                                href={resource.fileUrl || resource.file_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300"
+                                            >
+                                                Open resource <ArrowRight className="h-4 w-4" />
+                                            </a>
+                                        ) : null}
+                                    </GlassCard>
+                                ))}
+                            </div>
+                        ) : null}
                     </div>
                 </section>
 
@@ -624,11 +713,16 @@ export default function HomePageContent({ content, featuredCampaigns }: Props) {
                                 </div>
                             </GlassCard>
                             <div className="grid gap-6">
-                                {stories.map((story) => (
+                                {storyCards.map((story) => (
                                     <GlassCard key={story.title}>
                                         <p className="text-xs uppercase tracking-[0.22em] text-emerald-300/75">{story.category}</p>
                                         <h3 className="mt-3 text-xl font-semibold">{story.title}</h3>
                                         <p className="mt-3 text-sm leading-7 text-white/70">{story.excerpt}</p>
+                                        {story.link ? (
+                                            <a href={story.link} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                                                Read more <ArrowRight className="h-4 w-4" />
+                                            </a>
+                                        ) : null}
                                     </GlassCard>
                                 ))}
                             </div>

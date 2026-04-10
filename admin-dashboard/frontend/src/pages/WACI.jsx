@@ -983,7 +983,7 @@ function WACI() {
                     <div className="record-header">
                         <div>
                             <h3>Programs</h3>
-                            <p className="muted">Shared WACI program records available to the site and internal team.</p>
+                            <p className="muted">These records now feed the public WACI Programs section and the internal team view.</p>
                         </div>
                         <button type="button" className="secondary-button" onClick={addProgram}>
                             Add Program
@@ -1066,7 +1066,7 @@ function WACI() {
                     <div className="record-header">
                         <div>
                             <h3>Stories</h3>
-                            <p className="muted">Recent conservation stories and updates managed inside the existing admin.</p>
+                            <p className="muted">These stories now feed the public WACI Stories & Media section.</p>
                         </div>
                         <button type="button" className="secondary-button" onClick={addStory}>
                             Add Story
@@ -1145,7 +1145,7 @@ function WACI() {
                     <div className="record-header">
                         <div>
                             <h3>Resources</h3>
-                            <p className="muted">Knowledge hub items and media records available to the WACI site and admin team.</p>
+                            <p className="muted">These resources now feed the public WACI learn/resources area and the admin team view.</p>
                         </div>
                         <button type="button" className="secondary-button" onClick={addResource}>
                             Add Resource

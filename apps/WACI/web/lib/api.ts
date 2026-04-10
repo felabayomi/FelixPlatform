@@ -6,6 +6,48 @@ export type SiteContentService = {
     title: string;
     text: string;
     image?: string;
+    region?: string;
+    status?: string;
+    ctaLabel?: string;
+    ctaLink?: string;
+};
+
+export type WaciProgram = {
+    id: string;
+    title: string;
+    text: string;
+    status?: string;
+    region?: string;
+    image?: string;
+    ctaLabel?: string;
+    ctaLink?: string;
+    sortOrder?: number;
+};
+
+export type WaciStory = {
+    id: string;
+    title: string;
+    summary: string;
+    location?: string;
+    publishedAt?: string;
+    image?: string;
+    link?: string;
+    featured?: boolean;
+    sortOrder?: number;
+};
+
+export type WaciResource = {
+    id: string;
+    title: string;
+    media_type?: string;
+    mediaType?: string;
+    file_url?: string;
+    fileUrl?: string;
+    alt_text?: string;
+    altText?: string;
+    caption?: string;
+    sort_order?: number;
+    sortOrder?: number;
 };
 
 export type SiteContent = {
@@ -256,6 +298,36 @@ export async function getSiteContent(): Promise<SiteContent> {
     } catch (error) {
         console.error("Unable to fetch WACI site content", error);
         return DEFAULT_SITE_CONTENT;
+    }
+}
+
+export async function getWaciPrograms(): Promise<WaciProgram[]> {
+    try {
+        const res = await API.get("/api/waci/programs");
+        return Array.isArray(res.data?.items) ? res.data.items : [];
+    } catch (error) {
+        console.error("Unable to fetch WACI programs", error);
+        return [];
+    }
+}
+
+export async function getWaciStories(): Promise<WaciStory[]> {
+    try {
+        const res = await API.get("/api/waci/stories");
+        return Array.isArray(res.data?.items) ? res.data.items : [];
+    } catch (error) {
+        console.error("Unable to fetch WACI stories", error);
+        return [];
+    }
+}
+
+export async function getWaciResources(): Promise<WaciResource[]> {
+    try {
+        const res = await API.get("/api/waci/resources");
+        return Array.isArray(res.data?.items) ? res.data.items : [];
+    } catch (error) {
+        console.error("Unable to fetch WACI resources", error);
+        return [];
     }
 }
 
