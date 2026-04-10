@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 
 const links = [
@@ -29,6 +30,16 @@ const links = [
 
 function Sidebar() {
     const location = useLocation();
+    const [expandedGroups, setExpandedGroups] = useState(() => ({
+        '/waci': location.pathname === '/waci',
+    }));
+
+    const toggleGroup = (groupKey) => {
+        setExpandedGroups((current) => ({
+            ...current,
+            [groupKey]: !current[groupKey],
+        }));
+    };
 
     return (
         <aside className="sidebar">
@@ -38,34 +49,53 @@ function Sidebar() {
             </div>
 
             <nav className="sidebar-nav">
-                {links.map((link) => (
-                    <div key={link.to} className="sidebar-group">
-                        <NavLink
-                            to={link.to}
-                            className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-                        >
-                            {link.label}
-                        </NavLink>
+                {links.map((link) => {
+                    const hasChildren = Array.isArray(link.children) && link.children.length > 0;
+                    const isExpanded = hasChildren ? Boolean(expandedGroups[link.to]) : false;
 
-                        {link.children?.length ? (
-                            <div className="sidebar-subnav">
-                                {link.children.map((child) => {
-                                    const isActive = location.pathname === link.to && location.hash === child.hash;
+                    return (
+                        <div key={link.to} className="sidebar-group">
+                            <div className="sidebar-link-row">
+                                <NavLink
+                                    to={link.to}
+                                    className={({ isActive }) => `sidebar-link sidebar-link-main${isActive ? ' active' : ''}`}
+                                >
+                                    {link.label}
+                                </NavLink>
 
-                                    return (
-                                        <NavLink
-                                            key={`${link.to}${child.hash}`}
-                                            to={`${link.to}${child.hash}`}
-                                            className={() => `sidebar-sublink${isActive ? ' active' : ''}`}
-                                        >
-                                            {child.label}
-                                        </NavLink>
-                                    );
-                                })}
+                                {hasChildren ? (
+                                    <button
+                                        type="button"
+                                        className={`sidebar-group-toggle${isExpanded ? ' expanded' : ''}`}
+                                        onClick={() => toggleGroup(link.to)}
+                                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${link.label}`}
+                                        aria-expanded={isExpanded}
+                                    >
+                                        <span>▸</span>
+                                    </button>
+                                ) : null}
                             </div>
-                        ) : null}
-                    </div>
-                ))}
+
+                            {hasChildren && isExpanded ? (
+                                <div className="sidebar-subnav">
+                                    {link.children.map((child) => {
+                                        const isActive = location.pathname === link.to && location.hash === child.hash;
+
+                                        return (
+                                            <NavLink
+                                                key={`${link.to}${child.hash}`}
+                                                to={`${link.to}${child.hash}`}
+                                                className={() => `sidebar-sublink${isActive ? ' active' : ''}`}
+                                            >
+                                                {child.label}
+                                            </NavLink>
+                                        );
+                                    })}
+                                </div>
+                            ) : null}
+                        </div>
+                    );
+                })}
             </nav>
         </aside>
     );

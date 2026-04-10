@@ -6,10 +6,19 @@ const {
     submitPartnerForm,
     submitDonorForm,
     getPrograms,
+    createProgram,
+    updateProgram,
+    deleteProgram,
     getStories,
+    createStory,
+    updateStory,
+    deleteStory,
     getPartners,
     getDonors,
     getResources,
+    createResource,
+    updateResource,
+    deleteResource,
     getAdminOverview,
     getNewsletterSubscribers,
     getVolunteers,
@@ -35,8 +44,17 @@ router.get('/media', getMedia);
 
 router.get('/admin/overview', authenticateToken, requireAdmin, getAdminOverview);
 router.get('/admin/programs', authenticateToken, requireAdmin, getPrograms);
+router.post('/admin/programs', authenticateToken, requireAdmin, createProgram);
+router.put('/admin/programs/:id', authenticateToken, requireAdmin, updateProgram);
+router.delete('/admin/programs/:id', authenticateToken, requireAdmin, deleteProgram);
 router.get('/admin/stories', authenticateToken, requireAdmin, getStories);
+router.post('/admin/stories', authenticateToken, requireAdmin, createStory);
+router.put('/admin/stories/:id', authenticateToken, requireAdmin, updateStory);
+router.delete('/admin/stories/:id', authenticateToken, requireAdmin, deleteStory);
 router.get('/admin/resources', authenticateToken, requireAdmin, getResources);
+router.post('/admin/resources', authenticateToken, requireAdmin, createResource);
+router.put('/admin/resources/:id', authenticateToken, requireAdmin, updateResource);
+router.delete('/admin/resources/:id', authenticateToken, requireAdmin, deleteResource);
 router.get('/admin/newsletter', authenticateToken, requireAdmin, getNewsletterSubscribers);
 router.get('/admin/newsletter-subscribers', authenticateToken, requireAdmin, getNewsletterSubscribers);
 router.get('/admin/volunteers', authenticateToken, requireAdmin, getVolunteers);

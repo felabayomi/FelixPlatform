@@ -79,6 +79,24 @@ const SUPPORT_STATUS_OPTIONS = [
     { label: 'Closed', status: 'closed' },
 ];
 
+const PROGRAM_STATUS_OPTIONS = [
+    { label: 'Active', value: 'active' },
+    { label: 'Planned', value: 'planned' },
+    { label: 'Draft', value: 'draft' },
+    { label: 'Archived', value: 'archived' },
+];
+
+const RESOURCE_TYPE_OPTIONS = [
+    { label: 'Image', value: 'image' },
+    { label: 'Video', value: 'video' },
+    { label: 'Article', value: 'article' },
+    { label: 'PDF', value: 'pdf' },
+    { label: 'Link', value: 'link' },
+];
+
+const createDraftId = (prefix) => `draft-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const isDraftRecord = (id) => String(id || '').startsWith('draft-');
+
 const formatDateTime = (value) => {
     if (!value) {
         return '—';
@@ -133,6 +151,8 @@ function WACI() {
     const [updatedAt, setUpdatedAt] = useState('');
     const [updatedByEmail, setUpdatedByEmail] = useState('');
     const [uploadingImageTarget, setUploadingImageTarget] = useState('');
+    const [savingRecordKey, setSavingRecordKey] = useState('');
+    const [deletingRecordKey, setDeletingRecordKey] = useState('');
 
     const openSupportCount = useMemo(
         () => supportRequests.filter((request) => !['resolved', 'closed'].includes(String(request.status || 'new').toLowerCase())).length,
@@ -234,6 +254,271 @@ function WACI() {
                     : service
             )),
         }));
+    };
+
+    const updateProgramField = (index, field, value) => {
+        setPrograms((current) => current.map((program, programIndex) => (
+            programIndex === index ? { ...program, [field]: value } : program
+        )));
+    };
+
+    const addProgram = () => {
+        setPrograms((current) => ([
+            ...current,
+            {
+                id: createDraftId('program'),
+                title: '',
+                text: '',
+                status: 'active',
+                region: '',
+                image: '',
+                ctaLabel: '',
+                ctaLink: '',
+                sortOrder: current.length,
+            },
+        ]));
+    };
+
+    const saveProgram = async (program, index) => {
+        const recordKey = `program:${program.id || index}`;
+        setSavingRecordKey(recordKey);
+        setMessage('');
+        setError('');
+
+        try {
+            const payload = {
+                title: program.title,
+                text: program.text,
+                status: program.status,
+                region: program.region,
+                image: program.image,
+                ctaLabel: program.ctaLabel,
+                ctaLink: program.ctaLink,
+                sortOrder: Number(program.sortOrder || 0),
+            };
+
+            const res = isDraftRecord(program.id)
+                ? await API.post('/api/waci/admin/programs', payload)
+                : await API.put(`/api/waci/admin/programs/${program.id}`, payload);
+
+            const savedItem = res.data?.item || payload;
+            setPrograms((current) => current.map((item, itemIndex) => (
+                item.id === program.id || itemIndex === index ? savedItem : item
+            )));
+            setMessage('WACI program saved successfully.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || 'Unable to save WACI program.');
+        } finally {
+            setSavingRecordKey('');
+        }
+    };
+
+    const deleteProgram = async (program, index) => {
+        const recordKey = `program:${program.id || index}`;
+
+        if (isDraftRecord(program.id)) {
+            setPrograms((current) => current.filter((item) => item.id !== program.id));
+            setMessage('Draft WACI program removed.');
+            return;
+        }
+
+        if (!window.confirm(`Delete "${program.title || 'this program'}"?`)) {
+            return;
+        }
+
+        setDeletingRecordKey(recordKey);
+        setMessage('');
+        setError('');
+
+        try {
+            await API.delete(`/api/waci/admin/programs/${program.id}`);
+            setPrograms((current) => current.filter((item) => item.id !== program.id));
+            setMessage('WACI program deleted successfully.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || 'Unable to delete WACI program.');
+        } finally {
+            setDeletingRecordKey('');
+        }
+    };
+
+    const updateStoryField = (index, field, value) => {
+        setStories((current) => current.map((story, storyIndex) => (
+            storyIndex === index ? { ...story, [field]: value } : story
+        )));
+    };
+
+    const addStory = () => {
+        setStories((current) => ([
+            ...current,
+            {
+                id: createDraftId('story'),
+                title: '',
+                summary: '',
+                location: '',
+                publishedAt: '',
+                image: '',
+                link: '',
+                featured: true,
+                sortOrder: current.length,
+            },
+        ]));
+    };
+
+    const saveStory = async (story, index) => {
+        const recordKey = `story:${story.id || index}`;
+        setSavingRecordKey(recordKey);
+        setMessage('');
+        setError('');
+
+        try {
+            const payload = {
+                title: story.title,
+                summary: story.summary,
+                location: story.location,
+                publishedAt: story.publishedAt,
+                image: story.image,
+                link: story.link,
+                featured: Boolean(story.featured),
+                sortOrder: Number(story.sortOrder || 0),
+            };
+
+            const res = isDraftRecord(story.id)
+                ? await API.post('/api/waci/admin/stories', payload)
+                : await API.put(`/api/waci/admin/stories/${story.id}`, payload);
+
+            const savedItem = res.data?.item || payload;
+            setStories((current) => current.map((item, itemIndex) => (
+                item.id === story.id || itemIndex === index ? savedItem : item
+            )));
+            setMessage('WACI story saved successfully.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || 'Unable to save WACI story.');
+        } finally {
+            setSavingRecordKey('');
+        }
+    };
+
+    const deleteStory = async (story, index) => {
+        const recordKey = `story:${story.id || index}`;
+
+        if (isDraftRecord(story.id)) {
+            setStories((current) => current.filter((item) => item.id !== story.id));
+            setMessage('Draft WACI story removed.');
+            return;
+        }
+
+        if (!window.confirm(`Delete "${story.title || 'this story'}"?`)) {
+            return;
+        }
+
+        setDeletingRecordKey(recordKey);
+        setMessage('');
+        setError('');
+
+        try {
+            await API.delete(`/api/waci/admin/stories/${story.id}`);
+            setStories((current) => current.filter((item) => item.id !== story.id));
+            setMessage('WACI story deleted successfully.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || 'Unable to delete WACI story.');
+        } finally {
+            setDeletingRecordKey('');
+        }
+    };
+
+    const updateResourceField = (index, field, value) => {
+        setResources((current) => current.map((resource, resourceIndex) => (
+            resourceIndex === index
+                ? {
+                    ...resource,
+                    [field]: value,
+                    ...(field === 'media_type' ? { mediaType: value } : {}),
+                    ...(field === 'file_url' ? { fileUrl: value } : {}),
+                    ...(field === 'alt_text' ? { altText: value } : {}),
+                }
+                : resource
+        )));
+    };
+
+    const addResource = () => {
+        setResources((current) => ([
+            ...current,
+            {
+                id: createDraftId('resource'),
+                title: '',
+                media_type: 'image',
+                file_url: '',
+                alt_text: '',
+                caption: '',
+                sort_order: current.length,
+            },
+        ]));
+    };
+
+    const saveResource = async (resource, index) => {
+        const recordKey = `resource:${resource.id || index}`;
+        setSavingRecordKey(recordKey);
+        setMessage('');
+        setError('');
+
+        try {
+            const payload = {
+                title: resource.title,
+                media_type: resource.media_type || resource.mediaType || 'image',
+                file_url: resource.file_url || resource.fileUrl || '',
+                alt_text: resource.alt_text || resource.altText || '',
+                caption: resource.caption,
+                sortOrder: Number(resource.sort_order ?? resource.sortOrder ?? 0),
+            };
+
+            const res = isDraftRecord(resource.id)
+                ? await API.post('/api/waci/admin/resources', payload)
+                : await API.put(`/api/waci/admin/resources/${resource.id}`, payload);
+
+            const savedItem = res.data?.item || payload;
+            setResources((current) => current.map((item, itemIndex) => (
+                item.id === resource.id || itemIndex === index ? savedItem : item
+            )));
+            setMessage('WACI resource saved successfully.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || 'Unable to save WACI resource.');
+        } finally {
+            setSavingRecordKey('');
+        }
+    };
+
+    const deleteResource = async (resource, index) => {
+        const recordKey = `resource:${resource.id || index}`;
+
+        if (isDraftRecord(resource.id)) {
+            setResources((current) => current.filter((item) => item.id !== resource.id));
+            setMessage('Draft WACI resource removed.');
+            return;
+        }
+
+        if (!window.confirm(`Delete "${resource.title || 'this resource'}"?`)) {
+            return;
+        }
+
+        setDeletingRecordKey(recordKey);
+        setMessage('');
+        setError('');
+
+        try {
+            await API.delete(`/api/waci/admin/resources/${resource.id}`);
+            setResources((current) => current.filter((item) => item.id !== resource.id));
+            setMessage('WACI resource deleted successfully.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || 'Unable to delete WACI resource.');
+        } finally {
+            setDeletingRecordKey('');
+        }
     };
 
     const handleImageUpload = async (field, file, scope = 'content') => {
@@ -700,22 +985,80 @@ function WACI() {
                             <h3>Programs</h3>
                             <p className="muted">Shared WACI program records available to the site and internal team.</p>
                         </div>
+                        <button type="button" className="secondary-button" onClick={addProgram}>
+                            Add Program
+                        </button>
                     </div>
 
                     {loadingResources ? (
                         <p className="muted">Loading programs…</p>
                     ) : programs.length ? (
                         <div className="record-list">
-                            {programs.map((program) => (
-                                <div key={program.id} className="product-card">
-                                    <h4>{program.title}</h4>
-                                    <p className="muted">{program.region || 'Region not set'} · {program.status || 'active'}</p>
-                                    <p style={{ marginTop: '8px' }}>{program.text}</p>
-                                </div>
-                            ))}
+                            {programs.map((program, index) => {
+                                const previewUrl = resolveImageUrl(program.image);
+                                const recordKey = `program:${program.id || index}`;
+
+                                return (
+                                    <div key={program.id || index} className="product-card">
+                                        <div className="edit-form">
+                                            <label>
+                                                <span>Title</span>
+                                                <input value={program.title || ''} onChange={(event) => updateProgramField(index, 'title', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Region</span>
+                                                <input value={program.region || ''} onChange={(event) => updateProgramField(index, 'region', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Status</span>
+                                                <select value={program.status || 'active'} onChange={(event) => updateProgramField(index, 'status', event.target.value)}>
+                                                    {PROGRAM_STATUS_OPTIONS.map((option) => (
+                                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                            <label>
+                                                <span>Sort order</span>
+                                                <input type="number" value={program.sortOrder ?? index} onChange={(event) => updateProgramField(index, 'sortOrder', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Description</span>
+                                                <textarea rows="4" value={program.text || ''} onChange={(event) => updateProgramField(index, 'text', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Image URL</span>
+                                                <input value={program.image || ''} onChange={(event) => updateProgramField(index, 'image', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>CTA label</span>
+                                                <input value={program.ctaLabel || ''} onChange={(event) => updateProgramField(index, 'ctaLabel', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>CTA link</span>
+                                                <input value={program.ctaLink || ''} onChange={(event) => updateProgramField(index, 'ctaLink', event.target.value)} />
+                                            </label>
+                                        </div>
+
+                                        {previewUrl ? (
+                                            <div className="image-preview-wrapper" style={{ marginTop: '12px' }}>
+                                                <img className="product-image-preview" src={previewUrl} alt={program.title || `Program ${index + 1}`} />
+                                            </div>
+                                        ) : null}
+
+                                        <div className="product-actions" style={{ marginTop: '12px' }}>
+                                            <button type="button" className="edit-button" onClick={() => saveProgram(program, index)} disabled={savingRecordKey === recordKey}>
+                                                {savingRecordKey === recordKey ? 'Saving…' : 'Save program'}
+                                            </button>
+                                            <button type="button" className="secondary-button" onClick={() => deleteProgram(program, index)} disabled={deletingRecordKey === recordKey}>
+                                                {deletingRecordKey === recordKey ? 'Removing…' : 'Delete program'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : (
-                        <p className="muted">No WACI programs yet.</p>
+                        <p className="muted">No WACI programs yet. Click “Add Program” to create one.</p>
                     )}
                 </section>
 
@@ -725,22 +1068,76 @@ function WACI() {
                             <h3>Stories</h3>
                             <p className="muted">Recent conservation stories and updates managed inside the existing admin.</p>
                         </div>
+                        <button type="button" className="secondary-button" onClick={addStory}>
+                            Add Story
+                        </button>
                     </div>
 
                     {loadingResources ? (
                         <p className="muted">Loading stories…</p>
                     ) : stories.length ? (
                         <div className="record-list">
-                            {stories.map((story) => (
-                                <div key={story.id} className="product-card">
-                                    <h4>{story.title}</h4>
-                                    <p className="muted">{story.location || 'Location not set'} · {story.publishedAt || 'Draft'}</p>
-                                    <p style={{ marginTop: '8px' }}>{story.summary}</p>
-                                </div>
-                            ))}
+                            {stories.map((story, index) => {
+                                const previewUrl = resolveImageUrl(story.image);
+                                const recordKey = `story:${story.id || index}`;
+
+                                return (
+                                    <div key={story.id || index} className="product-card">
+                                        <div className="edit-form">
+                                            <label>
+                                                <span>Title</span>
+                                                <input value={story.title || ''} onChange={(event) => updateStoryField(index, 'title', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Location</span>
+                                                <input value={story.location || ''} onChange={(event) => updateStoryField(index, 'location', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Published date</span>
+                                                <input type="date" value={story.publishedAt || ''} onChange={(event) => updateStoryField(index, 'publishedAt', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Sort order</span>
+                                                <input type="number" value={story.sortOrder ?? index} onChange={(event) => updateStoryField(index, 'sortOrder', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Summary</span>
+                                                <textarea rows="4" value={story.summary || ''} onChange={(event) => updateStoryField(index, 'summary', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Image URL</span>
+                                                <input value={story.image || ''} onChange={(event) => updateStoryField(index, 'image', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Story link</span>
+                                                <input value={story.link || ''} onChange={(event) => updateStoryField(index, 'link', event.target.value)} />
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <input type="checkbox" checked={Boolean(story.featured ?? true)} onChange={(event) => updateStoryField(index, 'featured', event.target.checked)} />
+                                                <span>Featured story</span>
+                                            </label>
+                                        </div>
+
+                                        {previewUrl ? (
+                                            <div className="image-preview-wrapper" style={{ marginTop: '12px' }}>
+                                                <img className="product-image-preview" src={previewUrl} alt={story.title || `Story ${index + 1}`} />
+                                            </div>
+                                        ) : null}
+
+                                        <div className="product-actions" style={{ marginTop: '12px' }}>
+                                            <button type="button" className="edit-button" onClick={() => saveStory(story, index)} disabled={savingRecordKey === recordKey}>
+                                                {savingRecordKey === recordKey ? 'Saving…' : 'Save story'}
+                                            </button>
+                                            <button type="button" className="secondary-button" onClick={() => deleteStory(story, index)} disabled={deletingRecordKey === recordKey}>
+                                                {deletingRecordKey === recordKey ? 'Removing…' : 'Delete story'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : (
-                        <p className="muted">No WACI stories yet.</p>
+                        <p className="muted">No WACI stories yet. Click “Add Story” to create one.</p>
                     )}
                 </section>
 
@@ -750,22 +1147,72 @@ function WACI() {
                             <h3>Resources</h3>
                             <p className="muted">Knowledge hub items and media records available to the WACI site and admin team.</p>
                         </div>
+                        <button type="button" className="secondary-button" onClick={addResource}>
+                            Add Resource
+                        </button>
                     </div>
 
                     {loadingResources ? (
                         <p className="muted">Loading resources…</p>
                     ) : resources.length ? (
                         <div className="record-list">
-                            {resources.map((resource) => (
-                                <div key={resource.id} className="product-card">
-                                    <h4>{resource.title || 'Untitled resource'}</h4>
-                                    <p className="muted">{resource.media_type || resource.resource_type || 'resource'}{resource.audience ? ` · ${resource.audience}` : ''}</p>
-                                    <p style={{ marginTop: '8px' }}>{resource.caption || resource.excerpt || resource.alt_text || 'No summary yet.'}</p>
-                                </div>
-                            ))}
+                            {resources.map((resource, index) => {
+                                const previewUrl = resolveImageUrl(resource.file_url || resource.fileUrl);
+                                const recordKey = `resource:${resource.id || index}`;
+
+                                return (
+                                    <div key={resource.id || index} className="product-card">
+                                        <div className="edit-form">
+                                            <label>
+                                                <span>Title</span>
+                                                <input value={resource.title || ''} onChange={(event) => updateResourceField(index, 'title', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Media type</span>
+                                                <select value={resource.media_type || resource.mediaType || 'image'} onChange={(event) => updateResourceField(index, 'media_type', event.target.value)}>
+                                                    {RESOURCE_TYPE_OPTIONS.map((option) => (
+                                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                            <label>
+                                                <span>Sort order</span>
+                                                <input type="number" value={resource.sort_order ?? resource.sortOrder ?? index} onChange={(event) => updateResourceField(index, 'sort_order', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>File or media URL</span>
+                                                <input value={resource.file_url || resource.fileUrl || ''} onChange={(event) => updateResourceField(index, 'file_url', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Alt text</span>
+                                                <input value={resource.alt_text || resource.altText || ''} onChange={(event) => updateResourceField(index, 'alt_text', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Caption / summary</span>
+                                                <textarea rows="4" value={resource.caption || ''} onChange={(event) => updateResourceField(index, 'caption', event.target.value)} />
+                                            </label>
+                                        </div>
+
+                                        {previewUrl ? (
+                                            <div className="image-preview-wrapper" style={{ marginTop: '12px' }}>
+                                                <img className="product-image-preview" src={previewUrl} alt={resource.title || `Resource ${index + 1}`} />
+                                            </div>
+                                        ) : null}
+
+                                        <div className="product-actions" style={{ marginTop: '12px' }}>
+                                            <button type="button" className="edit-button" onClick={() => saveResource(resource, index)} disabled={savingRecordKey === recordKey}>
+                                                {savingRecordKey === recordKey ? 'Saving…' : 'Save resource'}
+                                            </button>
+                                            <button type="button" className="secondary-button" onClick={() => deleteResource(resource, index)} disabled={deletingRecordKey === recordKey}>
+                                                {deletingRecordKey === recordKey ? 'Removing…' : 'Delete resource'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : (
-                        <p className="muted">No WACI resources yet.</p>
+                        <p className="muted">No WACI resources yet. Click “Add Resource” to create one.</p>
                     )}
                 </section>
 

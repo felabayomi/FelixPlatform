@@ -133,6 +133,33 @@ const toStringArray = (value) => {
     return single ? [single] : [];
 };
 
+const toSlug = (value, fallback = 'item') => {
+    const normalized = String(value || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    return normalized || fallback;
+};
+
+const toSortOrder = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toBoolean = (value, fallback = false) => {
+    if (value === undefined || value === null || value === '') {
+        return fallback;
+    }
+
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    return ['true', '1', 'yes', 'on'].includes(String(value).trim().toLowerCase());
+};
+
 const ensurePlatformContentTable = async () => {
     if (!ensurePlatformContentTablePromise) {
         ensurePlatformContentTablePromise = pool.query(`
@@ -373,7 +400,9 @@ const readStoriesFromTable = async () => {
             location,
             COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt",
             image_url AS image,
-            link
+            link,
+            featured,
+            sort_order AS "sortOrder"
          FROM waci_stories
          ORDER BY sort_order ASC, created_at DESC`
     );
@@ -398,7 +427,7 @@ const readMediaFromTable = async () => {
          ORDER BY sort_order ASC, created_at DESC`
     );
 
-    return result.rows;
+    return result.rows.map((item, index) => normalizeMediaItem(item, index));
 };
 
 const readInterestRows = async (tableName) => {
@@ -483,6 +512,7 @@ const insertInterestRecord = async ({
 
 const normalizeProgram = (item = {}, index = 0) => ({
     id: toText(item.id, `program-${index + 1}`),
+    slug: toText(item.slug, ''),
     title: toText(item.title, `Program ${index + 1}`),
     text: toText(item.text || item.description, ''),
     status: toText(item.status, 'active'),
@@ -490,16 +520,36 @@ const normalizeProgram = (item = {}, index = 0) => ({
     image: toText(item.image, ''),
     ctaLabel: toText(item.ctaLabel, ''),
     ctaLink: toText(item.ctaLink, ''),
+    sortOrder: toSortOrder(item.sortOrder ?? item.sort_order, index),
 });
 
 const normalizeStory = (item = {}, index = 0) => ({
     id: toText(item.id, `story-${index + 1}`),
+    slug: toText(item.slug, ''),
     title: toText(item.title, `Story ${index + 1}`),
     summary: toText(item.summary || item.text || item.description, ''),
     location: toText(item.location, ''),
     publishedAt: toText(item.publishedAt || item.date, ''),
     image: toText(item.image, ''),
     link: toText(item.link, ''),
+    featured: typeof item.featured === 'boolean' ? item.featured : toBoolean(item.featured, true),
+    sortOrder: toSortOrder(item.sortOrder ?? item.sort_order, index),
+});
+
+const normalizeMediaItem = (item = {}, index = 0) => ({
+    id: toText(item.id, `resource-${index + 1}`),
+    title: toText(item.title, `Resource ${index + 1}`),
+    media_type: toText(item.media_type || item.mediaType, 'image'),
+    mediaType: toText(item.mediaType || item.media_type, 'image'),
+    file_url: toText(item.file_url || item.fileUrl || item.url, ''),
+    fileUrl: toText(item.fileUrl || item.file_url || item.url, ''),
+    alt_text: toText(item.alt_text || item.altText, ''),
+    altText: toText(item.altText || item.alt_text, ''),
+    caption: toText(item.caption, ''),
+    sort_order: toSortOrder(item.sort_order ?? item.sortOrder, index),
+    sortOrder: toSortOrder(item.sortOrder ?? item.sort_order, index),
+    created_at: item.created_at || null,
+    updated_at: item.updated_at || null,
 });
 
 const normalizeSimpleCard = (item = {}, index = 0, fallbackPrefix = 'item') => ({
@@ -796,6 +846,305 @@ exports.getResources = async (_req, res) => {
     } catch (error) {
         console.error(error);
         return res.status(500).json({ success: false, message: 'Unable to load WACI resources.' });
+    }
+};
+
+const getNextSortOrder = async (tableName) => {
+    const result = await pool.query(`SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM ${tableName}`);
+    return Number(result.rows[0]?.next_sort_order || 0);
+};
+
+exports.createProgram = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+
+        const title = toText(req.body?.title, 'Untitled program');
+        const slug = toSlug(req.body?.slug || title || `program-${Date.now()}`, `program-${Date.now()}`);
+        const sortOrder = (req.body?.sortOrder === undefined && req.body?.sort_order === undefined)
+            ? await getNextSortOrder('waci_programs')
+            : toSortOrder(req.body?.sortOrder ?? req.body?.sort_order, 0);
+
+        const result = await pool.query(
+            `INSERT INTO waci_programs (slug, title, summary, status, region, image_url, cta_label, cta_link, sort_order, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+             RETURNING id::text AS id, slug, title, summary AS text, status, region, image_url AS image, cta_label AS "ctaLabel", cta_link AS "ctaLink", sort_order AS "sortOrder"`,
+            [
+                slug,
+                title,
+                toText(req.body?.text || req.body?.summary, ''),
+                toText(req.body?.status, 'active'),
+                toNullableText(req.body?.region),
+                toNullableText(req.body?.image || req.body?.image_url || req.body?.imageUrl),
+                toNullableText(req.body?.ctaLabel || req.body?.cta_label),
+                toNullableText(req.body?.ctaLink || req.body?.cta_link),
+                sortOrder,
+            ],
+        );
+
+        return res.status(201).json({ success: true, item: normalizeProgram(result.rows[0], sortOrder) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to create WACI program.' });
+    }
+};
+
+exports.updateProgram = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+        const currentResult = await pool.query('SELECT * FROM waci_programs WHERE id = $1 LIMIT 1', [req.params.id]);
+
+        if (!currentResult.rows.length) {
+            return res.status(404).json({ success: false, message: 'WACI program not found.' });
+        }
+
+        const current = currentResult.rows[0];
+        const title = req.body?.title === undefined ? current.title : toText(req.body.title, current.title);
+        const slug = req.body?.slug === undefined
+            ? current.slug
+            : toSlug(req.body.slug || title, current.slug || `program-${Date.now()}`);
+
+        const result = await pool.query(
+            `UPDATE waci_programs
+             SET slug = $1,
+                 title = $2,
+                 summary = $3,
+                 status = $4,
+                 region = $5,
+                 image_url = $6,
+                 cta_label = $7,
+                 cta_link = $8,
+                 sort_order = $9,
+                 updated_at = NOW()
+             WHERE id = $10
+             RETURNING id::text AS id, slug, title, summary AS text, status, region, image_url AS image, cta_label AS "ctaLabel", cta_link AS "ctaLink", sort_order AS "sortOrder"`,
+            [
+                slug,
+                title,
+                req.body?.text === undefined && req.body?.summary === undefined ? current.summary : toText(req.body?.text || req.body?.summary, ''),
+                req.body?.status === undefined ? current.status : toText(req.body.status, current.status || 'active'),
+                req.body?.region === undefined ? current.region : toNullableText(req.body.region),
+                req.body?.image === undefined && req.body?.image_url === undefined && req.body?.imageUrl === undefined
+                    ? current.image_url
+                    : toNullableText(req.body?.image || req.body?.image_url || req.body?.imageUrl),
+                req.body?.ctaLabel === undefined && req.body?.cta_label === undefined ? current.cta_label : toNullableText(req.body?.ctaLabel || req.body?.cta_label),
+                req.body?.ctaLink === undefined && req.body?.cta_link === undefined ? current.cta_link : toNullableText(req.body?.ctaLink || req.body?.cta_link),
+                req.body?.sortOrder === undefined && req.body?.sort_order === undefined ? current.sort_order : toSortOrder(req.body?.sortOrder ?? req.body?.sort_order, current.sort_order),
+                req.params.id,
+            ],
+        );
+
+        return res.json({ success: true, item: normalizeProgram(result.rows[0]) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to update WACI program.' });
+    }
+};
+
+exports.deleteProgram = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+        const result = await pool.query('DELETE FROM waci_programs WHERE id = $1 RETURNING id::text AS id', [req.params.id]);
+
+        if (!result.rows.length) {
+            return res.status(404).json({ success: false, message: 'WACI program not found.' });
+        }
+
+        return res.json({ success: true, id: result.rows[0].id });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to delete WACI program.' });
+    }
+};
+
+exports.createStory = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+
+        const title = toText(req.body?.title, 'Untitled story');
+        const slug = toSlug(req.body?.slug || title || `story-${Date.now()}`, `story-${Date.now()}`);
+        const sortOrder = (req.body?.sortOrder === undefined && req.body?.sort_order === undefined)
+            ? await getNextSortOrder('waci_stories')
+            : toSortOrder(req.body?.sortOrder ?? req.body?.sort_order, 0);
+        const publishedAt = toNullableText(req.body?.publishedAt || req.body?.published_at);
+
+        const result = await pool.query(
+            `INSERT INTO waci_stories (slug, title, summary, location, published_at, image_url, link, featured, sort_order, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, sort_order AS "sortOrder"`,
+            [
+                slug,
+                title,
+                toText(req.body?.summary || req.body?.text, ''),
+                toNullableText(req.body?.location),
+                publishedAt,
+                toNullableText(req.body?.image || req.body?.image_url || req.body?.imageUrl),
+                toNullableText(req.body?.link),
+                toBoolean(req.body?.featured, true),
+                sortOrder,
+            ],
+        );
+
+        return res.status(201).json({ success: true, item: normalizeStory(result.rows[0], sortOrder) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to create WACI story.' });
+    }
+};
+
+exports.updateStory = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+        const currentResult = await pool.query('SELECT * FROM waci_stories WHERE id = $1 LIMIT 1', [req.params.id]);
+
+        if (!currentResult.rows.length) {
+            return res.status(404).json({ success: false, message: 'WACI story not found.' });
+        }
+
+        const current = currentResult.rows[0];
+        const title = req.body?.title === undefined ? current.title : toText(req.body.title, current.title);
+        const slug = req.body?.slug === undefined
+            ? current.slug
+            : toSlug(req.body.slug || title, current.slug || `story-${Date.now()}`);
+        const publishedAt = req.body?.publishedAt === undefined && req.body?.published_at === undefined
+            ? current.published_at
+            : toNullableText(req.body?.publishedAt || req.body?.published_at);
+
+        const result = await pool.query(
+            `UPDATE waci_stories
+             SET slug = $1,
+                 title = $2,
+                 summary = $3,
+                 location = $4,
+                 published_at = $5,
+                 image_url = $6,
+                 link = $7,
+                 featured = $8,
+                 sort_order = $9,
+                 updated_at = NOW()
+             WHERE id = $10
+             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, sort_order AS "sortOrder"`,
+            [
+                slug,
+                title,
+                req.body?.summary === undefined && req.body?.text === undefined ? current.summary : toText(req.body?.summary || req.body?.text, ''),
+                req.body?.location === undefined ? current.location : toNullableText(req.body.location),
+                publishedAt,
+                req.body?.image === undefined && req.body?.image_url === undefined && req.body?.imageUrl === undefined
+                    ? current.image_url
+                    : toNullableText(req.body?.image || req.body?.image_url || req.body?.imageUrl),
+                req.body?.link === undefined ? current.link : toNullableText(req.body.link),
+                req.body?.featured === undefined ? current.featured : toBoolean(req.body.featured, current.featured),
+                req.body?.sortOrder === undefined && req.body?.sort_order === undefined ? current.sort_order : toSortOrder(req.body?.sortOrder ?? req.body?.sort_order, current.sort_order),
+                req.params.id,
+            ],
+        );
+
+        return res.json({ success: true, item: normalizeStory(result.rows[0]) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to update WACI story.' });
+    }
+};
+
+exports.deleteStory = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+        const result = await pool.query('DELETE FROM waci_stories WHERE id = $1 RETURNING id::text AS id', [req.params.id]);
+
+        if (!result.rows.length) {
+            return res.status(404).json({ success: false, message: 'WACI story not found.' });
+        }
+
+        return res.json({ success: true, id: result.rows[0].id });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to delete WACI story.' });
+    }
+};
+
+exports.createResource = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+
+        const sortOrder = (req.body?.sortOrder === undefined && req.body?.sort_order === undefined)
+            ? await getNextSortOrder('waci_media')
+            : toSortOrder(req.body?.sortOrder ?? req.body?.sort_order, 0);
+
+        const result = await pool.query(
+            `INSERT INTO waci_media (title, media_type, file_url, alt_text, caption, sort_order, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,NOW())
+             RETURNING id::text AS id, title, media_type, file_url, alt_text, caption, sort_order, created_at, updated_at`,
+            [
+                toText(req.body?.title, 'Untitled resource'),
+                toText(req.body?.media_type || req.body?.mediaType, 'image'),
+                toNullableText(req.body?.file_url || req.body?.fileUrl || req.body?.url),
+                toNullableText(req.body?.alt_text || req.body?.altText),
+                toNullableText(req.body?.caption),
+                sortOrder,
+            ],
+        );
+
+        return res.status(201).json({ success: true, item: normalizeMediaItem(result.rows[0], sortOrder) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to create WACI resource.' });
+    }
+};
+
+exports.updateResource = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+        const currentResult = await pool.query('SELECT * FROM waci_media WHERE id = $1 LIMIT 1', [req.params.id]);
+
+        if (!currentResult.rows.length) {
+            return res.status(404).json({ success: false, message: 'WACI resource not found.' });
+        }
+
+        const current = currentResult.rows[0];
+        const result = await pool.query(
+            `UPDATE waci_media
+             SET title = $1,
+                 media_type = $2,
+                 file_url = $3,
+                 alt_text = $4,
+                 caption = $5,
+                 sort_order = $6,
+                 updated_at = NOW()
+             WHERE id = $7
+             RETURNING id::text AS id, title, media_type, file_url, alt_text, caption, sort_order, created_at, updated_at`,
+            [
+                req.body?.title === undefined ? current.title : toText(req.body.title, current.title),
+                req.body?.media_type === undefined && req.body?.mediaType === undefined ? current.media_type : toText(req.body?.media_type || req.body?.mediaType, current.media_type || 'image'),
+                req.body?.file_url === undefined && req.body?.fileUrl === undefined && req.body?.url === undefined
+                    ? current.file_url
+                    : toNullableText(req.body?.file_url || req.body?.fileUrl || req.body?.url),
+                req.body?.alt_text === undefined && req.body?.altText === undefined ? current.alt_text : toNullableText(req.body?.alt_text || req.body?.altText),
+                req.body?.caption === undefined ? current.caption : toNullableText(req.body.caption),
+                req.body?.sortOrder === undefined && req.body?.sort_order === undefined ? current.sort_order : toSortOrder(req.body?.sortOrder ?? req.body?.sort_order, current.sort_order),
+                req.params.id,
+            ],
+        );
+
+        return res.json({ success: true, item: normalizeMediaItem(result.rows[0]) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to update WACI resource.' });
+    }
+};
+
+exports.deleteResource = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+        const result = await pool.query('DELETE FROM waci_media WHERE id = $1 RETURNING id::text AS id', [req.params.id]);
+
+        if (!result.rows.length) {
+            return res.status(404).json({ success: false, message: 'WACI resource not found.' });
+        }
+
+        return res.json({ success: true, id: result.rows[0].id });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to delete WACI resource.' });
     }
 };
 
