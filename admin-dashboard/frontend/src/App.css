@@ -774,7 +774,70 @@
   text-decoration: none;
 }
 
+.stats-grid[id],
+.list-card[id],
+.record-card[id] {
+  scroll-margin-top: 88px;
+}
+
+.quick-jump-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.quick-jump-status {
+  max-width: 160px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(17, 24, 39, 0.92);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+}
+
+.quick-jump-button {
+  width: 52px;
+  height: 52px;
+  margin-left: auto;
+  border: none;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.3);
+}
+
+.quick-jump-button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.quick-jump-button:not(:disabled):hover {
+  background: #1d4ed8;
+}
+
 @media (max-width: 900px) {
+  .quick-jump-panel {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .quick-jump-status {
+    max-width: 120px;
+    font-size: 0.75rem;
+  }
+
   .app-shell {
     flex-direction: column;
   }

@@ -8,6 +8,9 @@ const WACI_CONTEXT_PARAMS = {
 
 const WACI_SECTION_LINKS = [
     { id: 'overview', label: 'Overview' },
+    { id: 'homepage-content', label: 'Homepage Content' },
+    { id: 'who-we-are-editor', label: 'Who We Are' },
+    { id: 'focus-areas', label: 'Focus Areas' },
     { id: 'programs', label: 'Programs' },
     { id: 'stories', label: 'Stories' },
     { id: 'resources', label: 'Resources' },
@@ -15,6 +18,7 @@ const WACI_SECTION_LINKS = [
     { id: 'volunteers', label: 'Volunteers' },
     { id: 'partner-requests', label: 'Partner Requests' },
     { id: 'donors-sponsors', label: 'Donors/Sponsors' },
+    { id: 'general-inquiries', label: 'General Inquiries' },
 ];
 
 const defaultContent = {
@@ -172,6 +176,7 @@ function WACI() {
     const [uploadingImageTarget, setUploadingImageTarget] = useState('');
     const [savingRecordKey, setSavingRecordKey] = useState('');
     const [deletingRecordKey, setDeletingRecordKey] = useState('');
+    const [activeSectionId, setActiveSectionId] = useState(WACI_SECTION_LINKS[0]?.id || 'overview');
 
     const openSupportCount = useMemo(
         () => supportRequests.filter((request) => !['resolved', 'closed'].includes(String(request.status || 'new').toLowerCase())).length,
@@ -258,6 +263,39 @@ function WACI() {
         loadContent();
         loadSupportRequests();
         loadWaciResources();
+    }, []);
+
+    useEffect(() => {
+        const updateActiveSection = () => {
+            if (typeof window === 'undefined') {
+                return;
+            }
+
+            let nextActiveId = WACI_SECTION_LINKS[0]?.id || 'overview';
+
+            WACI_SECTION_LINKS.forEach((section) => {
+                const element = document.getElementById(section.id);
+                if (!element) {
+                    return;
+                }
+
+                const { top } = element.getBoundingClientRect();
+                if (top <= 180) {
+                    nextActiveId = section.id;
+                }
+            });
+
+            setActiveSectionId(nextActiveId);
+        };
+
+        updateActiveSection();
+        window.addEventListener('scroll', updateActiveSection, { passive: true });
+        window.addEventListener('hashchange', updateActiveSection);
+
+        return () => {
+            window.removeEventListener('scroll', updateActiveSection);
+            window.removeEventListener('hashchange', updateActiveSection);
+        };
     }, []);
 
     const updateField = (field, value) => {
@@ -693,6 +731,26 @@ function WACI() {
         loadWaciResources();
     };
 
+    const jumpToSection = (direction) => {
+        const currentIndex = Math.max(WACI_SECTION_LINKS.findIndex((section) => section.id === activeSectionId), 0);
+        const nextIndex = Math.min(Math.max(currentIndex + direction, 0), WACI_SECTION_LINKS.length - 1);
+        const nextSection = WACI_SECTION_LINKS[nextIndex];
+        const target = nextSection ? document.getElementById(nextSection.id) : null;
+
+        if (!target) {
+            return;
+        }
+
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setActiveSectionId(nextSection.id);
+        if (typeof window !== 'undefined') {
+            window.history.replaceState(null, '', `#${nextSection.id}`);
+        }
+    };
+
+    const activeSectionIndex = Math.max(WACI_SECTION_LINKS.findIndex((section) => section.id === activeSectionId), 0);
+    const activeSectionLabel = WACI_SECTION_LINKS[activeSectionIndex]?.label || 'Overview';
+
     return (
         <div className="page-section">
             <div className="section-actions">
@@ -720,7 +778,12 @@ function WACI() {
 
             <div className="tab-row">
                 {WACI_SECTION_LINKS.map((section) => (
-                    <a key={section.id} href={`#${section.id}`} className="tab-button preview-link">
+                    <a
+                        key={section.id}
+                        href={`#${section.id}`}
+                        className={`tab-button preview-link${activeSectionId === section.id ? ' active' : ''}`}
+                        onClick={() => setActiveSectionId(section.id)}
+                    >
                         {section.label}
                     </a>
                 ))}
@@ -767,7 +830,7 @@ function WACI() {
 
             <div className="waci-section-stack">
                 <div className="content-editor-grid">
-                    <div className="list-card">
+                    <div id="homepage-content" className="list-card">
                         <h3>Homepage content</h3>
                         <p className="muted section-subtitle">This keeps the public WACI homepage editable inside the shared admin and changes go live as soon as you save.</p>
                         <div className="edit-form">
@@ -985,7 +1048,7 @@ function WACI() {
                         ) : null}
                     </div>
 
-                    <div className="record-card">
+                    <div id="who-we-are-editor" className="record-card">
                         <div className="record-header">
                             <div>
                                 <h3>Who We Are section</h3>
@@ -1039,7 +1102,7 @@ function WACI() {
                         </div>
                     </div>
 
-                    <div className="record-card">
+                    <div id="focus-areas" className="record-card">
                         <div className="record-header">
                             <div>
                                 <h3>Homepage focus areas</h3>
@@ -1483,7 +1546,7 @@ function WACI() {
                     )}
                 </section>
 
-                <section className="record-card">
+                <section id="general-inquiries" className="record-card">
                     <div className="record-header">
                         <div>
                             <h3>General inquiries</h3>
@@ -1519,6 +1582,30 @@ function WACI() {
                         <p className="muted">No WACI general inquiries yet.</p>
                     )}
                 </section>
+            </div>
+
+            <div className="quick-jump-panel" aria-label="Quick section navigation">
+                <div className="quick-jump-status">{activeSectionLabel}</div>
+                <button
+                    type="button"
+                    className="quick-jump-button"
+                    onClick={() => jumpToSection(-1)}
+                    disabled={activeSectionIndex <= 0}
+                    aria-label="Jump to previous section"
+                    title="Previous section"
+                >
+                    ↑
+                </button>
+                <button
+                    type="button"
+                    className="quick-jump-button"
+                    onClick={() => jumpToSection(1)}
+                    disabled={activeSectionIndex >= WACI_SECTION_LINKS.length - 1}
+                    aria-label="Jump to next section"
+                    title="Next section"
+                >
+                    ↓
+                </button>
             </div>
         </div>
     );
