@@ -203,6 +203,75 @@ const whoWeAreIconMap: Record<string, React.ComponentType<{ className?: string }
     "heart-handshake": HeartHandshake,
 };
 
+const INTEREST_OPTIONS = ["Volunteer", "Learn", "Partnership", "Donate"] as const;
+type InterestOption = (typeof INTEREST_OPTIONS)[number];
+
+const JOIN_SOURCE_CONFIG: Record<string, { source: string; label: string; suggestedInterest: InterestOption }> = {
+    general: { source: "general", label: "General WACI interest", suggestedInterest: "Volunteer" },
+    hero: { source: "hero", label: "Homepage hero", suggestedInterest: "Volunteer" },
+    donate: { source: "donate", label: "Support WACI", suggestedInterest: "Donate" },
+    restoration: { source: "restoration", label: "Habitat Restoration", suggestedInterest: "Volunteer" },
+    protection: { source: "protection", label: "Wildlife Protection", suggestedInterest: "Volunteer" },
+    community: { source: "community", label: "Community Conservation", suggestedInterest: "Partnership" },
+    education: { source: "education", label: "Education & Advocacy", suggestedInterest: "Learn" },
+    professional: { source: "professional", label: "Wildlife Professional", suggestedInterest: "Partnership" },
+    student: { source: "student", label: "Student / Enthusiast", suggestedInterest: "Learn" },
+    support: { source: "support", label: "Support WACI", suggestedInterest: "Donate" },
+};
+
+const toSourceKey = (value?: string | null) => String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const resolveJoinSourceConfig = (value?: string | null) => {
+    const normalized = toSourceKey(value);
+
+    if (["habitat-restoration", "restoration"].includes(normalized)) {
+        return JOIN_SOURCE_CONFIG.restoration;
+    }
+
+    if (["wildlife-protection", "protection"].includes(normalized)) {
+        return JOIN_SOURCE_CONFIG.protection;
+    }
+
+    if (["community-conservation", "community"].includes(normalized)) {
+        return JOIN_SOURCE_CONFIG.community;
+    }
+
+    if (["education-and-advocacy", "education", "education-advocacy"].includes(normalized)) {
+        return JOIN_SOURCE_CONFIG.education;
+    }
+
+    if (["wildlife-professional", "professional"].includes(normalized)) {
+        return JOIN_SOURCE_CONFIG.professional;
+    }
+
+    if (["student-enthusiast", "student", "learn"].includes(normalized)) {
+        return JOIN_SOURCE_CONFIG.student;
+    }
+
+    if (["support", "donate"].includes(normalized)) {
+        return JOIN_SOURCE_CONFIG.support;
+    }
+
+    if (["hero"].includes(normalized)) {
+        return JOIN_SOURCE_CONFIG.hero;
+    }
+
+    return JOIN_SOURCE_CONFIG[normalized] || {
+        source: normalized || JOIN_SOURCE_CONFIG.general.source,
+        label: value ? String(value) : JOIN_SOURCE_CONFIG.general.label,
+        suggestedInterest: JOIN_SOURCE_CONFIG.general.suggestedInterest,
+    };
+};
+
+const buildJoinHref = (value?: string | null) => {
+    const config = resolveJoinSourceConfig(value);
+    return `/?source=${encodeURIComponent(config.source)}#join`;
+};
+
 type Props = {
     content: SiteContent;
     waciPrograms: WaciProgram[];
@@ -237,7 +306,8 @@ function GlassCard({ children, className = "" }: { children: React.ReactNode; cl
 }
 
 export default function HomePageContent({ content, waciPrograms, waciStories, waciResources }: Props) {
-    const [form, setForm] = useState({ name: "", email: "", interest: "Volunteer" });
+    const [form, setForm] = useState<{ name: string; email: string; interest: InterestOption }>({ name: "", email: "", interest: "Volunteer" });
+    const [selectedJoinSource, setSelectedJoinSource] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState("");
     const [error, setError] = useState("");
@@ -246,6 +316,12 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
     const [activeFeaturedStoryImageIndex, setActiveFeaturedStoryImageIndex] = useState(0);
     const [failedFeaturedStoryImages, setFailedFeaturedStoryImages] = useState<string[]>([]);
     const year = useMemo(() => new Date().getFullYear(), []);
+    const activeJoinContext = useMemo(() => resolveJoinSourceConfig(selectedJoinSource || "general"), [selectedJoinSource]);
+    const submitButtonLabel = form.interest === "Volunteer"
+        ? "Volunteer with WACI"
+        : (form.interest === "Learn"
+            ? "Get learning updates"
+            : (form.interest === "Partnership" ? "Request partnership" : "Share donor interest"));
 
     const heroBadgeText = content.heroEyebrow || "A home for Africans and friends of Africa who care about wildlife";
     const heroTitle = content.heroTitle || "Inspiring a growing generation for Africa’s wildlife.";
@@ -424,6 +500,54 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
         return () => window.clearTimeout(timeout);
     }, [activeFeaturedStoryImageIndex, featuredStoryImages]);
 
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return undefined;
+        }
+
+        const syncJoinContextFromLocation = () => {
+            const currentUrl = new URL(window.location.href);
+            const querySource = currentUrl.searchParams.get("source");
+            const hashSourceMatch = currentUrl.hash.match(/source=([^&]+)/i);
+            const sourceValue = querySource || (hashSourceMatch ? decodeURIComponent(hashSourceMatch[1]) : "");
+
+            if (!sourceValue) {
+                return;
+            }
+
+            const config = resolveJoinSourceConfig(sourceValue);
+            setSelectedJoinSource(config.source);
+            setForm((current) => ({ ...current, interest: config.suggestedInterest }));
+        };
+
+        syncJoinContextFromLocation();
+        window.addEventListener("popstate", syncJoinContextFromLocation);
+
+        return () => window.removeEventListener("popstate", syncJoinContextFromLocation);
+    }, []);
+
+    const updateJoinContext = (sourceValue?: string | null, suggestedInterest?: InterestOption) => {
+        const config = resolveJoinSourceConfig(sourceValue);
+        setSelectedJoinSource(config.source);
+        setForm((current) => ({
+            ...current,
+            interest: suggestedInterest || config.suggestedInterest,
+        }));
+
+        if (typeof window !== "undefined") {
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set("source", config.source);
+            nextUrl.hash = "join";
+            window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+            document.getElementById("join")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    };
+
+    const handleJoinCtaClick = (event: React.MouseEvent<HTMLAnchorElement>, sourceValue?: string | null, suggestedInterest?: InterestOption) => {
+        event.preventDefault();
+        updateJoinContext(sourceValue, suggestedInterest);
+    };
+
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setSubmitting(true);
@@ -433,42 +557,44 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
         try {
             const name = form.name.trim();
             const email = form.email.trim();
+            const sourceTag = selectedJoinSource ? `homepage-form:${selectedJoinSource}` : "homepage-form:general";
+            const contextLabel = activeJoinContext.label || "General WACI interest";
 
             if (form.interest === "Volunteer") {
                 await submitVolunteerInterest({
                     name,
                     email,
-                    area_of_interest: "General WACI volunteering",
-                    notes: "Submitted from the WACI homepage join form.",
-                    source: "homepage-form",
+                    area_of_interest: `${contextLabel} volunteering`,
+                    notes: `Submitted from the WACI homepage join form for ${contextLabel}.`,
+                    source: sourceTag,
                 });
             } else if (form.interest === "Partnership") {
                 await submitPartnerInterest({
                     name,
                     email,
-                    partnership_type: "General WACI partnership enquiry",
-                    notes: "Submitted from the WACI homepage join form.",
-                    source: "homepage-form",
+                    partnership_type: `${contextLabel} partnership enquiry`,
+                    notes: `Submitted from the WACI homepage join form for ${contextLabel}.`,
+                    source: sourceTag,
                 });
             } else if (form.interest === "Donate") {
                 await submitDonorInterest({
                     name,
                     email,
-                    support_type: "Donate",
-                    notes: "Interested in supporting WACI. Stripe connection will be added later.",
-                    source: "homepage-form",
+                    support_type: `${contextLabel} donor interest`,
+                    notes: `Interested in supporting WACI through ${contextLabel}. Stripe connection can be attached later.`,
+                    source: sourceTag,
                 });
             } else {
                 await submitNewsletterSignup({
                     full_name: name,
                     email,
-                    interests: [form.interest.toLowerCase()],
-                    source: "homepage-form",
+                    interests: [form.interest.toLowerCase(), selectedJoinSource].filter(Boolean),
+                    source: sourceTag,
                 });
             }
 
-            setSuccess(`Thanks, ${name || "friend"}. You’re now connected with WACI.`);
-            setForm({ name: "", email: "", interest: "Volunteer" });
+            setSuccess(`Thanks, ${name || "friend"}. You’re now connected with WACI for ${contextLabel}.`);
+            setForm((current) => ({ ...current, name: "", email: "", interest: activeJoinContext.suggestedInterest }));
         } catch (submitError) {
             console.error(submitError);
             setError("We could not submit your request right now. Please try again shortly.");
@@ -497,7 +623,8 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                             </p>
                             <div className="mt-8 flex flex-wrap gap-3">
                                 <a
-                                    href="#join"
+                                    href={buildJoinHref("hero")}
+                                    onClick={(event) => handleJoinCtaClick(event, "hero", "Volunteer")}
                                     className="inline-flex items-center gap-2 rounded-full bg-emerald-300 px-6 py-3 text-sm font-semibold text-[#092013] transition hover:scale-[1.02] hover:bg-emerald-200"
                                 >
                                     Join the Movement <ArrowRight className="h-4 w-4" />
@@ -509,7 +636,8 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                     Explore Wildlife <BookOpen className="h-4 w-4" />
                                 </a>
                                 <a
-                                    href="#join"
+                                    href={buildJoinHref("donate")}
+                                    onClick={(event) => handleJoinCtaClick(event, "donate", "Donate")}
                                     className="inline-flex items-center gap-2 rounded-full bg-amber-200 px-6 py-3 text-sm font-semibold text-[#092013] transition hover:scale-[1.02] hover:bg-amber-100"
                                 >
                                     Donate <HeartHandshake className="h-4 w-4" />
@@ -643,6 +771,7 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                             {programCards.map((pillar, index) => {
                                 const Icon = pillarIcons[index % pillarIcons.length];
                                 const metaText = [pillar.region, pillar.status].filter(Boolean).join(' · ');
+                                const joinContext = resolveJoinSourceConfig(pillar.id || pillar.title || `focus-area-${index + 1}`);
                                 return (
                                     <div key={pillar.id || pillar.title || index}>
                                         <GlassCard className="h-full">
@@ -652,11 +781,13 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                             <h3 className="mt-5 text-xl font-semibold">{pillar.title}</h3>
                                             {metaText ? <p className="mt-2 text-xs uppercase tracking-[0.18em] text-emerald-300/70">{metaText}</p> : null}
                                             <p className="mt-3 text-sm leading-7 text-white/70">{pillar.text}</p>
-                                            {pillar.ctaLink ? (
-                                                <a href={pillar.ctaLink} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">
-                                                    {pillar.ctaLabel || 'Learn more'} <ArrowRight className="h-4 w-4" />
-                                                </a>
-                                            ) : null}
+                                            <a
+                                                href={buildJoinHref(joinContext.source)}
+                                                onClick={(event) => handleJoinCtaClick(event, joinContext.source, joinContext.suggestedInterest)}
+                                                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300"
+                                            >
+                                                {pillar.ctaLabel || 'Join the Movement'} <ArrowRight className="h-4 w-4" />
+                                            </a>
                                         </GlassCard>
                                     </div>
                                 );
@@ -677,14 +808,20 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                 {
                                     title: "I’m a Wildlife Professional",
                                     text: "For rangers, researchers, conservation practitioners, and NGO teams who want collaboration, visibility, and stronger networks.",
+                                    source: "professional",
+                                    suggestedInterest: "Partnership" as const,
                                 },
                                 {
                                     title: "I’m a Student / Enthusiast",
                                     text: "For students, artists, filmmakers, photographers, and nature lovers eager to learn, volunteer, and grow in conservation.",
+                                    source: "student",
+                                    suggestedInterest: "Learn" as const,
                                 },
                                 {
                                     title: "I Want to Support",
                                     text: "For donors, institutional partners, ethical brands, and allies who want to help advance conservation across Africa.",
+                                    source: "support",
+                                    suggestedInterest: "Donate" as const,
                                 },
                             ].map((item) => (
                                 <GlassCard key={item.title} className="relative overflow-hidden">
@@ -692,7 +829,8 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                     <h3 className="relative text-2xl font-semibold leading-tight">{item.title}</h3>
                                     <p className="relative mt-4 text-sm leading-7 text-white/70">{item.text}</p>
                                     <a
-                                        href="#join"
+                                        href={buildJoinHref(item.source)}
+                                        onClick={(event) => handleJoinCtaClick(event, item.source, item.suggestedInterest)}
                                         className="relative mt-6 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300"
                                     >
                                         Step forward <ArrowRight className="h-4 w-4" />
@@ -889,6 +1027,10 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
 
                             <GlassCard>
                                 <form onSubmit={handleSubmit} className="space-y-4">
+                                    <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-50">
+                                        <p className="font-semibold">Current path: {activeJoinContext.label}</p>
+                                        <p className="mt-1 text-emerald-100/80">Choose how you want to engage with WACI and we will keep the focus-area source attached.</p>
+                                    </div>
                                     <div>
                                         <label className="mb-2 block text-sm font-medium text-white/80">Full name</label>
                                         <input
@@ -910,27 +1052,32 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                         />
                                     </div>
                                     <div>
-                                        <label className="mb-2 block text-sm font-medium text-white/80">I’m interested in</label>
-                                        <select
-                                            value={form.interest}
-                                            onChange={(event) => setForm((state) => ({ ...state, interest: event.target.value }))}
-                                            className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-emerald-300/40"
-                                        >
-                                            <option className="bg-[#0a1310]">Volunteer</option>
-                                            <option className="bg-[#0a1310]">Learn</option>
-                                            <option className="bg-[#0a1310]">Partnership</option>
-                                            <option className="bg-[#0a1310]">Donate</option>
-                                        </select>
+                                        <label className="mb-2 block text-sm font-medium text-white/80">Choose your path</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {INTEREST_OPTIONS.map((option) => (
+                                                <button
+                                                    key={option}
+                                                    type="button"
+                                                    onClick={() => setForm((state) => ({ ...state, interest: option }))}
+                                                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${form.interest === option
+                                                        ? "border-emerald-300 bg-emerald-300 text-[#092013]"
+                                                        : "border-white/10 bg-black/20 text-white hover:border-emerald-300/40"}`}
+                                                >
+                                                    {option}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                     <button
                                         type="submit"
                                         disabled={submitting}
                                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-300 px-5 py-3 text-sm font-semibold text-[#092013] transition hover:bg-emerald-200 disabled:cursor-wait disabled:opacity-70"
                                     >
-                                        {submitting ? "Submitting…" : "Subscribe & Connect"} <Mail className="h-4 w-4" />
+                                        {submitting ? "Submitting…" : submitButtonLabel} <Mail className="h-4 w-4" />
                                     </button>
                                     <a
-                                        href="#join"
+                                        href={buildJoinHref("donate")}
+                                        onClick={(event) => handleJoinCtaClick(event, "donate", "Donate")}
                                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-200/40 bg-amber-200 px-5 py-3 text-sm font-semibold text-[#092013] transition hover:bg-amber-100"
                                     >
                                         Donate to WACI
@@ -938,7 +1085,7 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                     {success ? <p className="text-sm leading-6 text-emerald-200">{success}</p> : null}
                                     {error ? <p className="text-sm leading-6 text-rose-200">{error}</p> : null}
                                     <p className="text-xs leading-6 text-white/45">
-                                        Production-ready note: this form now connects to the shared Felix backend for newsletter, volunteer, partnership, and donor interest capture. Stripe donation checkout can be attached next.
+                                        Every focus-area CTA now routes into this shared join funnel, while preserving the source for volunteer, learning, partnership, and donor analytics.
                                     </p>
                                 </form>
                             </GlassCard>
