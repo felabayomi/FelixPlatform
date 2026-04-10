@@ -771,7 +771,8 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                             {programCards.map((pillar, index) => {
                                 const Icon = pillarIcons[index % pillarIcons.length];
                                 const metaText = [pillar.region, pillar.status].filter(Boolean).join(' · ');
-                                const joinContext = resolveJoinSourceConfig(pillar.id || pillar.title || `focus-area-${index + 1}`);
+                                const programSourceValue = String(pillar.title || ("slug" in pillar ? pillar.slug || "" : "") || pillar.id || `focus-area-${index + 1}`);
+                                const joinContext = resolveJoinSourceConfig(programSourceValue);
                                 return (
                                     <div key={pillar.id || pillar.title || index}>
                                         <GlassCard className="h-full">

@@ -21,6 +21,7 @@ export type SiteContentInfoItem = {
 
 export type WaciProgram = {
     id: string;
+    slug?: string;
     title: string;
     text: string;
     status?: string;
