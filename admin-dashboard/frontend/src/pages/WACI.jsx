@@ -1722,7 +1722,7 @@ function WACI() {
                     <div className="record-header">
                         <div>
                             <h3>Volunteers</h3>
-                            <p className="muted">Volunteer interest captured inside the shared Felix admin stack.</p>
+                            <p className="muted">Volunteer interest captured inside the shared Felix admin stack, including the CTA source that drove the submission.</p>
                         </div>
                     </div>
 
@@ -1736,6 +1736,7 @@ function WACI() {
                                         <th>Name</th>
                                         <th>Email</th>
                                         <th>Interest</th>
+                                        <th>Source</th>
                                         <th>Availability</th>
                                         <th>Status</th>
                                     </tr>
@@ -1746,6 +1747,7 @@ function WACI() {
                                             <td>{volunteer.full_name}</td>
                                             <td>{volunteer.email}</td>
                                             <td>{volunteer.area_of_interest || '—'}</td>
+                                            <td>{volunteer.source || 'website'}</td>
                                             <td>{volunteer.availability || '—'}</td>
                                             <td>{volunteer.status || 'new'}</td>
                                         </tr>
@@ -1762,7 +1764,7 @@ function WACI() {
                     <div className="record-header">
                         <div>
                             <h3>Partner Requests</h3>
-                            <p className="muted">Partner and sponsorship enquiries live inside the existing admin dashboard.</p>
+                            <p className="muted">Partner and sponsorship enquiries live inside the existing admin dashboard, with the originating source attached.</p>
                         </div>
                     </div>
 
@@ -1777,6 +1779,7 @@ function WACI() {
                                         <th>Organization</th>
                                         <th>Email</th>
                                         <th>Type</th>
+                                        <th>Source</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
@@ -1787,6 +1790,7 @@ function WACI() {
                                             <td>{partner.organization || '—'}</td>
                                             <td>{partner.email}</td>
                                             <td>{partner.partnership_type || '—'}</td>
+                                            <td>{partner.source || 'website'}</td>
                                             <td>{partner.status || 'new'}</td>
                                         </tr>
                                     ))}
@@ -1802,7 +1806,7 @@ function WACI() {
                     <div className="record-header">
                         <div>
                             <h3>Donors/Sponsors</h3>
-                            <p className="muted">Donor and sponsor interest captured through the shared WACI backend.</p>
+                            <p className="muted">Donor and sponsor interest captured through the shared WACI backend, including the source path that led them here.</p>
                         </div>
                     </div>
 
@@ -1817,6 +1821,7 @@ function WACI() {
                                         <th>Organization</th>
                                         <th>Email</th>
                                         <th>Support type</th>
+                                        <th>Source</th>
                                         <th>Amount</th>
                                     </tr>
                                 </thead>
@@ -1827,6 +1832,7 @@ function WACI() {
                                             <td>{donor.organization || '—'}</td>
                                             <td>{donor.email}</td>
                                             <td>{donor.support_type || '—'}</td>
+                                            <td>{donor.source || 'website'}</td>
                                             <td>{donor.amount_text || '—'}</td>
                                         </tr>
                                     ))}
