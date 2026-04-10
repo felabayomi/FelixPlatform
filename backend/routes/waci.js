@@ -5,6 +5,7 @@ const {
     submitVolunteerForm,
     submitPartnerForm,
     submitDonorForm,
+    createDonationCheckoutSession,
     getPrograms,
     createProgram,
     updateProgram,
@@ -45,6 +46,7 @@ router.post('/partner', submitPartnerForm);
 router.post('/partners', submitPartnerForm);
 router.post('/donor', submitDonorForm);
 router.post('/donors', submitDonorForm);
+router.post('/donations/checkout', createDonationCheckoutSession);
 router.post('/story-submissions', submitStory);
 router.post('/submit-story', submitStory);
 router.post('/stories/submit', submitStory);

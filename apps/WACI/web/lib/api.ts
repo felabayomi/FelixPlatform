@@ -496,6 +496,7 @@ type WaciInterestPayload = {
     partnership_type?: string;
     supportType?: string;
     support_type?: string;
+    amount?: string | number;
     notes?: string;
     source?: string;
 };
@@ -534,8 +535,39 @@ export async function submitDonorInterest(payload: WaciInterestPayload) {
         contact_phone: payload.phone,
         organization: payload.organization,
         support_type: payload.support_type || payload.supportType,
+        amount: payload.amount,
         notes: payload.notes,
         source: payload.source,
+    });
+
+    return res.data;
+}
+
+export async function createWaciDonationCheckout(payload: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    organization?: string;
+    amount: number | string;
+    mode?: "suggested" | "custom";
+    source?: string;
+    supportType?: string;
+    notes?: string;
+    successUrl?: string;
+    cancelUrl?: string;
+}) {
+    const res = await API.post("/api/waci/donations/checkout", {
+        contact_name: payload.name,
+        contact_email: payload.email,
+        contact_phone: payload.phone,
+        organization: payload.organization,
+        amount: payload.amount,
+        mode: payload.mode,
+        source: payload.source,
+        support_type: payload.supportType,
+        notes: payload.notes,
+        success_url: payload.successUrl,
+        cancel_url: payload.cancelUrl,
     });
 
     return res.data;

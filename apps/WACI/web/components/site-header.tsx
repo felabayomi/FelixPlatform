@@ -55,7 +55,7 @@ export default function SiteHeader({ logoUrl }: SiteHeaderProps) {
 
                 <div className="hidden items-center gap-3 md:flex">
                     <Link
-                        href="/#join"
+                        href="/?source=donate#join"
                         className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-300/20"
                     >
                         Donate
@@ -93,7 +93,7 @@ export default function SiteHeader({ logoUrl }: SiteHeaderProps) {
                         ))}
                         <div className="flex flex-wrap gap-3 pt-2">
                             <Link
-                                href="/#join"
+                                href="/?source=donate#join"
                                 onClick={() => setMobileOpen(false)}
                                 className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100"
                             >

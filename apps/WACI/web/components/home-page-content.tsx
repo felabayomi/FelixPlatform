@@ -15,7 +15,7 @@ import {
     Users,
 } from "lucide-react";
 import {
-    submitDonorInterest,
+    createWaciDonationCheckout,
     submitNewsletterSignup,
     submitPartnerInterest,
     submitVolunteerInterest,
@@ -161,6 +161,9 @@ const trustPoints = [
     "Community-centered conservation with space for students, professionals, supporters, and partners.",
     "Powered by the Felix shared platform so public storytelling can scale with trust and operational strength.",
 ];
+
+const SUGGESTED_DONATION_AMOUNTS = [25, 50, 100, 250] as const;
+const DEFAULT_SUGGESTED_DONATION = 50;
 
 const fallbackWhoWeAreItems: Array<{
     id?: string;
@@ -311,6 +314,7 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState("");
     const [error, setError] = useState("");
+    const [donationAmount, setDonationAmount] = useState(String(DEFAULT_SUGGESTED_DONATION));
     const [activeHeroImageIndex, setActiveHeroImageIndex] = useState(0);
     const [failedHeroImages, setFailedHeroImages] = useState<string[]>([]);
     const [activeFeaturedStoryImageIndex, setActiveFeaturedStoryImageIndex] = useState(0);
@@ -321,7 +325,7 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
         ? "Volunteer with WACI"
         : (form.interest === "Learn"
             ? "Get learning updates"
-            : (form.interest === "Partnership" ? "Request partnership" : "Share donor interest"));
+            : (form.interest === "Partnership" ? "Request partnership" : "Continue to Stripe checkout"));
 
     const heroBadgeText = content.heroEyebrow || "A home for Africans and friends of Africa who care about wildlife";
     const heroTitle = content.heroTitle || "Inspiring a growing generation for Africa’s wildlife.";
@@ -508,8 +512,16 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
         const syncJoinContextFromLocation = () => {
             const currentUrl = new URL(window.location.href);
             const querySource = currentUrl.searchParams.get("source");
+            const donationStatus = currentUrl.searchParams.get("donation");
             const hashSourceMatch = currentUrl.hash.match(/source=([^&]+)/i);
             const sourceValue = querySource || (hashSourceMatch ? decodeURIComponent(hashSourceMatch[1]) : "");
+
+            if (donationStatus === "success") {
+                setSuccess("Thank you — your Stripe donation was received and will support WACI's wildlife work.");
+                setError("");
+            } else if (donationStatus === "cancelled") {
+                setError("Your Stripe checkout was cancelled. You can try again with another amount anytime.");
+            }
 
             if (!sourceValue) {
                 return;
@@ -540,6 +552,64 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
             nextUrl.hash = "join";
             window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
             document.getElementById("join")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    };
+
+    const parseDonationAmount = (value: string | number) => {
+        const normalized = Number(String(value || "").replace(/[^0-9.]/g, ""));
+        return Number.isFinite(normalized) ? normalized : 0;
+    };
+
+    const startDonationCheckout = async ({ amount, mode, sourceValue }: { amount: number | string; mode: "suggested" | "custom"; sourceValue?: string | null }) => {
+        const donationValue = parseDonationAmount(amount);
+
+        if (donationValue < 1) {
+            throw new Error("Donation amount must be at least $1.");
+        }
+
+        const donationContext = resolveJoinSourceConfig(sourceValue || selectedJoinSource || "donate");
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const successUrl = origin
+            ? `${origin}/?source=${encodeURIComponent(donationContext.source)}&donation=success#join`
+            : undefined;
+        const cancelUrl = origin
+            ? `${origin}/?source=${encodeURIComponent(donationContext.source)}&donation=cancelled#join`
+            : undefined;
+        const checkout = await createWaciDonationCheckout({
+            name: form.name.trim(),
+            email: form.email.trim(),
+            amount: donationValue,
+            mode,
+            source: `homepage-${mode}-donate:${donationContext.source}`,
+            supportType: `${donationContext.label} donation`,
+            notes: `Stripe checkout started from the ${donationContext.label} path.`,
+            successUrl,
+            cancelUrl,
+        });
+
+        if (!checkout?.checkoutUrl) {
+            throw new Error("Missing Stripe checkout URL.");
+        }
+
+        window.location.assign(checkout.checkoutUrl);
+    };
+
+    const handleQuickDonateClick = async () => {
+        setSubmitting(true);
+        setSuccess("");
+        setError("");
+
+        try {
+            await startDonationCheckout({
+                amount: DEFAULT_SUGGESTED_DONATION,
+                mode: "suggested",
+                sourceValue: "donate",
+            });
+        } catch (donationError) {
+            console.error(donationError);
+            setError("We could not start the Stripe donation right now. Please try again shortly.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -577,13 +647,12 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                     source: sourceTag,
                 });
             } else if (form.interest === "Donate") {
-                await submitDonorInterest({
-                    name,
-                    email,
-                    support_type: `${contextLabel} donor interest`,
-                    notes: `Interested in supporting WACI through ${contextLabel}. Stripe connection can be attached later.`,
-                    source: sourceTag,
+                await startDonationCheckout({
+                    amount: donationAmount,
+                    mode: "custom",
+                    sourceValue: selectedJoinSource || "donate",
                 });
+                return;
             } else {
                 await submitNewsletterSignup({
                     full_name: name,
@@ -635,13 +704,14 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                 >
                                     Explore Wildlife <BookOpen className="h-4 w-4" />
                                 </a>
-                                <a
-                                    href={buildJoinHref("donate")}
-                                    onClick={(event) => handleJoinCtaClick(event, "donate", "Donate")}
-                                    className="inline-flex items-center gap-2 rounded-full bg-amber-200 px-6 py-3 text-sm font-semibold text-[#092013] transition hover:scale-[1.02] hover:bg-amber-100"
+                                <button
+                                    type="button"
+                                    onClick={handleQuickDonateClick}
+                                    disabled={submitting}
+                                    className="inline-flex items-center gap-2 rounded-full bg-amber-200 px-6 py-3 text-sm font-semibold text-[#092013] transition hover:scale-[1.02] hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
                                 >
-                                    Donate <HeartHandshake className="h-4 w-4" />
-                                </a>
+                                    {`Donate $${DEFAULT_SUGGESTED_DONATION}`} <HeartHandshake className="h-4 w-4" />
+                                </button>
                             </div>
                             <div className="mt-10 grid grid-cols-2 gap-4 xl:grid-cols-4">
                                 {stats.map((item) => (
@@ -1079,6 +1149,40 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                             ))}
                                         </div>
                                     </div>
+                                    {form.interest === "Donate" ? (
+                                        <div className="rounded-2xl border border-amber-200/30 bg-amber-200/10 p-4">
+                                            <p className="text-sm font-semibold text-amber-50">Donation amount</p>
+                                            <p className="mt-1 text-sm text-amber-100/80">
+                                                Quick donate uses a suggested {`$${DEFAULT_SUGGESTED_DONATION}`}. Or enter your own custom amount below and continue to Stripe.
+                                            </p>
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                {SUGGESTED_DONATION_AMOUNTS.map((amount) => (
+                                                    <button
+                                                        key={amount}
+                                                        type="button"
+                                                        onClick={() => setDonationAmount(String(amount))}
+                                                        className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${Number(donationAmount) === amount
+                                                            ? "border-amber-100 bg-amber-200 text-[#092013]"
+                                                            : "border-white/10 bg-black/20 text-white hover:border-amber-200/50"}`}
+                                                    >
+                                                        {`$${amount}`}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="mt-3">
+                                                <label className="mb-2 block text-sm font-medium text-white/80">Custom amount (USD)</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    step="1"
+                                                    value={donationAmount}
+                                                    onChange={(event) => setDonationAmount(event.target.value)}
+                                                    className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none ring-0 placeholder:text-white/35 focus:border-amber-200/50"
+                                                    placeholder="50"
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : null}
                                     <button
                                         type="submit"
                                         disabled={submitting}
@@ -1086,13 +1190,14 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                                     >
                                         {submitting ? "Submitting…" : submitButtonLabel} <Mail className="h-4 w-4" />
                                     </button>
-                                    <a
-                                        href={buildJoinHref("donate")}
-                                        onClick={(event) => handleJoinCtaClick(event, "donate", "Donate")}
-                                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-200/40 bg-amber-200 px-5 py-3 text-sm font-semibold text-[#092013] transition hover:bg-amber-100"
+                                    <button
+                                        type="button"
+                                        onClick={handleQuickDonateClick}
+                                        disabled={submitting}
+                                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-200/40 bg-amber-200 px-5 py-3 text-sm font-semibold text-[#092013] transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
                                     >
-                                        Donate to WACI
-                                    </a>
+                                        {`Quick donate $${DEFAULT_SUGGESTED_DONATION} on Stripe`}
+                                    </button>
                                     {success ? <p className="text-sm leading-6 text-emerald-200">{success}</p> : null}
                                     {error ? <p className="text-sm leading-6 text-rose-200">{error}</p> : null}
                                     <p className="text-xs leading-6 text-white/45">

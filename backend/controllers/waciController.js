@@ -48,6 +48,7 @@ const WACI_TIER_RANK = {
     Gold: 2,
     Platinum: 3,
 };
+const WACI_DONATION_CURRENCY = String(process.env.WACI_STRIPE_CURRENCY || process.env.STRIPE_CURRENCY || 'usd').toLowerCase();
 
 let waciStripeClient = null;
 let waciRewardSchedulerStarted = false;
@@ -292,6 +293,16 @@ const getWaciStripeClient = () => {
     }
 
     return waciStripeClient;
+};
+
+const getWaciBaseAppUrl = (req) => {
+    const origin = toNullableText(req.get('origin'));
+
+    if (origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+        return origin;
+    }
+
+    return process.env.WACI_PUBLIC_SITE_URL || process.env.WACI_APP_BASE_URL || 'https://www.wildlifeafrica.org';
 };
 
 const ensurePlatformContentTable = async () => {
@@ -1614,6 +1625,137 @@ const submitInterestForm = async (req, res, { formType, defaultSubject }) => {
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: `Unable to submit ${formType.toLowerCase()} form.` });
+    }
+};
+
+exports.createDonationCheckoutSession = async (req, res) => {
+    const stripe = getWaciStripeClient();
+
+    if (!stripe) {
+        return res.status(503).json({ message: 'Stripe is not configured for WACI donations yet.' });
+    }
+
+    const contactName = toNullableText(req.body?.contact_name || req.body?.name);
+    const contactEmail = toNullableText(req.body?.contact_email || req.body?.email);
+    const contactPhone = toNullableText(req.body?.contact_phone || req.body?.phone);
+    const organization = toNullableText(req.body?.organization);
+    const amountInput = req.body?.amount ?? req.body?.donation_amount ?? req.body?.amount_cents ?? req.body?.amountCents;
+    const donationMode = toText(req.body?.mode || req.body?.donationMode, 'suggested').toLowerCase();
+    const source = toNullableText(req.body?.source) || `website-${donationMode}`;
+    const preferredContact = toNullableText(req.body?.preferred_contact || req.body?.preferredContact);
+    const notes = toNullableText(req.body?.notes)
+        || `Started a ${donationMode === 'custom' ? 'custom' : 'suggested'} Stripe donation checkout for WACI.`;
+    const contributionType = toNullableText(req.body?.support_type || req.body?.supportType)
+        || (donationMode === 'custom' ? 'Custom donation' : 'Suggested donation');
+    const amountCents = toCurrencyCents(amountInput, donationMode === 'suggested' ? 5000 : null);
+
+    if (!Number.isFinite(amountCents) || amountCents < 100) {
+        return res.status(400).json({ message: 'Donation amount must be at least $1.00.' });
+    }
+
+    const baseAppUrl = getWaciBaseAppUrl(req);
+    const successUrl = toNullableText(req.body?.success_url || req.body?.successUrl)
+        || `${baseAppUrl}/?donation=success&session_id={CHECKOUT_SESSION_ID}#join`;
+    const cancelUrl = toNullableText(req.body?.cancel_url || req.body?.cancelUrl)
+        || `${baseAppUrl}/?donation=cancelled#join`;
+
+    try {
+        let donorRecord = null;
+
+        if (contactName && contactEmail) {
+            try {
+                donorRecord = await insertInterestRecord({
+                    formType: 'Donor',
+                    contactName,
+                    contactEmail,
+                    contactPhone,
+                    organization,
+                    contributionType,
+                    preferredContact,
+                    amount: formatMoneyFromCents(amountCents),
+                    notes,
+                    source,
+                });
+
+                const supportRequest = await createWaciSupportRequest({
+                    contactName,
+                    contactEmail,
+                    contactPhone,
+                    subject: 'WACI Stripe donation checkout started',
+                    message: [
+                        `Donation mode: ${donationMode}`,
+                        `Contribution type: ${contributionType}`,
+                        `Amount: ${formatMoneyFromCents(amountCents)}`,
+                        `Source: ${source}`,
+                        `Notes: ${notes}`,
+                    ].join('\n'),
+                });
+
+                await sendSupportRequestNotification({
+                    ...supportRequest,
+                    app_name: WACI_APP_NAME,
+                    storefront_key: WACI_STOREFRONT_KEY,
+                    contact_name: contactName,
+                    contact_email: contactEmail,
+                    contact_phone: contactPhone,
+                    subject: 'WACI Stripe donation checkout started',
+                    message: [
+                        `Donation mode: ${donationMode}`,
+                        `Contribution type: ${contributionType}`,
+                        `Amount: ${formatMoneyFromCents(amountCents)}`,
+                        `Source: ${source}`,
+                        `Notes: ${notes}`,
+                    ].join('\n'),
+                });
+            } catch (recordError) {
+                console.warn('Unable to save WACI donor interest before checkout:', recordError.message || recordError);
+            }
+        }
+
+        const session = await stripe.checkout.sessions.create({
+            mode: 'payment',
+            submit_type: 'donate',
+            billing_address_collection: 'auto',
+            customer_email: contactEmail || undefined,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            line_items: [
+                {
+                    quantity: 1,
+                    price_data: {
+                        currency: WACI_DONATION_CURRENCY,
+                        unit_amount: amountCents,
+                        product_data: {
+                            name: 'Support WACI',
+                            description: donationMode === 'custom'
+                                ? 'Custom donation supporting wildlife conservation across Africa.'
+                                : 'Suggested donation supporting wildlife conservation across Africa.',
+                        },
+                    },
+                },
+            ],
+            metadata: {
+                app_name: WACI_APP_NAME,
+                storefront_key: WACI_STOREFRONT_KEY,
+                source,
+                donation_mode: donationMode,
+                donor_name: contactName || '',
+                donor_email: contactEmail || '',
+                amount_cents: String(amountCents),
+            },
+        });
+
+        return res.status(201).json({
+            checkoutUrl: session.url,
+            sessionId: session.id,
+            amountCents,
+            amountUsd: Number((amountCents / 100).toFixed(2)),
+            currency: WACI_DONATION_CURRENCY,
+            donorRecord,
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: error.message || 'Unable to start the WACI donation checkout.' });
     }
 };
 

@@ -57,7 +57,7 @@ export default function NewsletterSignup() {
                     supportType: "Donate",
                     source: "homepage-donate-button",
                 });
-                setSuccess(`Thank you, ${displayName}. We’ve recorded your donation interest and will share the secure Stripe link once it goes live.`);
+                setSuccess(`Thank you, ${displayName}. Your donor interest has been recorded. You can continue through WACI’s secure Stripe checkout from the donate path.`);
             } else {
                 await submitNewsletterSignup({
                     full_name: form.name,
@@ -129,7 +129,7 @@ export default function NewsletterSignup() {
                     {submitting ? "Sending…" : "Subscribe & Connect"}
                 </button>
                 <Link
-                    href="/#join"
+                    href="/?source=donate#join"
                     className="inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-300/10 px-5 py-3 text-sm font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-300/20"
                 >
                     Donate <ArrowRight className="h-4 w-4" />
@@ -141,7 +141,7 @@ export default function NewsletterSignup() {
             </div>
 
             <p className="mt-4 text-xs leading-6 text-slate-400">
-                Select <strong className="text-slate-200">Donate</strong> to register donor interest now. A secure Stripe checkout button will be connected later.
+                Select <strong className="text-slate-200">Donate</strong> to register donor interest, or use the main WACI donate path for the live secure Stripe checkout.
             </p>
 
             {success ? <p className="mt-4 rounded-2xl bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">{success}</p> : null}

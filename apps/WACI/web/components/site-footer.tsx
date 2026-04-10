@@ -33,7 +33,7 @@ export default async function SiteFooter() {
                         <li><Link href="/submit-story" className="hover:text-white">Submit a Story</Link></li>
                         <li><Link href="/#join" className="hover:text-white">Volunteer</Link></li>
                         <li><Link href="/#join" className="hover:text-white">Partner With Us</Link></li>
-                        <li><Link href="/#join" className="hover:text-white">Donate</Link></li>
+                        <li><Link href="/?source=donate#join" className="hover:text-white">Donate</Link></li>
                     </ul>
                 </div>
 
