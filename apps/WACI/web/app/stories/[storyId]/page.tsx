@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import StoryDetailClient from "@/components/story-detail-client";
 import { getWaciStory } from "@/lib/api";
@@ -20,6 +22,16 @@ export default async function StoryPage({ params }: StoryPageProps) {
 
     return (
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+            <div className="mb-4">
+                <Link
+                    href="/stories"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-emerald-300/40 hover:text-white"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to stories
+                </Link>
+            </div>
+
             <article className="section-shell overflow-hidden p-6 sm:p-8">
                 {story.image ? (
                     <div
