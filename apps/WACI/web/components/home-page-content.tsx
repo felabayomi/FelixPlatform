@@ -7,6 +7,8 @@ import {
     Bird,
     BookOpen,
     Camera,
+    ChevronDown,
+    ChevronUp,
     Globe,
     HeartHandshake,
     Mail,
@@ -174,6 +176,15 @@ const createStorySnippet = (value?: string | null, maxLength = 220) => {
 
 const SUGGESTED_DONATION_AMOUNTS = [25, 50, 100, 250] as const;
 const DEFAULT_SUGGESTED_DONATION = 50;
+const SECTION_ORDER = [
+    { id: "top", label: "Top" },
+    { id: "about", label: "About" },
+    { id: "programs", label: "Programs" },
+    { id: "involved", label: "Get Involved" },
+    { id: "learn", label: "Learn" },
+    { id: "stories", label: "Stories" },
+    { id: "join", label: "Join" },
+] as const;
 
 const fallbackWhoWeAreItems: Array<{
     id?: string;
@@ -325,6 +336,7 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
     const [success, setSuccess] = useState("");
     const [error, setError] = useState("");
     const [donationAmount, setDonationAmount] = useState(String(DEFAULT_SUGGESTED_DONATION));
+    const [activeSectionIndex, setActiveSectionIndex] = useState(0);
     const [activeHeroImageIndex, setActiveHeroImageIndex] = useState(0);
     const [failedHeroImages, setFailedHeroImages] = useState<string[]>([]);
     const [activeFeaturedStoryImageIndex, setActiveFeaturedStoryImageIndex] = useState(0);
@@ -527,6 +539,36 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
             return undefined;
         }
 
+        const detectActiveSection = () => {
+            const scrollOffset = 140;
+            let nextActiveIndex = 0;
+
+            SECTION_ORDER.forEach((section, index) => {
+                const element = document.getElementById(section.id);
+
+                if (element && element.getBoundingClientRect().top <= scrollOffset) {
+                    nextActiveIndex = index;
+                }
+            });
+
+            setActiveSectionIndex(nextActiveIndex);
+        };
+
+        detectActiveSection();
+        window.addEventListener("scroll", detectActiveSection, { passive: true });
+        window.addEventListener("resize", detectActiveSection);
+
+        return () => {
+            window.removeEventListener("scroll", detectActiveSection);
+            window.removeEventListener("resize", detectActiveSection);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return undefined;
+        }
+
         const syncJoinContextFromLocation = () => {
             const currentUrl = new URL(window.location.href);
             const querySource = currentUrl.searchParams.get("source");
@@ -631,9 +673,31 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
         }
     };
 
+    const scrollToSectionIndex = (targetIndex: number) => {
+        if (typeof window === "undefined") {
+            return;
+        }
+
+        const boundedIndex = Math.min(Math.max(targetIndex, 0), SECTION_ORDER.length - 1);
+        const targetSection = SECTION_ORDER[boundedIndex];
+        const targetElement = document.getElementById(targetSection.id);
+
+        if (!targetElement) {
+            return;
+        }
+
+        const headerOffset = 88;
+        const top = targetElement.getBoundingClientRect().top + window.scrollY - headerOffset;
+        window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+    };
+
     const handleJoinCtaClick = (event: React.MouseEvent<HTMLAnchorElement>, sourceValue?: string | null, suggestedInterest?: InterestOption) => {
         event.preventDefault();
         updateJoinContext(sourceValue, suggestedInterest);
+    };
+
+    const handleSectionStep = (direction: "up" | "down") => {
+        scrollToSectionIndex(activeSectionIndex + (direction === "down" ? 1 : -1));
     };
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -693,6 +757,31 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
     return (
         <div className="min-h-screen bg-[#08120e] text-white selection:bg-emerald-300 selection:text-[#08120e]">
             <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(22,163,74,0.20),transparent_28%),radial-gradient(circle_at_80%_20%,rgba(251,191,36,0.10),transparent_20%),linear-gradient(180deg,#0b1511_0%,#08120e_45%,#060d0a_100%)]" />
+
+            <div className="fixed bottom-5 right-4 z-40 flex flex-col items-center gap-2 md:bottom-6 md:right-6">
+                <div className="rounded-full border border-white/10 bg-[#07100c]/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200 shadow-lg backdrop-blur">
+                    {SECTION_ORDER[activeSectionIndex]?.label || "Top"}
+                </div>
+                <button
+                    type="button"
+                    onClick={() => handleSectionStep("up")}
+                    disabled={activeSectionIndex <= 0}
+                    aria-label="Scroll to previous section"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#07100c]/85 text-white shadow-lg backdrop-blur transition hover:border-emerald-300/50 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                    <ChevronUp className="h-5 w-5" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => handleSectionStep("down")}
+                    disabled={activeSectionIndex >= SECTION_ORDER.length - 1}
+                    aria-label="Scroll to next section"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#07100c]/85 text-white shadow-lg backdrop-blur transition hover:border-emerald-300/50 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                    <ChevronDown className="h-5 w-5" />
+                </button>
+                <span className="text-[10px] text-white/55">Smooth scroll</span>
+            </div>
 
             <main id="top">
                 <section className="relative overflow-hidden px-4 pb-20 pt-14 md:px-6 lg:px-8 lg:pb-28 lg:pt-20">
