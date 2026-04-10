@@ -22,7 +22,7 @@ export default async function SiteFooter() {
                         <li><Link href="/#about" className="hover:text-white">About WACI</Link></li>
                         <li><Link href="/#programs" className="hover:text-white">What We Do</Link></li>
                         <li><Link href="/#learn" className="hover:text-white">Learn</Link></li>
-                        <li><Link href="/#stories" className="hover:text-white">Stories &amp; Media</Link></li>
+                        <li><Link href="/stories" className="hover:text-white">Stories &amp; Media</Link></li>
                     </ul>
                 </div>
 
@@ -30,6 +30,7 @@ export default async function SiteFooter() {
                     <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-200">Take Action</h3>
                     <ul className="mt-3 space-y-2 text-sm text-slate-300">
                         <li><Link href="/#join" className="hover:text-white">Join the Network</Link></li>
+                        <li><Link href="/submit-story" className="hover:text-white">Submit a Story</Link></li>
                         <li><Link href="/#join" className="hover:text-white">Volunteer</Link></li>
                         <li><Link href="/#join" className="hover:text-white">Partner With Us</Link></li>
                         <li><Link href="/#join" className="hover:text-white">Donate</Link></li>

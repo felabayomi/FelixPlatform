@@ -119,4 +119,7 @@ app.use(adrianStoreRoutes);
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    if (typeof waciController.startWaciRewardsScheduler === 'function') {
+        waciController.startWaciRewardsScheduler();
+    }
 });

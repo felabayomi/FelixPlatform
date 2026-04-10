@@ -40,8 +40,18 @@ const WACI_PAYOUT_METHODS = {
 };
 const PAID_PAYOUT_STATUSES = ['completed', 'paid'];
 const PENDING_PAYOUT_STATUSES = ['created', 'pending', 'processing', 'approved', 'scheduled'];
+const WACI_STORY_STATUS_OPTIONS = ['pending', 'published', 'rejected', 'archived'];
+const WACI_REWARD_RECALC_INTERVAL_MS = 60 * 60 * 1000;
+const WACI_TIER_RANK = {
+    Bronze: 0,
+    Silver: 1,
+    Gold: 2,
+    Platinum: 3,
+};
 
 let waciStripeClient = null;
+let waciRewardSchedulerStarted = false;
+let lastWaciRewardsRecalcAt = 0;
 
 const DEFAULT_PROGRAMS = [
     {
@@ -193,6 +203,29 @@ const toBoolean = (value, fallback = false) => {
     }
 
     return ['true', '1', 'yes', 'on'].includes(String(value).trim().toLowerCase());
+};
+
+const normalizeStoryStatus = (value, fallback = 'pending') => {
+    const normalized = String(value || fallback || 'pending').trim().toLowerCase();
+
+    if (normalized === 'live') {
+        return 'published';
+    }
+
+    if (normalized === 'declined') {
+        return 'rejected';
+    }
+
+    return WACI_STORY_STATUS_OPTIONS.includes(normalized) ? normalized : fallback;
+};
+
+const getRequestIp = (req = {}) => {
+    const forwarded = String(req.headers?.['x-forwarded-for'] || '')
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean)[0];
+
+    return toNullableText(forwarded || req.ip || req.socket?.remoteAddress || null);
 };
 
 const toCount = (value, fallback = 0) => {
@@ -364,7 +397,12 @@ const ensureWaciResourceTables = async () => {
                     title TEXT NOT NULL,
                     summary TEXT NOT NULL DEFAULT '',
                     location TEXT,
+                    status TEXT NOT NULL DEFAULT 'published',
                     published_at DATE,
+                    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    reviewed_at TIMESTAMPTZ,
+                    reviewed_by TEXT,
+                    review_notes TEXT,
                     image_url TEXT,
                     link TEXT,
                     featured BOOLEAN NOT NULL DEFAULT TRUE,
@@ -378,11 +416,74 @@ const ensureWaciResourceTables = async () => {
             await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS author_email TEXT`);
             await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS external_story_id TEXT`);
             await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'admin'`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published'`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS reviewed_by TEXT`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS review_notes TEXT`);
             await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0`);
             await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS like_count INTEGER NOT NULL DEFAULT 0`);
             await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS share_count INTEGER NOT NULL DEFAULT 0`);
+            await pool.query(`UPDATE waci_stories SET status = 'published' WHERE status IS NULL OR BTRIM(status) = ''`);
             await pool.query(`CREATE INDEX IF NOT EXISTS waci_stories_author_email_idx ON waci_stories (LOWER(author_email))`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS waci_stories_status_idx ON waci_stories (status, sort_order, created_at DESC)`);
             await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS waci_stories_external_story_id_idx ON waci_stories (external_story_id) WHERE external_story_id IS NOT NULL`);
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS waci_story_engagement_events (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    story_id UUID NOT NULL REFERENCES waci_stories(id) ON DELETE CASCADE,
+                    event_type TEXT NOT NULL,
+                    ip_address TEXT,
+                    session_id TEXT,
+                    user_agent TEXT,
+                    platform TEXT,
+                    view_seconds INTEGER NOT NULL DEFAULT 0,
+                    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            `);
+
+            await pool.query(`CREATE INDEX IF NOT EXISTS waci_story_engagement_story_idx ON waci_story_engagement_events (story_id, created_at DESC)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS waci_story_engagement_event_idx ON waci_story_engagement_events (event_type, created_at DESC)`);
+            await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS waci_story_like_ip_idx ON waci_story_engagement_events (story_id, ip_address) WHERE event_type = 'like' AND ip_address IS NOT NULL`);
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS waci_author_rewards (
+                    author_email TEXT PRIMARY KEY,
+                    author_name TEXT,
+                    total_views INTEGER NOT NULL DEFAULT 0,
+                    total_likes INTEGER NOT NULL DEFAULT 0,
+                    total_shares INTEGER NOT NULL DEFAULT 0,
+                    total_stories INTEGER NOT NULL DEFAULT 0,
+                    pending_stories INTEGER NOT NULL DEFAULT 0,
+                    rejected_stories INTEGER NOT NULL DEFAULT 0,
+                    published_stories INTEGER NOT NULL DEFAULT 0,
+                    featured_stories INTEGER NOT NULL DEFAULT 0,
+                    base_points INTEGER NOT NULL DEFAULT 0,
+                    share_bonus_points INTEGER NOT NULL DEFAULT 0,
+                    campaign_bonus_points INTEGER NOT NULL DEFAULT 0,
+                    multiplier NUMERIC NOT NULL DEFAULT 1,
+                    total_points INTEGER NOT NULL DEFAULT 0,
+                    weekly_points INTEGER NOT NULL DEFAULT 0,
+                    monthly_points INTEGER NOT NULL DEFAULT 0,
+                    tier TEXT NOT NULL DEFAULT 'Bronze',
+                    tier_bonus_rate NUMERIC NOT NULL DEFAULT 0,
+                    base_earnings_cents INTEGER NOT NULL DEFAULT 0,
+                    tier_bonus_cents INTEGER NOT NULL DEFAULT 0,
+                    total_earnings_cents INTEGER NOT NULL DEFAULT 0,
+                    paid_out_cents INTEGER NOT NULL DEFAULT 0,
+                    pending_payout_cents INTEGER NOT NULL DEFAULT 0,
+                    available_earnings_cents INTEGER NOT NULL DEFAULT 0,
+                    payout_request_count INTEGER NOT NULL DEFAULT 0,
+                    points_approximation BOOLEAN NOT NULL DEFAULT FALSE,
+                    last_recalculated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    last_tier_email_sent TEXT,
+                    last_tier_email_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            `);
 
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS waci_story_payout_requests (
@@ -523,8 +624,9 @@ const readProgramsFromTable = async () => {
     return result.rows.map((item, index) => normalizeProgram(item, index));
 };
 
-const readStoriesFromTable = async () => {
+const readStoriesFromTable = async ({ includeAllStatuses = false } = {}) => {
     await ensureWaciResourceTables();
+    const whereClause = includeAllStatuses ? '' : `WHERE status = 'published'`;
     const result = await pool.query(
         `SELECT
             id::text AS id,
@@ -532,7 +634,12 @@ const readStoriesFromTable = async () => {
             title,
             summary,
             location,
+            status,
             COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt",
+            submitted_at AS "submittedAt",
+            reviewed_at AS "reviewedAt",
+            reviewed_by AS "reviewedBy",
+            review_notes AS "reviewNotes",
             image_url AS image,
             link,
             featured,
@@ -545,7 +652,13 @@ const readStoriesFromTable = async () => {
             share_count AS "shareCount",
             sort_order AS "sortOrder"
          FROM waci_stories
-         ORDER BY sort_order ASC, created_at DESC`
+         ${whereClause}
+         ORDER BY CASE status
+             WHEN 'pending' THEN 0
+             WHEN 'published' THEN 1
+             WHEN 'rejected' THEN 2
+             ELSE 3
+         END ASC, sort_order ASC, created_at DESC`
     );
 
     return result.rows.map((item, index) => normalizeStory(item, index));
@@ -604,6 +717,338 @@ const readPayoutRequests = async () => {
     return result.rows.map((row) => normalizePayoutRequest(row));
 };
 
+const readAuthorRewards = async () => {
+    await ensureWaciResourceTables();
+    const result = await pool.query(
+        `SELECT
+            author_email,
+            author_name,
+            total_views,
+            total_likes,
+            total_shares,
+            total_stories,
+            pending_stories,
+            rejected_stories,
+            published_stories,
+            featured_stories,
+            base_points,
+            share_bonus_points,
+            campaign_bonus_points,
+            multiplier,
+            total_points,
+            weekly_points,
+            monthly_points,
+            tier,
+            tier_bonus_rate,
+            base_earnings_cents,
+            tier_bonus_cents,
+            total_earnings_cents,
+            paid_out_cents,
+            pending_payout_cents,
+            available_earnings_cents,
+            payout_request_count,
+            points_approximation,
+            last_recalculated_at,
+            last_tier_email_sent,
+            last_tier_email_at,
+            created_at,
+            updated_at
+         FROM waci_author_rewards
+         ORDER BY total_points DESC, total_earnings_cents DESC, author_email ASC`
+    );
+
+    return result.rows.map((row) => normalizeAuthorReward(row));
+};
+
+const buildRewardWindowMap = (stories = [], engagementRows = []) => {
+    const now = Date.now();
+    const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+    const storyMap = new Map();
+    const ensureEntry = (map, authorEmail) => {
+        if (!map.has(authorEmail)) {
+            map.set(authorEmail, {
+                weekly: {
+                    totalViews: 0,
+                    totalLikes: 0,
+                    totalShares: 0,
+                    publishedStories: 0,
+                    featuredStories: 0,
+                },
+                monthly: {
+                    totalViews: 0,
+                    totalLikes: 0,
+                    totalShares: 0,
+                    publishedStories: 0,
+                    featuredStories: 0,
+                },
+            });
+        }
+
+        return map.get(authorEmail);
+    };
+
+    stories.map((story) => normalizeStory(story)).forEach((story) => {
+        const authorEmail = toText(story.authorEmail, '').toLowerCase();
+        if (!authorEmail || normalizeStoryStatus(story.status, story.publishedAt ? 'published' : 'pending') !== 'published') {
+            return;
+        }
+
+        storyMap.set(story.id, { ...story, authorEmail });
+    });
+
+    const authorWindows = new Map();
+
+    storyMap.forEach((story) => {
+        const entry = ensureEntry(authorWindows, story.authorEmail);
+        const publishedAtTime = story.publishedAt ? new Date(story.publishedAt).getTime() : null;
+
+        if (publishedAtTime && !Number.isNaN(publishedAtTime)) {
+            if (publishedAtTime >= sevenDaysAgo) {
+                entry.weekly.publishedStories += 1;
+                entry.weekly.featuredStories += story.featured ? 1 : 0;
+            }
+
+            if (publishedAtTime >= thirtyDaysAgo) {
+                entry.monthly.publishedStories += 1;
+                entry.monthly.featuredStories += story.featured ? 1 : 0;
+            }
+        }
+    });
+
+    engagementRows.forEach((row) => {
+        const story = storyMap.get(String(row.story_id || ''));
+        if (!story) {
+            return;
+        }
+
+        const createdAtTime = row.created_at ? new Date(row.created_at).getTime() : 0;
+        if (!createdAtTime || Number.isNaN(createdAtTime)) {
+            return;
+        }
+
+        const entry = ensureEntry(authorWindows, story.authorEmail);
+        const targets = [];
+
+        if (createdAtTime >= sevenDaysAgo) {
+            targets.push(entry.weekly);
+        }
+
+        if (createdAtTime >= thirtyDaysAgo) {
+            targets.push(entry.monthly);
+        }
+
+        targets.forEach((target) => {
+            if (row.event_type === 'view') {
+                target.totalViews += 1;
+            } else if (row.event_type === 'like') {
+                target.totalLikes += 1;
+            } else if (row.event_type === 'share') {
+                target.totalShares += 1;
+            }
+        });
+    });
+
+    return Object.fromEntries(authorWindows.entries());
+};
+
+const sendTierUpgradeEmail = async (reward = {}) => {
+    const authorEmail = toText(reward.authorEmail, '').toLowerCase();
+
+    if (!authorEmail) {
+        return { admin: { sent: false, skipped: true }, author: { sent: false, skipped: true } };
+    }
+
+    const authorName = reward.authorName || 'there';
+    const totalPointsText = `${toCount(reward.totalPoints, 0).toLocaleString()} points`;
+    const availableText = formatMoneyFromCents(reward.availableEarningsCents);
+    const subject = `Your WACI contributor tier is now ${reward.tier}`;
+    const text = [
+        `Hello ${authorName},`,
+        '',
+        `Congratulations — your WACI contributor tier is now ${reward.tier}.`,
+        `Total points: ${totalPointsText}`,
+        `Available earnings: ${availableText}`,
+        '',
+        'Keep sharing conservation stories and impact updates. Your rewards dashboard will continue to refresh automatically.',
+    ].join('\n');
+
+    const [admin, author] = await Promise.all([
+        sendEmail({
+            to: getPayoutNotificationRecipients(),
+            appName: WACI_APP_NAME,
+            storefrontKey: WACI_STOREFRONT_KEY,
+            subject: `WACI tier upgrade: ${authorName} → ${reward.tier}`,
+            text: [
+                `${authorName} has moved into the ${reward.tier} contributor tier.`,
+                `Email: ${authorEmail}`,
+                `Points: ${totalPointsText}`,
+                `Available earnings: ${availableText}`,
+            ].join('\n'),
+        }),
+        sendEmail({
+            to: authorEmail,
+            appName: WACI_APP_NAME,
+            storefrontKey: WACI_STOREFRONT_KEY,
+            subject,
+            text,
+        }),
+    ]);
+
+    return { admin, author };
+};
+
+const recalculateAuthorRewards = async ({ force = false, reason = 'manual' } = {}) => {
+    await ensureWaciResourceTables();
+
+    const lastCalculatedResult = await pool.query('SELECT MAX(last_recalculated_at) AS last_recalculated_at FROM waci_author_rewards');
+    const lastCalculatedAt = lastCalculatedResult.rows[0]?.last_recalculated_at
+        ? new Date(lastCalculatedResult.rows[0].last_recalculated_at).getTime()
+        : 0;
+
+    if (!force && lastCalculatedAt && (Date.now() - lastCalculatedAt) < WACI_REWARD_RECALC_INTERVAL_MS) {
+        lastWaciRewardsRecalcAt = lastCalculatedAt;
+        return readAuthorRewards();
+    }
+
+    const [stories, payoutRequests, engagementResult, existingRewards] = await Promise.all([
+        readStoriesFromTable({ includeAllStatuses: true }),
+        readPayoutRequests(),
+        pool.query(`SELECT story_id::text AS story_id, event_type, platform, view_seconds, ip_address, session_id, created_at FROM waci_story_engagement_events ORDER BY created_at DESC`),
+        readAuthorRewards(),
+    ]);
+
+    const rewardWindows = buildRewardWindowMap(stories, engagementResult.rows || []);
+    const summaries = buildAuthorAttributionSummaries(stories, payoutRequests, rewardWindows);
+    const existingRewardMap = new Map(existingRewards.map((item) => [item.authorEmail, item]));
+
+    for (const summary of summaries) {
+        const previousReward = existingRewardMap.get(summary.authorEmail) || null;
+        const previousTier = previousReward?.tier || 'Bronze';
+
+        await pool.query(
+            `INSERT INTO waci_author_rewards (
+                author_email,
+                author_name,
+                total_views,
+                total_likes,
+                total_shares,
+                total_stories,
+                pending_stories,
+                rejected_stories,
+                published_stories,
+                featured_stories,
+                base_points,
+                share_bonus_points,
+                campaign_bonus_points,
+                multiplier,
+                total_points,
+                weekly_points,
+                monthly_points,
+                tier,
+                tier_bonus_rate,
+                base_earnings_cents,
+                tier_bonus_cents,
+                total_earnings_cents,
+                paid_out_cents,
+                pending_payout_cents,
+                available_earnings_cents,
+                payout_request_count,
+                points_approximation,
+                last_recalculated_at,
+                last_tier_email_sent,
+                last_tier_email_at,
+                updated_at
+            ) VALUES (
+                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+                $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+                $21,$22,$23,$24,$25,$26,$27,NOW(),$28,$29,NOW()
+            )
+            ON CONFLICT (author_email) DO UPDATE SET
+                author_name = EXCLUDED.author_name,
+                total_views = EXCLUDED.total_views,
+                total_likes = EXCLUDED.total_likes,
+                total_shares = EXCLUDED.total_shares,
+                total_stories = EXCLUDED.total_stories,
+                pending_stories = EXCLUDED.pending_stories,
+                rejected_stories = EXCLUDED.rejected_stories,
+                published_stories = EXCLUDED.published_stories,
+                featured_stories = EXCLUDED.featured_stories,
+                base_points = EXCLUDED.base_points,
+                share_bonus_points = EXCLUDED.share_bonus_points,
+                campaign_bonus_points = EXCLUDED.campaign_bonus_points,
+                multiplier = EXCLUDED.multiplier,
+                total_points = EXCLUDED.total_points,
+                weekly_points = EXCLUDED.weekly_points,
+                monthly_points = EXCLUDED.monthly_points,
+                tier = EXCLUDED.tier,
+                tier_bonus_rate = EXCLUDED.tier_bonus_rate,
+                base_earnings_cents = EXCLUDED.base_earnings_cents,
+                tier_bonus_cents = EXCLUDED.tier_bonus_cents,
+                total_earnings_cents = EXCLUDED.total_earnings_cents,
+                paid_out_cents = EXCLUDED.paid_out_cents,
+                pending_payout_cents = EXCLUDED.pending_payout_cents,
+                available_earnings_cents = EXCLUDED.available_earnings_cents,
+                payout_request_count = EXCLUDED.payout_request_count,
+                points_approximation = EXCLUDED.points_approximation,
+                last_recalculated_at = EXCLUDED.last_recalculated_at,
+                last_tier_email_sent = COALESCE(EXCLUDED.last_tier_email_sent, waci_author_rewards.last_tier_email_sent),
+                last_tier_email_at = COALESCE(EXCLUDED.last_tier_email_at, waci_author_rewards.last_tier_email_at),
+                updated_at = NOW()`,
+            [
+                summary.authorEmail,
+                summary.authorName || null,
+                summary.totalViews,
+                summary.totalLikes,
+                summary.totalShares,
+                summary.totalStories,
+                summary.pendingStories,
+                summary.rejectedStories,
+                summary.publishedStories,
+                summary.featuredStories,
+                summary.basePoints,
+                summary.shareBonusPoints,
+                summary.campaignBonusPoints,
+                summary.multiplier,
+                summary.totalPoints,
+                summary.weeklyPoints,
+                summary.monthlyPoints,
+                summary.tier,
+                summary.tierBonusRate,
+                summary.baseEarningsCents,
+                summary.tierBonusCents,
+                summary.totalEarningsCents,
+                summary.paidOutCents,
+                summary.pendingPayoutCents,
+                summary.availableEarningsCents,
+                summary.payoutRequestCount,
+                Boolean(summary.pointsApproximation),
+                previousReward?.lastTierEmailSent || null,
+                previousReward?.lastTierEmailAt || null,
+            ],
+        );
+
+        if ((WACI_TIER_RANK[summary.tier] || 0) > (WACI_TIER_RANK[previousTier] || 0)) {
+            await sendTierUpgradeEmail(summary);
+            await pool.query(
+                `UPDATE waci_author_rewards
+                 SET last_tier_email_sent = $1,
+                     last_tier_email_at = NOW(),
+                     updated_at = NOW()
+                 WHERE author_email = $2`,
+                [summary.tier, summary.authorEmail],
+            );
+        }
+    }
+
+    lastWaciRewardsRecalcAt = Date.now();
+    if (!summaries.length && reason) {
+        console.info(`WACI rewards recalculation completed with no eligible published stories (${reason}).`);
+    }
+
+    return readAuthorRewards();
+};
+
 const getPayoutNotificationRecipients = () => (
     process.env.WACI_SUPPORT_NOTIFICATION_EMAIL
     || process.env.SUPPORT_NOTIFICATION_EMAIL
@@ -612,12 +1057,16 @@ const getPayoutNotificationRecipients = () => (
 
 const sendPayoutStatusEmails = async (request = {}, eventType = 'created') => {
     const normalizedRequest = normalizePayoutRequest(request);
-    const eventLabel = eventType === 'completed'
+    const eventLabel = ['completed', 'paid'].includes(eventType)
         ? 'completed'
-        : (eventType === 'failed' ? 'failed' : 'created');
+        : (eventType === 'failed'
+            ? 'failed'
+            : (eventType === 'processing' ? 'processing' : 'created'));
     const statusTitle = eventLabel === 'completed'
         ? 'completed'
-        : (eventLabel === 'failed' ? 'failed' : 'received');
+        : (eventLabel === 'failed'
+            ? 'failed'
+            : (eventLabel === 'processing' ? 'processing' : 'received'));
     const payoutMethod = getPayoutMethodConfig(normalizedRequest.payoutMethod) || { label: normalizedRequest.payoutMethodLabel || 'Selected payout method' };
     const authorName = normalizedRequest.authorName || 'there';
     const amountText = formatMoneyFromCents(normalizedRequest.requestedAmountCents);
@@ -763,7 +1212,12 @@ const normalizeStory = (item = {}, index = 0) => ({
     title: toText(item.title, `Story ${index + 1}`),
     summary: toText(item.summary || item.text || item.description, ''),
     location: toText(item.location, ''),
+    status: normalizeStoryStatus(item.status, item.publishedAt || item.published_at ? 'published' : 'pending'),
     publishedAt: toText(item.publishedAt || item.date, ''),
+    submittedAt: item.submittedAt || item.submitted_at || null,
+    reviewedAt: item.reviewedAt || item.reviewed_at || null,
+    reviewedBy: toText(item.reviewedBy || item.reviewed_by, ''),
+    reviewNotes: toText(item.reviewNotes || item.review_notes, ''),
     image: toText(item.image, ''),
     link: toText(item.link, ''),
     featured: typeof item.featured === 'boolean' ? item.featured : toBoolean(item.featured, true),
@@ -824,6 +1278,72 @@ const normalizePayoutRequest = (item = {}) => {
     };
 };
 
+const normalizeAuthorReward = (item = {}) => ({
+    authorEmail: toText(item.author_email || item.authorEmail, '').toLowerCase(),
+    authorName: toText(item.author_name || item.authorName, ''),
+    totalViews: toCount(item.total_views ?? item.totalViews, 0),
+    totalLikes: toCount(item.total_likes ?? item.totalLikes, 0),
+    totalShares: toCount(item.total_shares ?? item.totalShares, 0),
+    totalStories: toCount(item.total_stories ?? item.totalStories, 0),
+    pendingStories: toCount(item.pending_stories ?? item.pendingStories, 0),
+    rejectedStories: toCount(item.rejected_stories ?? item.rejectedStories, 0),
+    publishedStories: toCount(item.published_stories ?? item.publishedStories, 0),
+    featuredStories: toCount(item.featured_stories ?? item.featuredStories, 0),
+    basePoints: toCount(item.base_points ?? item.basePoints, 0),
+    shareBonusPoints: toCount(item.share_bonus_points ?? item.shareBonusPoints, 0),
+    campaignBonusPoints: toCount(item.campaign_bonus_points ?? item.campaignBonusPoints, 0),
+    multiplier: Number(item.multiplier ?? 1) || 1,
+    totalPoints: toCount(item.total_points ?? item.totalPoints, 0),
+    weeklyPoints: toCount(item.weekly_points ?? item.weeklyPoints ?? item.weeklyPointsEstimate, 0),
+    monthlyPoints: toCount(item.monthly_points ?? item.monthlyPoints ?? item.monthlyPointsEstimate, 0),
+    weeklyPointsEstimate: toCount(item.weekly_points ?? item.weeklyPoints ?? item.weeklyPointsEstimate, 0),
+    monthlyPointsEstimate: toCount(item.monthly_points ?? item.monthlyPoints ?? item.monthlyPointsEstimate, 0),
+    pointsApproximation: toBoolean(item.points_approximation ?? item.pointsApproximation, false),
+    tier: toText(item.tier, 'Bronze'),
+    tierBonusRate: Number(item.tier_bonus_rate ?? item.tierBonusRate ?? 0) || 0,
+    baseEarningsCents: toCount(item.base_earnings_cents ?? item.baseEarningsCents, 0),
+    baseEarningsUsd: Number((toCount(item.base_earnings_cents ?? item.baseEarningsCents, 0) / 100).toFixed(2)),
+    tierBonusCents: toCount(item.tier_bonus_cents ?? item.tierBonusCents, 0),
+    tierBonusUsd: Number((toCount(item.tier_bonus_cents ?? item.tierBonusCents, 0) / 100).toFixed(2)),
+    totalEarningsCents: toCount(item.total_earnings_cents ?? item.totalEarningsCents, 0),
+    totalEarningsUsd: Number((toCount(item.total_earnings_cents ?? item.totalEarningsCents, 0) / 100).toFixed(2)),
+    paidOutCents: toCount(item.paid_out_cents ?? item.paidOutCents, 0),
+    paidOutUsd: Number((toCount(item.paid_out_cents ?? item.paidOutCents, 0) / 100).toFixed(2)),
+    pendingPayoutCents: toCount(item.pending_payout_cents ?? item.pendingPayoutCents, 0),
+    pendingPayoutUsd: Number((toCount(item.pending_payout_cents ?? item.pendingPayoutCents, 0) / 100).toFixed(2)),
+    availableEarningsCents: toCount(item.available_earnings_cents ?? item.availableEarningsCents, 0),
+    availableEarningsUsd: Number((toCount(item.available_earnings_cents ?? item.availableEarningsCents, 0) / 100).toFixed(2)),
+    payoutRequestCount: toCount(item.payout_request_count ?? item.payoutRequestCount, 0),
+    lastTierEmailSent: toText(item.last_tier_email_sent || item.lastTierEmailSent, ''),
+    lastTierEmailAt: item.last_tier_email_at || item.lastTierEmailAt || null,
+    lastRecalculatedAt: item.last_recalculated_at || item.lastRecalculatedAt || null,
+});
+
+const calculatePointsBreakdown = ({ totalViews = 0, totalLikes = 0, totalShares = 0, publishedStories = 0, featuredStories = 0 }) => {
+    const normalizedViews = toCount(totalViews, 0);
+    const normalizedLikes = toCount(totalLikes, 0);
+    const normalizedShares = toCount(totalShares, 0);
+    const normalizedPublishedStories = toCount(publishedStories, 0);
+    const normalizedFeaturedStories = toCount(featuredStories, 0);
+    const basePoints = normalizedViews
+        + (normalizedLikes * 10)
+        + (normalizedShares * 20)
+        + (normalizedPublishedStories * 100)
+        + (normalizedFeaturedStories * 500);
+    const shareBonusPoints = normalizedShares * 50;
+    const campaignBonusPoints = normalizedShares > 5 ? 200 : 0;
+    const multiplier = normalizedShares > 10 ? 2 : 1;
+    const totalPoints = (basePoints + shareBonusPoints + campaignBonusPoints) * multiplier;
+
+    return {
+        basePoints,
+        shareBonusPoints,
+        campaignBonusPoints,
+        multiplier,
+        totalPoints,
+    };
+};
+
 const calculateTierFromTotals = ({ totalPoints = 0, baseEarningsCents = 0 }) => {
     if (baseEarningsCents >= 50000 || totalPoints >= 500000) {
         return { name: 'Platinum', bonusRate: 0.30 };
@@ -840,7 +1360,7 @@ const calculateTierFromTotals = ({ totalPoints = 0, baseEarningsCents = 0 }) => 
     return { name: 'Bronze', bonusRate: 0 };
 };
 
-const buildAuthorAttributionSummaries = (stories = [], payoutRequests = []) => {
+const buildAuthorAttributionSummaries = (stories = [], payoutRequests = [], rewardWindows = {}) => {
     const authorMap = new Map();
 
     stories.forEach((story) => {
@@ -859,19 +1379,34 @@ const buildAuthorAttributionSummaries = (stories = [], payoutRequests = []) => {
                 totalLikes: 0,
                 totalShares: 0,
                 publishedStories: 0,
+                pendingStories: 0,
+                rejectedStories: 0,
                 featuredStories: 0,
                 totalStories: 0,
             });
         }
 
         const summary = authorMap.get(authorEmail);
+        const storyStatus = normalizeStoryStatus(normalizedStory.status, normalizedStory.publishedAt ? 'published' : 'pending');
+
         summary.authorName = summary.authorName || normalizedStory.authorName || '';
+        summary.totalStories += 1;
+
+        if (storyStatus === 'pending') {
+            summary.pendingStories += 1;
+            return;
+        }
+
+        if (storyStatus === 'rejected' || storyStatus === 'archived') {
+            summary.rejectedStories += 1;
+            return;
+        }
+
         summary.totalViews += toCount(normalizedStory.viewCount, 0);
         summary.totalLikes += toCount(normalizedStory.likeCount, 0);
         summary.totalShares += toCount(normalizedStory.shareCount, 0);
-        summary.publishedStories += normalizedStory.publishedAt ? 1 : 0;
+        summary.publishedStories += 1;
         summary.featuredStories += normalizedStory.featured ? 1 : 0;
-        summary.totalStories += 1;
     });
 
     const payoutMap = new Map();
@@ -897,35 +1432,28 @@ const buildAuthorAttributionSummaries = (stories = [], payoutRequests = []) => {
 
     return Array.from(authorMap.values())
         .map((summary) => {
-            const basePoints = summary.totalViews
-                + (summary.totalLikes * 10)
-                + (summary.totalShares * 20)
-                + (summary.publishedStories * 100)
-                + (summary.featuredStories * 500);
-            const shareBonusPoints = summary.totalShares * 50;
-            const campaignBonusPoints = summary.totalShares > 5 ? 200 : 0;
-            const multiplier = summary.totalShares > 10 ? 2 : 1;
-            const totalPoints = (basePoints + shareBonusPoints + campaignBonusPoints) * multiplier;
+            const totalsBreakdown = calculatePointsBreakdown(summary);
+            const weeklyBreakdown = calculatePointsBreakdown(rewardWindows[summary.authorEmail]?.weekly || {});
+            const monthlyBreakdown = calculatePointsBreakdown(rewardWindows[summary.authorEmail]?.monthly || {});
             const baseEarningsUsd = (summary.totalViews * 0.0025)
                 + (summary.totalLikes * 0.125)
                 + (summary.totalShares * 0.25)
                 + (summary.publishedStories * 0.50);
             const baseEarningsCents = Math.round(baseEarningsUsd * 100);
-            const tier = calculateTierFromTotals({ totalPoints, baseEarningsCents });
+            const tier = calculateTierFromTotals({ totalPoints: totalsBreakdown.totalPoints, baseEarningsCents });
             const tierBonusCents = Math.round(baseEarningsCents * tier.bonusRate);
             const totalEarningsCents = baseEarningsCents + tierBonusCents;
             const payoutTotals = payoutMap.get(summary.authorEmail) || { paidOutCents: 0, pendingPayoutCents: 0, requests: 0 };
 
             return {
                 ...summary,
-                basePoints,
-                shareBonusPoints,
-                campaignBonusPoints,
-                multiplier,
-                totalPoints,
-                weeklyPointsEstimate: Math.round(totalPoints * 0.30),
-                monthlyPointsEstimate: Math.round(totalPoints * 0.80),
-                pointsApproximation: true,
+                ...totalsBreakdown,
+                totalPoints: totalsBreakdown.totalPoints,
+                weeklyPoints: weeklyBreakdown.totalPoints,
+                monthlyPoints: monthlyBreakdown.totalPoints,
+                weeklyPointsEstimate: weeklyBreakdown.totalPoints,
+                monthlyPointsEstimate: monthlyBreakdown.totalPoints,
+                pointsApproximation: false,
                 tier: tier.name,
                 tierBonusRate: tier.bonusRate,
                 baseEarningsCents,
@@ -1209,14 +1737,65 @@ exports.getPrograms = async (_req, res) => {
     }
 };
 
-exports.getStories = async (_req, res) => {
+exports.getStories = async (req, res) => {
     try {
-        const items = await readStoriesFromTable();
+        const items = await readStoriesFromTable({ includeAllStatuses: Boolean(req.user) });
         res.set('Cache-Control', 'no-store, max-age=0');
         return res.json({ app_name: WACI_APP_NAME, storefront_key: WACI_STOREFRONT_KEY, items });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: 'Unable to load WACI stories.' });
+    }
+};
+
+exports.getStory = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+        const identifier = toText(req.params.storyId || req.params.slug, '');
+
+        if (!identifier) {
+            return res.status(400).json({ success: false, message: 'Story identifier is required.' });
+        }
+
+        const result = await pool.query(
+            `SELECT
+                id::text AS id,
+                slug,
+                title,
+                summary,
+                location,
+                status,
+                COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt",
+                submitted_at AS "submittedAt",
+                reviewed_at AS "reviewedAt",
+                reviewed_by AS "reviewedBy",
+                review_notes AS "reviewNotes",
+                image_url AS image,
+                link,
+                featured,
+                author_name AS "authorName",
+                author_email AS "authorEmail",
+                external_story_id AS "externalStoryId",
+                source,
+                view_count AS "viewCount",
+                like_count AS "likeCount",
+                share_count AS "shareCount",
+                sort_order AS "sortOrder"
+             FROM waci_stories
+             WHERE (id::text = $1 OR slug = $1)
+               AND ($2::boolean = TRUE OR status = 'published')
+             LIMIT 1`,
+            [identifier, Boolean(req.user)],
+        );
+
+        if (!result.rows.length) {
+            return res.status(404).json({ success: false, message: 'WACI story not found.' });
+        }
+
+        return res.json({ success: true, item: normalizeStory(result.rows[0]) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to load the WACI story.' });
     }
 };
 
@@ -1359,7 +1938,15 @@ exports.createStory = async (req, res) => {
         const sortOrder = (req.body?.sortOrder === undefined && req.body?.sort_order === undefined)
             ? await getNextSortOrder('waci_stories')
             : toSortOrder(req.body?.sortOrder ?? req.body?.sort_order, 0);
-        const publishedAt = toNullableText(req.body?.publishedAt || req.body?.published_at);
+        const requestedPublishedAt = toNullableText(req.body?.publishedAt || req.body?.published_at);
+        const status = normalizeStoryStatus(req.body?.status, requestedPublishedAt ? 'published' : 'published');
+        const publishedAt = status === 'published'
+            ? (requestedPublishedAt || new Date().toISOString().slice(0, 10))
+            : null;
+        const submittedAt = toNullableText(req.body?.submittedAt || req.body?.submitted_at) || new Date().toISOString();
+        const reviewedAt = status === 'pending' ? null : new Date().toISOString();
+        const reviewedBy = status === 'pending' ? null : toNullableText(req.body?.reviewedBy || req.body?.reviewed_by || req.user?.email);
+        const reviewNotes = toNullableText(req.body?.reviewNotes || req.body?.review_notes || req.body?.adminNotes || req.body?.notes);
 
         const result = await pool.query(
             `INSERT INTO waci_stories (
@@ -1367,7 +1954,12 @@ exports.createStory = async (req, res) => {
                 title,
                 summary,
                 location,
+                status,
                 published_at,
+                submitted_at,
+                reviewed_at,
+                reviewed_by,
+                review_notes,
                 image_url,
                 link,
                 featured,
@@ -1381,14 +1973,19 @@ exports.createStory = async (req, res) => {
                 sort_order,
                 updated_at
             )
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
-             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,NOW())
+             RETURNING id::text AS id, slug, title, summary, location, status, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", submitted_at AS "submittedAt", reviewed_at AS "reviewedAt", reviewed_by AS "reviewedBy", review_notes AS "reviewNotes", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
             [
                 slug,
                 title,
                 toText(req.body?.summary || req.body?.text, ''),
                 toNullableText(req.body?.location),
+                status,
                 publishedAt,
+                submittedAt,
+                reviewedAt,
+                reviewedBy,
+                reviewNotes,
                 toNullableText(req.body?.image || req.body?.image_url || req.body?.imageUrl),
                 toNullableText(req.body?.link),
                 toBoolean(req.body?.featured, true),
@@ -1403,6 +2000,7 @@ exports.createStory = async (req, res) => {
             ],
         );
 
+        await recalculateAuthorRewards({ force: true, reason: 'admin-create-story' });
         return res.status(201).json({ success: true, item: normalizeStory(result.rows[0], sortOrder) });
     } catch (error) {
         console.error(error);
@@ -1424,9 +2022,24 @@ exports.updateStory = async (req, res) => {
         const slug = req.body?.slug === undefined
             ? current.slug
             : toSlug(req.body.slug || title, current.slug || `story-${Date.now()}`);
-        const publishedAt = req.body?.publishedAt === undefined && req.body?.published_at === undefined
-            ? current.published_at
+        const nextStatus = req.body?.status === undefined
+            ? normalizeStoryStatus(current.status, current.published_at ? 'published' : 'pending')
+            : normalizeStoryStatus(req.body.status, normalizeStoryStatus(current.status, current.published_at ? 'published' : 'pending'));
+        const explicitPublishedAt = req.body?.publishedAt === undefined && req.body?.published_at === undefined
+            ? undefined
             : toNullableText(req.body?.publishedAt || req.body?.published_at);
+        const publishedAt = nextStatus === 'published'
+            ? (explicitPublishedAt === undefined ? (current.published_at || new Date().toISOString().slice(0, 10)) : explicitPublishedAt || new Date().toISOString().slice(0, 10))
+            : null;
+        const reviewNotes = req.body?.reviewNotes === undefined && req.body?.review_notes === undefined && req.body?.adminNotes === undefined && req.body?.notes === undefined
+            ? current.review_notes
+            : toNullableText(req.body?.reviewNotes || req.body?.review_notes || req.body?.adminNotes || req.body?.notes);
+        const reviewedAt = nextStatus === 'pending'
+            ? null
+            : (current.reviewed_at || new Date().toISOString());
+        const reviewedBy = nextStatus === 'pending'
+            ? null
+            : (toNullableText(req.body?.reviewedBy || req.body?.reviewed_by || req.user?.email) || current.reviewed_by || null);
 
         const result = await pool.query(
             `UPDATE waci_stories
@@ -1434,27 +2047,35 @@ exports.updateStory = async (req, res) => {
                  title = $2,
                  summary = $3,
                  location = $4,
-                 published_at = $5,
-                 image_url = $6,
-                 link = $7,
-                 featured = $8,
-                 author_name = $9,
-                 author_email = $10,
-                 external_story_id = $11,
-                 source = $12,
-                 view_count = $13,
-                 like_count = $14,
-                 share_count = $15,
-                 sort_order = $16,
+                 status = $5,
+                 published_at = $6,
+                 reviewed_at = $7,
+                 reviewed_by = $8,
+                 review_notes = $9,
+                 image_url = $10,
+                 link = $11,
+                 featured = $12,
+                 author_name = $13,
+                 author_email = $14,
+                 external_story_id = $15,
+                 source = $16,
+                 view_count = $17,
+                 like_count = $18,
+                 share_count = $19,
+                 sort_order = $20,
                  updated_at = NOW()
-             WHERE id = $17
-             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
+             WHERE id = $21
+             RETURNING id::text AS id, slug, title, summary, location, status, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", submitted_at AS "submittedAt", reviewed_at AS "reviewedAt", reviewed_by AS "reviewedBy", review_notes AS "reviewNotes", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
             [
                 slug,
                 title,
                 req.body?.summary === undefined && req.body?.text === undefined ? current.summary : toText(req.body?.summary || req.body?.text, ''),
                 req.body?.location === undefined ? current.location : toNullableText(req.body.location),
+                nextStatus,
                 publishedAt,
+                reviewedAt,
+                reviewedBy,
+                reviewNotes,
                 req.body?.image === undefined && req.body?.image_url === undefined && req.body?.imageUrl === undefined
                     ? current.image_url
                     : toNullableText(req.body?.image || req.body?.image_url || req.body?.imageUrl),
@@ -1484,6 +2105,7 @@ exports.updateStory = async (req, res) => {
             ],
         );
 
+        await recalculateAuthorRewards({ force: true, reason: 'admin-update-story' });
         return res.json({ success: true, item: normalizeStory(result.rows[0]) });
     } catch (error) {
         console.error(error);
@@ -1500,6 +2122,7 @@ exports.deleteStory = async (req, res) => {
             return res.status(404).json({ success: false, message: 'WACI story not found.' });
         }
 
+        await recalculateAuthorRewards({ force: true, reason: 'delete-story' });
         return res.json({ success: true, id: result.rows[0].id });
     } catch (error) {
         console.error(error);
@@ -1507,7 +2130,145 @@ exports.deleteStory = async (req, res) => {
     }
 };
 
-const upsertStoryRecord = async (payload = {}, { defaultSource = 'website' } = {}) => {
+const recordStoryEngagement = async (req, res, eventType) => {
+    try {
+        await ensureWaciResourceTables();
+        const identifier = toText(req.params.storyId || req.params.slug, '');
+
+        if (!identifier) {
+            return res.status(400).json({ success: false, message: 'Story identifier is required.' });
+        }
+
+        const storyResult = await pool.query(
+            `SELECT * FROM waci_stories WHERE (id::text = $1 OR slug = $1) LIMIT 1`,
+            [identifier],
+        );
+
+        if (!storyResult.rows.length) {
+            return res.status(404).json({ success: false, message: 'WACI story not found.' });
+        }
+
+        const story = storyResult.rows[0];
+        const storyStatus = normalizeStoryStatus(story.status, story.published_at ? 'published' : 'pending');
+
+        if (storyStatus !== 'published') {
+            return res.status(400).json({ success: false, message: 'Only published stories can receive engagement events.' });
+        }
+
+        const ipAddress = getRequestIp(req);
+        const sessionId = toNullableText(req.body?.sessionId || req.body?.session_id || req.get('x-session-id'));
+        const platform = toNullableText(req.body?.platform || req.body?.sharePlatform || req.body?.share_platform);
+        const viewSeconds = toCount(req.body?.secondsOnPage ?? req.body?.seconds_on_page ?? req.body?.duration ?? 0, 0);
+
+        if (eventType === 'like' && viewSeconds < 5) {
+            return res.status(400).json({ success: false, message: 'Likes are unlocked after at least 5 seconds on the story page.' });
+        }
+
+        if (eventType === 'like' && ipAddress) {
+            const existingLikeResult = await pool.query(
+                `SELECT id FROM waci_story_engagement_events WHERE story_id = $1 AND event_type = 'like' AND ip_address = $2 LIMIT 1`,
+                [story.id, ipAddress],
+            );
+
+            if (existingLikeResult.rows.length) {
+                return res.status(409).json({ success: false, duplicate: true, message: 'This IP address has already liked this story.' });
+            }
+        }
+
+        await pool.query(
+            `INSERT INTO waci_story_engagement_events (
+                story_id,
+                event_type,
+                ip_address,
+                session_id,
+                user_agent,
+                platform,
+                view_seconds,
+                metadata
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)`,
+            [
+                story.id,
+                eventType,
+                ipAddress,
+                sessionId,
+                toNullableText(req.get('user-agent')),
+                platform,
+                viewSeconds,
+                JSON.stringify({
+                    source: toNullableText(req.body?.source) || 'website',
+                    event: eventType,
+                    route: req.originalUrl,
+                }),
+            ],
+        );
+
+        const counterColumn = eventType === 'view' ? 'view_count' : (eventType === 'like' ? 'like_count' : 'share_count');
+        const updatedStoryResult = await pool.query(
+            `UPDATE waci_stories
+             SET ${counterColumn} = COALESCE(${counterColumn}, 0) + 1,
+                 updated_at = NOW()
+             WHERE id = $1
+             RETURNING id::text AS id, slug, title, summary, location, status, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", submitted_at AS "submittedAt", reviewed_at AS "reviewedAt", reviewed_by AS "reviewedBy", review_notes AS "reviewNotes", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
+            [story.id],
+        );
+
+        const updatedStory = normalizeStory(updatedStoryResult.rows[0]);
+        const authorSummary = (await getAuthorAttributionItems({ forceRefresh: true }))
+            .find((summary) => summary.authorEmail === toText(updatedStory.authorEmail, '').toLowerCase()) || null;
+
+        return res.json({
+            success: true,
+            eventType,
+            item: updatedStory,
+            authorSummary,
+        });
+    } catch (error) {
+        if (error?.code === '23505' && eventType === 'like') {
+            return res.status(409).json({ success: false, duplicate: true, message: 'This IP address has already liked this story.' });
+        }
+
+        console.error(error);
+        return res.status(500).json({ success: false, message: `Unable to record the WACI story ${eventType}.` });
+    }
+};
+
+exports.trackStoryViewComplete = async (req, res) => recordStoryEngagement(req, res, 'view');
+exports.trackStoryLike = async (req, res) => recordStoryEngagement(req, res, 'like');
+exports.trackStoryShare = async (req, res) => recordStoryEngagement(req, res, 'share');
+
+exports.recalculateAuthorRewardsNow = async (_req, res) => {
+    try {
+        const items = await getAuthorAttributionItems({ forceRefresh: true });
+        return res.json({ success: true, items, recalculatedAt: new Date().toISOString() });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to recalculate WACI author rewards.' });
+    }
+};
+
+exports.startWaciRewardsScheduler = () => {
+    if (waciRewardSchedulerStarted) {
+        return;
+    }
+
+    waciRewardSchedulerStarted = true;
+
+    const timer = setInterval(() => {
+        recalculateAuthorRewards({ force: true, reason: 'hourly-scheduler' }).catch((error) => {
+            console.error('WACI hourly rewards recalculation failed.', error);
+        });
+    }, WACI_REWARD_RECALC_INTERVAL_MS);
+
+    if (typeof timer.unref === 'function') {
+        timer.unref();
+    }
+
+    recalculateAuthorRewards({ force: false, reason: 'scheduler-startup' }).catch((error) => {
+        console.error('Initial WACI rewards recalculation failed.', error);
+    });
+};
+
+const upsertStoryRecord = async (payload = {}, { defaultSource = 'website', actorEmail = null } = {}) => {
     await ensureWaciResourceTables();
 
     const externalStoryId = toNullableText(payload.externalStoryId || payload.external_story_id || payload.storyId || payload.story_id);
@@ -1526,15 +2287,39 @@ const upsertStoryRecord = async (payload = {}, { defaultSource = 'website' } = {
     const sortOrder = (payload.sortOrder === undefined && payload.sort_order === undefined)
         ? (current ? toSortOrder(current.sort_order, 0) : await getNextSortOrder('waci_stories'))
         : toSortOrder(payload.sortOrder ?? payload.sort_order, current?.sort_order || 0);
-    const publishedAt = payload.publishedAt === undefined && payload.published_at === undefined
-        ? (current?.published_at || null)
+    const derivedFallbackStatus = current?.status || ((current?.published_at || payload.publishedAt || payload.published_at) ? 'published' : 'pending');
+    const status = payload.status === undefined
+        ? normalizeStoryStatus(derivedFallbackStatus, derivedFallbackStatus)
+        : normalizeStoryStatus(payload.status, derivedFallbackStatus);
+    const explicitPublishedAt = payload.publishedAt === undefined && payload.published_at === undefined
+        ? undefined
         : toNullableText(payload.publishedAt || payload.published_at);
+    const publishedAt = status === 'published'
+        ? (explicitPublishedAt === undefined ? (current?.published_at || new Date().toISOString().slice(0, 10)) : explicitPublishedAt || new Date().toISOString().slice(0, 10))
+        : null;
+    const submittedAt = payload.submittedAt === undefined && payload.submitted_at === undefined
+        ? (current?.submitted_at || new Date().toISOString())
+        : (toNullableText(payload.submittedAt || payload.submitted_at) || new Date().toISOString());
+    const reviewNotes = payload.reviewNotes === undefined && payload.review_notes === undefined && payload.adminNotes === undefined && payload.notes === undefined
+        ? (current?.review_notes || null)
+        : toNullableText(payload.reviewNotes || payload.review_notes || payload.adminNotes || payload.notes);
+    const reviewedAt = status === 'pending'
+        ? null
+        : (payload.reviewedAt || payload.reviewed_at || current?.reviewed_at || new Date().toISOString());
+    const reviewedBy = status === 'pending'
+        ? null
+        : (toNullableText(payload.reviewedBy || payload.reviewed_by || actorEmail) || current?.reviewed_by || null);
     const values = {
         slug,
         title,
         summary: payload.summary === undefined && payload.text === undefined ? (current?.summary || '') : toText(payload.summary || payload.text, ''),
         location: payload.location === undefined ? (current?.location || null) : toNullableText(payload.location),
+        status,
         publishedAt,
+        submittedAt,
+        reviewedAt,
+        reviewedBy,
+        reviewNotes,
         image: payload.image === undefined && payload.image_url === undefined && payload.imageUrl === undefined
             ? (current?.image_url || null)
             : toNullableText(payload.image || payload.image_url || payload.imageUrl),
@@ -1567,27 +2352,37 @@ const upsertStoryRecord = async (payload = {}, { defaultSource = 'website' } = {
                  title = $2,
                  summary = $3,
                  location = $4,
-                 published_at = $5,
-                 image_url = $6,
-                 link = $7,
-                 featured = $8,
-                 author_name = $9,
-                 author_email = $10,
-                 external_story_id = $11,
-                 source = $12,
-                 view_count = $13,
-                 like_count = $14,
-                 share_count = $15,
-                 sort_order = $16,
+                 status = $5,
+                 published_at = $6,
+                 submitted_at = $7,
+                 reviewed_at = $8,
+                 reviewed_by = $9,
+                 review_notes = $10,
+                 image_url = $11,
+                 link = $12,
+                 featured = $13,
+                 author_name = $14,
+                 author_email = $15,
+                 external_story_id = $16,
+                 source = $17,
+                 view_count = $18,
+                 like_count = $19,
+                 share_count = $20,
+                 sort_order = $21,
                  updated_at = NOW()
-             WHERE id = $17
-             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
+             WHERE id = $22
+             RETURNING id::text AS id, slug, title, summary, location, status, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", submitted_at AS "submittedAt", reviewed_at AS "reviewedAt", reviewed_by AS "reviewedBy", review_notes AS "reviewNotes", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
             [
                 values.slug,
                 values.title,
                 values.summary,
                 values.location,
+                values.status,
                 values.publishedAt,
+                values.submittedAt,
+                values.reviewedAt,
+                values.reviewedBy,
+                values.reviewNotes,
                 values.image,
                 values.link,
                 values.featured,
@@ -1608,7 +2403,12 @@ const upsertStoryRecord = async (payload = {}, { defaultSource = 'website' } = {
                 title,
                 summary,
                 location,
+                status,
                 published_at,
+                submitted_at,
+                reviewed_at,
+                reviewed_by,
+                review_notes,
                 image_url,
                 link,
                 featured,
@@ -1622,14 +2422,19 @@ const upsertStoryRecord = async (payload = {}, { defaultSource = 'website' } = {
                 sort_order,
                 updated_at
             )
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
-             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,NOW())
+             RETURNING id::text AS id, slug, title, summary, location, status, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", submitted_at AS "submittedAt", reviewed_at AS "reviewedAt", reviewed_by AS "reviewedBy", review_notes AS "reviewNotes", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
             [
                 values.slug,
                 values.title,
                 values.summary,
                 values.location,
+                values.status,
                 values.publishedAt,
+                values.submittedAt,
+                values.reviewedAt,
+                values.reviewedBy,
+                values.reviewNotes,
                 values.image,
                 values.link,
                 values.featured,
@@ -1647,14 +2452,15 @@ const upsertStoryRecord = async (payload = {}, { defaultSource = 'website' } = {
     return normalizeStory(result.rows[0], values.sortOrder);
 };
 
-const getAuthorAttributionItems = async () => {
-    const [stories, payoutRequests] = await Promise.all([readStoriesFromTable(), readPayoutRequests()]);
-    return buildAuthorAttributionSummaries(stories, payoutRequests);
+const getAuthorAttributionItems = async ({ forceRefresh = false } = {}) => {
+    const items = await recalculateAuthorRewards({ force: forceRefresh, reason: forceRefresh ? 'forced-read' : 'read-attribution' });
+    return Array.isArray(items) ? items : [];
 };
 
 exports.submitStory = async (req, res) => {
     const title = toNullableText(req.body?.title);
     const authorEmail = toNullableText(req.body?.authorEmail || req.body?.author_email || req.body?.contact_email || req.body?.email);
+    const authorName = toText(req.body?.authorName || req.body?.author_name || req.body?.contact_name || req.body?.name, 'there');
 
     if (!title) {
         return res.status(400).json({ success: false, message: 'Story title is required.' });
@@ -1665,12 +2471,52 @@ exports.submitStory = async (req, res) => {
     }
 
     try {
-        const item = await upsertStoryRecord(req.body, {
-            defaultSource: toNullableText(req.body?.source) || 'website',
+        const item = await upsertStoryRecord({
+            ...req.body,
+            status: 'pending',
+            publishedAt: null,
+            submittedAt: req.body?.submittedAt || req.body?.submitted_at || new Date().toISOString(),
+            featured: false,
+        }, {
+            defaultSource: toNullableText(req.body?.source) || 'website-submit-story',
         });
-        const authorSummary = (await getAuthorAttributionItems()).find((summary) => summary.authorEmail === authorEmail.toLowerCase()) || null;
 
-        return res.status(201).json({ success: true, item, authorSummary });
+        await Promise.all([
+            sendEmail({
+                to: getPayoutNotificationRecipients(),
+                appName: WACI_APP_NAME,
+                storefrontKey: WACI_STOREFRONT_KEY,
+                subject: `New WACI story submission: ${item.title}`,
+                text: [
+                    'A new WACI story has been submitted and is now pending review.',
+                    `Title: ${item.title}`,
+                    `Author: ${authorName}`,
+                    `Email: ${authorEmail}`,
+                    `Location: ${item.location || 'Not provided'}`,
+                ].join('\n'),
+            }),
+            sendEmail({
+                to: authorEmail,
+                appName: WACI_APP_NAME,
+                storefrontKey: WACI_STOREFRONT_KEY,
+                subject: 'Your WACI story is now pending review',
+                text: [
+                    `Hello ${authorName},`,
+                    '',
+                    'Thanks for sending your story to WACI.',
+                    'It has been saved as pending and the WACI editorial team will review it before publishing.',
+                    '',
+                    `Story title: ${item.title}`,
+                ].join('\n'),
+            }),
+        ]);
+
+        return res.status(201).json({
+            success: true,
+            item,
+            authorSummary: null,
+            message: 'Story submitted successfully and saved as pending review.',
+        });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ success: false, message: 'Unable to submit WACI story.' });
@@ -1698,6 +2544,7 @@ exports.handleWaciHubWebhook = async (req, res) => {
             views: req.body?.metrics?.views ?? storyPayload.views,
             likes: req.body?.metrics?.likes ?? storyPayload.likes,
             shares: req.body?.metrics?.shares ?? storyPayload.shares,
+            status: storyPayload.status || req.body?.status || storyPayload.story_status,
             source: storyPayload.source || req.body?.source || 'wacihub',
         };
 
@@ -1706,7 +2553,7 @@ exports.handleWaciHubWebhook = async (req, res) => {
         }
 
         const item = await upsertStoryRecord(mergedPayload, { defaultSource: 'wacihub' });
-        const authorSummary = (await getAuthorAttributionItems()).find((summary) => summary.authorEmail === toText(item.authorEmail, '').toLowerCase()) || null;
+        const authorSummary = (await getAuthorAttributionItems({ forceRefresh: true })).find((summary) => summary.authorEmail === toText(item.authorEmail, '').toLowerCase()) || null;
 
         return res.json({ success: true, event: toText(req.body?.type, 'story.updated'), item, authorSummary });
     } catch (error) {
@@ -1727,7 +2574,7 @@ exports.getStoryAttribution = async (req, res) => {
             success: true,
             methods: Object.values(WACI_PAYOUT_METHODS),
             items: filteredItems,
-            note: 'Weekly and monthly points are estimated at 30% and 80% of total points until timestamp-based rollups are added.',
+            note: 'Author rewards are stored in WACI author rewards and refreshed automatically every hour, with immediate refresh after story moderation and engagement events.',
         });
     } catch (error) {
         console.error(error);
@@ -1876,7 +2723,7 @@ exports.updatePayoutRequestStatus = async (req, res) => {
         );
 
         const item = normalizePayoutRequest(result.rows[0]);
-        const shouldNotify = nextStatus !== String(current.status || '').toLowerCase() && ['created', 'completed', 'paid', 'failed'].includes(nextStatus);
+        const shouldNotify = nextStatus !== String(current.status || '').toLowerCase() && ['created', 'processing', 'completed', 'paid', 'failed'].includes(nextStatus);
         const emailResult = shouldNotify
             ? await sendPayoutStatusEmails(item, nextStatus === 'paid' ? 'completed' : nextStatus)
             : { admin: { sent: false, skipped: true }, author: { sent: false, skipped: true } };

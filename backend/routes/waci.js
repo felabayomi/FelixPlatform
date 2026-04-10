@@ -10,6 +10,7 @@ const {
     updateProgram,
     deleteProgram,
     getStories,
+    getStory,
     createStory,
     updateStory,
     deleteStory,
@@ -22,6 +23,10 @@ const {
     submitStory,
     handleWaciHubWebhook,
     getStoryAttribution,
+    trackStoryViewComplete,
+    trackStoryLike,
+    trackStoryShare,
+    recalculateAuthorRewardsNow,
     requestStoryPayout,
     getPayoutRequests,
     updatePayoutRequestStatus,
@@ -41,12 +46,17 @@ router.post('/partners', submitPartnerForm);
 router.post('/donor', submitDonorForm);
 router.post('/donors', submitDonorForm);
 router.post('/story-submissions', submitStory);
+router.post('/submit-story', submitStory);
 router.post('/stories/submit', submitStory);
 router.post('/wacihub/webhook', handleWaciHubWebhook);
 router.post('/payouts/request', requestStoryPayout);
+router.post('/stories/:storyId/view-complete', trackStoryViewComplete);
+router.post('/stories/:storyId/like', trackStoryLike);
+router.post('/stories/:storyId/share', trackStoryShare);
 
 router.get('/programs', getPrograms);
 router.get('/stories', getStories);
+router.get('/stories/:storyId', getStory);
 router.get('/story-attribution', getStoryAttribution);
 router.get('/partners', getPartners);
 router.get('/donors', getDonors);
@@ -67,6 +77,7 @@ router.post('/admin/resources', authenticateToken, requireAdmin, createResource)
 router.put('/admin/resources/:id', authenticateToken, requireAdmin, updateResource);
 router.delete('/admin/resources/:id', authenticateToken, requireAdmin, deleteResource);
 router.get('/admin/story-attribution', authenticateToken, requireAdmin, getStoryAttribution);
+router.post('/admin/rewards/recalculate', authenticateToken, requireAdmin, recalculateAuthorRewardsNow);
 router.get('/admin/payout-requests', authenticateToken, requireAdmin, getPayoutRequests);
 router.patch('/admin/payout-requests/:id', authenticateToken, requireAdmin, updatePayoutRequestStatus);
 router.get('/admin/newsletter', authenticateToken, requireAdmin, getNewsletterSubscribers);

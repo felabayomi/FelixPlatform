@@ -327,7 +327,7 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
     const featuredStoryText = content.featuredStoryText || featuredStoryRecord?.summary || "Africa’s wildlife faces habitat loss, climate pressure, poaching, pollution, and human-wildlife conflict. WACI exists to help more people move from caring deeply about these realities to doing something meaningful about them.";
     const featuredStoryAlt = content.featuredStoryAlt || featuredStoryRecord?.title || "African landscape with wildlife";
     const featuredStoryCtaLabel = content.featuredStoryCtaLabel || "Join Our Movement";
-    const featuredStoryCtaLink = content.featuredStoryCtaLink || featuredStoryRecord?.link || "#join";
+    const featuredStoryCtaLink = content.featuredStoryCtaLink || featuredStoryRecord?.link || (featuredStoryRecord ? `/stories/${encodeURIComponent(featuredStoryRecord.slug || featuredStoryRecord.id)}` : "#join");
     const whoWeAreEyebrow = content.whoWeAreEyebrow || "Who We Are";
     const whoWeAreTitle = content.whoWeAreTitle || "A platform for wildlife people";
     const whoWeAreText = content.whoWeAreText || "WACI was born from a simple truth: Africa’s wildlife needs more people who care, and those people need a place to connect, learn, and act. We exist to make conservation more inclusive, more informed, and more community-driven.";
@@ -363,7 +363,7 @@ export default function HomePageContent({ content, waciPrograms, waciStories, wa
                     category: story.location || (story.publishedAt ? `Story · ${story.publishedAt}` : 'Story'),
                     title: story.title,
                     excerpt: story.summary,
-                    link: story.link || '#stories',
+                    link: story.link || `/stories/${encodeURIComponent(story.slug || story.id)}`,
                 }));
             }
         }

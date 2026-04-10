@@ -104,6 +104,13 @@ const PROGRAM_STATUS_OPTIONS = [
     { label: 'Archived', value: 'archived' },
 ];
 
+const STORY_STATUS_OPTIONS = [
+    { label: 'Pending Review', value: 'pending' },
+    { label: 'Published', value: 'published' },
+    { label: 'Rejected', value: 'rejected' },
+    { label: 'Archived', value: 'archived' },
+];
+
 const RESOURCE_TYPE_OPTIONS = [
     { label: 'Image', value: 'image' },
     { label: 'Video', value: 'video' },
@@ -193,6 +200,7 @@ function WACI() {
     const [deletingRecordKey, setDeletingRecordKey] = useState('');
     const [updatingPayoutRequestId, setUpdatingPayoutRequestId] = useState('');
     const [activeSectionId, setActiveSectionId] = useState(WACI_SECTION_LINKS[0]?.id || 'overview');
+    const [storyStatusFilter, setStoryStatusFilter] = useState('all');
 
     const openSupportCount = useMemo(
         () => supportRequests.filter((request) => !['resolved', 'closed'].includes(String(request.status || 'new').toLowerCase())).length,
@@ -205,6 +213,32 @@ function WACI() {
             return !subject.includes('volunteer') && !subject.includes('partner') && !subject.includes('donor') && !subject.includes('newsletter');
         });
     }, [supportRequests]);
+
+    const storyCountsByStatus = useMemo(() => {
+        return stories.reduce((totals, story) => {
+            const status = String(story.status || (story.publishedAt ? 'published' : 'pending')).toLowerCase();
+            totals[status] = (totals[status] || 0) + 1;
+            if (story.featured) {
+                totals.featured = (totals.featured || 0) + 1;
+            }
+            totals.all = (totals.all || 0) + 1;
+            return totals;
+        }, { all: 0, pending: 0, published: 0, rejected: 0, archived: 0, featured: 0 });
+    }, [stories]);
+
+    const visibleStories = useMemo(() => {
+        const indexedStories = stories.map((story, index) => ({ ...story, _listIndex: index }));
+
+        if (storyStatusFilter === 'all') {
+            return indexedStories;
+        }
+
+        if (storyStatusFilter === 'featured') {
+            return indexedStories.filter((story) => Boolean(story.featured));
+        }
+
+        return indexedStories.filter((story) => String(story.status || (story.publishedAt ? 'published' : 'pending')).toLowerCase() === storyStatusFilter);
+    }, [stories, storyStatusFilter]);
 
     const loadContent = async () => {
         setLoadingContent(true);
@@ -468,7 +502,9 @@ function WACI() {
                 title: '',
                 summary: '',
                 location: '',
+                status: 'pending',
                 publishedAt: '',
+                reviewNotes: '',
                 image: '',
                 link: '',
                 authorName: '',
@@ -478,7 +514,7 @@ function WACI() {
                 viewCount: 0,
                 likeCount: 0,
                 shareCount: 0,
-                featured: true,
+                featured: false,
                 sortOrder: current.length,
             },
         ]));
@@ -495,7 +531,9 @@ function WACI() {
                 title: story.title,
                 summary: story.summary,
                 location: story.location,
+                status: story.status || (story.publishedAt ? 'published' : 'pending'),
                 publishedAt: story.publishedAt,
+                reviewNotes: story.reviewNotes,
                 image: story.image,
                 link: story.link,
                 authorName: story.authorName,
@@ -664,6 +702,23 @@ function WACI() {
             setError(err?.response?.data?.message || err?.response?.data || 'Unable to update WACI payout request.');
         } finally {
             setUpdatingPayoutRequestId('');
+        }
+    };
+
+    const recalculateRewards = async () => {
+        setLoadingResources(true);
+        setMessage('');
+        setError('');
+
+        try {
+            const res = await API.post('/api/waci/admin/rewards/recalculate');
+            setAuthorAttribution(Array.isArray(res.data?.items) ? res.data.items : []);
+            setMessage('WACI author rewards recalculated successfully.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || 'Unable to recalculate WACI author rewards.');
+        } finally {
+            setLoadingResources(false);
         }
     };
 
@@ -1302,18 +1357,37 @@ function WACI() {
                     <div className="record-header">
                         <div>
                             <h3>Stories</h3>
-                            <p className="muted">These stories now feed the public WACI Stories & Media section.</p>
+                            <p className="muted">Submissions now land as pending, then move to published, rejected, or featured from this workflow.</p>
                         </div>
-                        <button type="button" className="secondary-button" onClick={addStory}>
-                            Add Story
-                        </button>
+                        <div className="product-actions" style={{ gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            {[
+                                { value: 'all', label: `All (${storyCountsByStatus.all || 0})` },
+                                { value: 'pending', label: `Pending (${storyCountsByStatus.pending || 0})` },
+                                { value: 'published', label: `Published (${storyCountsByStatus.published || 0})` },
+                                { value: 'rejected', label: `Rejected (${storyCountsByStatus.rejected || 0})` },
+                                { value: 'featured', label: `Featured (${storyCountsByStatus.featured || 0})` },
+                            ].map((filter) => (
+                                <button
+                                    key={filter.value}
+                                    type="button"
+                                    className={storyStatusFilter === filter.value ? 'edit-button' : 'secondary-button'}
+                                    onClick={() => setStoryStatusFilter(filter.value)}
+                                >
+                                    {filter.label}
+                                </button>
+                            ))}
+                            <button type="button" className="secondary-button" onClick={addStory}>
+                                Add Story
+                            </button>
+                        </div>
                     </div>
 
                     {loadingResources ? (
                         <p className="muted">Loading stories…</p>
-                    ) : stories.length ? (
+                    ) : visibleStories.length ? (
                         <div className="record-list">
-                            {stories.map((story, index) => {
+                            {visibleStories.map((story) => {
+                                const index = story._listIndex ?? 0;
                                 const previewUrl = resolveImageUrl(story.image);
                                 const recordKey = `story:${story.id || index}`;
 
@@ -1335,6 +1409,14 @@ function WACI() {
                                             <label>
                                                 <span>Location</span>
                                                 <input value={story.location || ''} onChange={(event) => updateStoryField(index, 'location', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Status</span>
+                                                <select value={story.status || (story.publishedAt ? 'published' : 'pending')} onChange={(event) => updateStoryField(index, 'status', event.target.value)}>
+                                                    {STORY_STATUS_OPTIONS.map((option) => (
+                                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                                    ))}
+                                                </select>
                                             </label>
                                             <label>
                                                 <span>Published date</span>
@@ -1369,6 +1451,10 @@ function WACI() {
                                                 <textarea rows="4" value={story.summary || ''} onChange={(event) => updateStoryField(index, 'summary', event.target.value)} />
                                             </label>
                                             <label>
+                                                <span>Review notes / rejection reason</span>
+                                                <textarea rows="3" value={story.reviewNotes || ''} onChange={(event) => updateStoryField(index, 'reviewNotes', event.target.value)} />
+                                            </label>
+                                            <label>
                                                 <span>Image URL</span>
                                                 <input value={story.image || ''} onChange={(event) => updateStoryField(index, 'image', event.target.value)} />
                                             </label>
@@ -1401,7 +1487,7 @@ function WACI() {
                             })}
                         </div>
                     ) : (
-                        <p className="muted">No WACI stories yet. Click “Add Story” to create one.</p>
+                        <p className="muted">No WACI stories in this view yet. Switch filters or click “Add Story” to create one.</p>
                     )}
                 </section>
 
@@ -1409,8 +1495,11 @@ function WACI() {
                     <div className="record-header">
                         <div>
                             <h3>Story Attribution</h3>
-                            <p className="muted">Author earnings are grouped by email and calculated from views, likes, shares, published stories, and featured stories.</p>
+                            <p className="muted">Author rewards are stored hourly and also refreshed instantly when moderation or engagement changes happen.</p>
                         </div>
+                        <button type="button" className="secondary-button" onClick={recalculateRewards}>
+                            Recalculate now
+                        </button>
                     </div>
 
                     {loadingResources ? (
@@ -1443,7 +1532,7 @@ function WACI() {
                                             <td>{Number(author.totalShares || 0).toLocaleString()}</td>
                                             <td>
                                                 {Number(author.totalPoints || 0).toLocaleString()}
-                                                <div className="muted">weekly est. {Number(author.weeklyPointsEstimate || 0).toLocaleString()}</div>
+                                                <div className="muted">weekly {Number(author.weeklyPoints || author.weeklyPointsEstimate || 0).toLocaleString()} · monthly {Number(author.monthlyPoints || author.monthlyPointsEstimate || 0).toLocaleString()}</div>
                                             </td>
                                             <td>{author.tier || 'Bronze'}</td>
                                             <td>{formatCurrency(author.availableEarningsUsd || 0)}</td>

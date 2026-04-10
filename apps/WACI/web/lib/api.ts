@@ -33,13 +33,26 @@ export type WaciProgram = {
 
 export type WaciStory = {
     id: string;
+    slug?: string;
     title: string;
     summary: string;
     location?: string;
+    status?: string;
     publishedAt?: string;
+    submittedAt?: string;
+    reviewedAt?: string;
+    reviewedBy?: string;
+    reviewNotes?: string;
     image?: string;
     link?: string;
     featured?: boolean;
+    authorName?: string;
+    authorEmail?: string;
+    externalStoryId?: string;
+    source?: string;
+    viewCount?: number;
+    likeCount?: number;
+    shareCount?: number;
     sortOrder?: number;
 };
 
@@ -55,6 +68,27 @@ export type WaciResource = {
     caption?: string;
     sort_order?: number;
     sortOrder?: number;
+};
+
+export type WaciAuthorReward = {
+    authorEmail: string;
+    authorName?: string;
+    totalViews?: number;
+    totalLikes?: number;
+    totalShares?: number;
+    totalStories?: number;
+    pendingStories?: number;
+    rejectedStories?: number;
+    publishedStories?: number;
+    featuredStories?: number;
+    totalPoints?: number;
+    weeklyPoints?: number;
+    monthlyPoints?: number;
+    tier?: string;
+    totalEarningsUsd?: number;
+    availableEarningsUsd?: number;
+    payoutRequestCount?: number;
+    lastRecalculatedAt?: string;
 };
 
 export type SiteContent = {
@@ -393,6 +427,28 @@ export async function getWaciStories(): Promise<WaciStory[]> {
     }
 }
 
+export async function getWaciStory(storyIdOrSlug: string): Promise<WaciStory | null> {
+    try {
+        const res = await API.get(`/api/waci/stories/${encodeURIComponent(storyIdOrSlug)}`);
+        return res.data?.item || null;
+    } catch (error) {
+        console.error("Unable to fetch WACI story", error);
+        return null;
+    }
+}
+
+export async function getWaciAuthorRewards(authorEmail?: string): Promise<WaciAuthorReward[]> {
+    try {
+        const res = await API.get("/api/waci/story-attribution", {
+            params: authorEmail ? { authorEmail } : undefined,
+        });
+        return Array.isArray(res.data?.items) ? res.data.items : [];
+    } catch (error) {
+        console.error("Unable to fetch WACI author rewards", error);
+        return [];
+    }
+}
+
 export async function getWaciResources(): Promise<WaciResource[]> {
     try {
         const res = await API.get("/api/waci/resources");
@@ -481,6 +537,35 @@ export async function submitDonorInterest(payload: WaciInterestPayload) {
         source: payload.source,
     });
 
+    return res.data;
+}
+
+export async function submitWaciStory(payload: {
+    title: string;
+    summary: string;
+    authorName: string;
+    authorEmail: string;
+    location?: string;
+    image?: string;
+    link?: string;
+    source?: string;
+}) {
+    const res = await API.post("/api/waci/submit-story", payload);
+    return res.data;
+}
+
+export async function trackWaciStoryViewComplete(storyIdOrSlug: string, payload?: { secondsOnPage?: number; sessionId?: string; source?: string }) {
+    const res = await API.post(`/api/waci/stories/${encodeURIComponent(storyIdOrSlug)}/view-complete`, payload || {});
+    return res.data;
+}
+
+export async function trackWaciStoryLike(storyIdOrSlug: string, payload?: { secondsOnPage?: number; sessionId?: string; source?: string }) {
+    const res = await API.post(`/api/waci/stories/${encodeURIComponent(storyIdOrSlug)}/like`, payload || {});
+    return res.data;
+}
+
+export async function trackWaciStoryShare(storyIdOrSlug: string, payload?: { platform?: string; secondsOnPage?: number; sessionId?: string; source?: string }) {
+    const res = await API.post(`/api/waci/stories/${encodeURIComponent(storyIdOrSlug)}/share`, payload || {});
     return res.data;
 }
 
