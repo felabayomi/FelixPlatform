@@ -1,5 +1,6 @@
+const Stripe = require('stripe');
 const pool = require('../db');
-const { sendSupportRequestNotification } = require('../services/resendEmail');
+const { sendSupportRequestNotification, sendEmail } = require('../services/resendEmail');
 
 const WACI_APP_NAME = 'WACI';
 const WACI_STOREFRONT_KEY = 'waci';
@@ -7,6 +8,40 @@ const PROGRAMS_CONTENT_KEY = 'waci_programs';
 const STORIES_CONTENT_KEY = 'waci_stories';
 const PARTNERS_CONTENT_KEY = 'waci_partner_options';
 const DONORS_CONTENT_KEY = 'waci_donor_options';
+const WACI_PAYOUT_METHODS = {
+    stripe_express: {
+        id: 'stripe_express',
+        label: 'Stripe Express',
+        minAmountCents: 100,
+        feeRate: 0.0025,
+        speed: 'Within 24 hours',
+    },
+    bank_transfer: {
+        id: 'bank_transfer',
+        label: 'Bank Transfer',
+        minAmountCents: 500,
+        feeRate: 0,
+        speed: '3-5 business days',
+    },
+    paypal: {
+        id: 'paypal',
+        label: 'PayPal',
+        minAmountCents: 100,
+        feeRate: 0.029,
+        speed: '1-2 business days',
+    },
+    check_by_mail: {
+        id: 'check_by_mail',
+        label: 'Check by Mail',
+        minAmountCents: 2500,
+        feeRate: 0,
+        speed: '7-14 business days',
+    },
+};
+const PAID_PAYOUT_STATUSES = ['completed', 'paid'];
+const PENDING_PAYOUT_STATUSES = ['created', 'pending', 'processing', 'approved', 'scheduled'];
+
+let waciStripeClient = null;
 
 const DEFAULT_PROGRAMS = [
     {
@@ -160,6 +195,72 @@ const toBoolean = (value, fallback = false) => {
     return ['true', '1', 'yes', 'on'].includes(String(value).trim().toLowerCase());
 };
 
+const toCount = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : fallback;
+};
+
+const toCurrencyCents = (value, fallback = null) => {
+    if (value === '' || value === null || value === undefined) {
+        return fallback;
+    }
+
+    const normalized = Number(String(value).replace(/[^0-9.-]/g, ''));
+    if (!Number.isFinite(normalized)) {
+        return fallback;
+    }
+
+    const textValue = String(value).trim();
+    return textValue.includes('.') || normalized < 1000
+        ? Math.round(normalized * 100)
+        : Math.round(normalized);
+};
+
+const formatMoneyFromCents = (value) => `$${(toCount(value, 0) / 100).toFixed(2)}`;
+
+const normalizePayoutMethod = (value) => {
+    const normalized = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+    switch (normalized) {
+        case 'stripe':
+        case 'stripe_express':
+        case 'stripeexpress':
+            return 'stripe_express';
+        case 'bank':
+        case 'bank_transfer':
+        case 'banktransfer':
+            return 'bank_transfer';
+        case 'paypal':
+            return 'paypal';
+        case 'check':
+        case 'check_mail':
+        case 'check_by_mail':
+        case 'mail_check':
+            return 'check_by_mail';
+        default:
+            return null;
+    }
+};
+
+const getPayoutMethodConfig = (value) => {
+    const normalized = normalizePayoutMethod(value);
+    return normalized ? WACI_PAYOUT_METHODS[normalized] : null;
+};
+
+const getWaciStripeClient = () => {
+    const secretKey = process.env.WACI_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
+
+    if (!secretKey) {
+        return null;
+    }
+
+    if (!waciStripeClient) {
+        waciStripeClient = new Stripe(secretKey);
+    }
+
+    return waciStripeClient;
+};
+
 const ensurePlatformContentTable = async () => {
     if (!ensurePlatformContentTablePromise) {
         ensurePlatformContentTablePromise = pool.query(`
@@ -272,6 +373,39 @@ const ensureWaciResourceTables = async () => {
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
             `);
+
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS author_name TEXT`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS author_email TEXT`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS external_story_id TEXT`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'admin'`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS like_count INTEGER NOT NULL DEFAULT 0`);
+            await pool.query(`ALTER TABLE waci_stories ADD COLUMN IF NOT EXISTS share_count INTEGER NOT NULL DEFAULT 0`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS waci_stories_author_email_idx ON waci_stories (LOWER(author_email))`);
+            await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS waci_stories_external_story_id_idx ON waci_stories (external_story_id) WHERE external_story_id IS NOT NULL`);
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS waci_story_payout_requests (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    author_email TEXT NOT NULL,
+                    author_name TEXT,
+                    payout_method TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'created',
+                    requested_amount_cents INTEGER NOT NULL DEFAULT 0,
+                    fee_amount_cents INTEGER NOT NULL DEFAULT 0,
+                    net_amount_cents INTEGER NOT NULL DEFAULT 0,
+                    total_points INTEGER NOT NULL DEFAULT 0,
+                    payment_details JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    stats_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    admin_notes TEXT,
+                    stripe_reference_id TEXT,
+                    last_event_type TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            `);
+
+            await pool.query(`CREATE INDEX IF NOT EXISTS waci_story_payout_requests_author_email_idx ON waci_story_payout_requests (LOWER(author_email), created_at DESC)`);
 
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS waci_media (
@@ -402,6 +536,13 @@ const readStoriesFromTable = async () => {
             image_url AS image,
             link,
             featured,
+            author_name AS "authorName",
+            author_email AS "authorEmail",
+            external_story_id AS "externalStoryId",
+            source,
+            view_count AS "viewCount",
+            like_count AS "likeCount",
+            share_count AS "shareCount",
             sort_order AS "sortOrder"
          FROM waci_stories
          ORDER BY sort_order ASC, created_at DESC`
@@ -434,6 +575,99 @@ const readInterestRows = async (tableName) => {
     await ensureWaciResourceTables();
     const result = await pool.query(`SELECT * FROM ${tableName} ORDER BY created_at DESC`);
     return result.rows;
+};
+
+const readPayoutRequests = async () => {
+    await ensureWaciResourceTables();
+    const result = await pool.query(
+        `SELECT
+            id::text AS id,
+            author_email,
+            author_name,
+            payout_method,
+            status,
+            requested_amount_cents,
+            fee_amount_cents,
+            net_amount_cents,
+            total_points,
+            payment_details,
+            stats_snapshot,
+            admin_notes,
+            stripe_reference_id,
+            last_event_type,
+            created_at,
+            updated_at
+         FROM waci_story_payout_requests
+         ORDER BY created_at DESC`
+    );
+
+    return result.rows.map((row) => normalizePayoutRequest(row));
+};
+
+const getPayoutNotificationRecipients = () => (
+    process.env.WACI_SUPPORT_NOTIFICATION_EMAIL
+    || process.env.SUPPORT_NOTIFICATION_EMAIL
+    || 'hello@wildlifeafrica.org'
+);
+
+const sendPayoutStatusEmails = async (request = {}, eventType = 'created') => {
+    const normalizedRequest = normalizePayoutRequest(request);
+    const eventLabel = eventType === 'completed'
+        ? 'completed'
+        : (eventType === 'failed' ? 'failed' : 'created');
+    const statusTitle = eventLabel === 'completed'
+        ? 'completed'
+        : (eventLabel === 'failed' ? 'failed' : 'received');
+    const payoutMethod = getPayoutMethodConfig(normalizedRequest.payoutMethod) || { label: normalizedRequest.payoutMethodLabel || 'Selected payout method' };
+    const authorName = normalizedRequest.authorName || 'there';
+    const amountText = formatMoneyFromCents(normalizedRequest.requestedAmountCents);
+    const feeText = formatMoneyFromCents(normalizedRequest.feeAmountCents);
+    const netText = formatMoneyFromCents(normalizedRequest.netAmountCents);
+    const pointsText = `${toCount(normalizedRequest.totalPoints, 0).toLocaleString()} points`;
+    const notesText = toText(normalizedRequest.adminNotes, 'No additional notes were provided.');
+
+    const [admin, author] = await Promise.all([
+        sendEmail({
+            to: getPayoutNotificationRecipients(),
+            appName: WACI_APP_NAME,
+            storefrontKey: WACI_STOREFRONT_KEY,
+            subject: `WACI payout ${statusTitle}: ${authorName}`,
+            text: [
+                `A WACI payout request has been ${statusTitle}.`,
+                `Author: ${authorName}`,
+                `Email: ${normalizedRequest.authorEmail || 'Not provided'}`,
+                `Method: ${payoutMethod.label}`,
+                `Requested amount: ${amountText}`,
+                `Fee: ${feeText}`,
+                `Net amount: ${netText}`,
+                `Points: ${pointsText}`,
+                `Status: ${normalizedRequest.status}`,
+                `Notes: ${notesText}`,
+            ].join('\n'),
+        }),
+        normalizedRequest.authorEmail
+            ? sendEmail({
+                to: normalizedRequest.authorEmail,
+                appName: WACI_APP_NAME,
+                storefrontKey: WACI_STOREFRONT_KEY,
+                subject: `Your WACI payout request has been ${statusTitle}`,
+                text: [
+                    `Hello ${authorName},`,
+                    '',
+                    `Your payout request has been ${statusTitle}.`,
+                    `Method: ${payoutMethod.label}`,
+                    `Requested amount: ${amountText}`,
+                    `Fee: ${feeText}`,
+                    `Net amount: ${netText}`,
+                    `Points snapshot: ${pointsText}`,
+                    `Status: ${normalizedRequest.status}`,
+                    `Notes: ${notesText}`,
+                ].join('\n'),
+            })
+            : Promise.resolve({ sent: false, skipped: true, reason: 'Author email was not provided' }),
+    ]);
+
+    return { admin, author };
 };
 
 const insertInterestRecord = async ({
@@ -533,6 +767,13 @@ const normalizeStory = (item = {}, index = 0) => ({
     image: toText(item.image, ''),
     link: toText(item.link, ''),
     featured: typeof item.featured === 'boolean' ? item.featured : toBoolean(item.featured, true),
+    authorName: toText(item.authorName || item.author_name, ''),
+    authorEmail: toText(item.authorEmail || item.author_email, '').toLowerCase(),
+    externalStoryId: toText(item.externalStoryId || item.external_story_id, ''),
+    source: toText(item.source, 'admin'),
+    viewCount: toCount(item.viewCount ?? item.view_count, 0),
+    likeCount: toCount(item.likeCount ?? item.like_count, 0),
+    shareCount: toCount(item.shareCount ?? item.share_count, 0),
     sortOrder: toSortOrder(item.sortOrder ?? item.sort_order, index),
 });
 
@@ -551,6 +792,159 @@ const normalizeMediaItem = (item = {}, index = 0) => ({
     created_at: item.created_at || null,
     updated_at: item.updated_at || null,
 });
+
+const normalizePayoutRequest = (item = {}) => {
+    const payoutMethod = getPayoutMethodConfig(item.payout_method || item.payoutMethod) || { id: normalizePayoutMethod(item.payout_method || item.payoutMethod) || 'manual', label: toText(item.payout_method || item.payoutMethod, 'Manual payout'), speed: 'To be confirmed' };
+    const requestedAmountCents = toCount(item.requested_amount_cents ?? item.requestedAmountCents, 0);
+    const feeAmountCents = toCount(item.fee_amount_cents ?? item.feeAmountCents, 0);
+    const netAmountCents = toCount(item.net_amount_cents ?? item.netAmountCents, Math.max(requestedAmountCents - feeAmountCents, 0));
+
+    return {
+        id: toText(item.id, ''),
+        authorEmail: toText(item.author_email || item.authorEmail, '').toLowerCase(),
+        authorName: toText(item.author_name || item.authorName, ''),
+        payoutMethod: payoutMethod.id,
+        payoutMethodLabel: payoutMethod.label,
+        payoutSpeed: payoutMethod.speed,
+        status: toText(item.status, 'created').toLowerCase(),
+        requestedAmountCents,
+        requestedAmountUsd: Number((requestedAmountCents / 100).toFixed(2)),
+        feeAmountCents,
+        feeAmountUsd: Number((feeAmountCents / 100).toFixed(2)),
+        netAmountCents,
+        netAmountUsd: Number((netAmountCents / 100).toFixed(2)),
+        totalPoints: toCount(item.total_points ?? item.totalPoints, 0),
+        paymentDetails: item.payment_details || item.paymentDetails || {},
+        statsSnapshot: item.stats_snapshot || item.statsSnapshot || {},
+        adminNotes: toText(item.admin_notes || item.adminNotes, ''),
+        stripeReferenceId: toText(item.stripe_reference_id || item.stripeReferenceId, ''),
+        lastEventType: toText(item.last_event_type || item.lastEventType, ''),
+        createdAt: item.created_at || item.createdAt || null,
+        updatedAt: item.updated_at || item.updatedAt || null,
+    };
+};
+
+const calculateTierFromTotals = ({ totalPoints = 0, baseEarningsCents = 0 }) => {
+    if (baseEarningsCents >= 50000 || totalPoints >= 500000) {
+        return { name: 'Platinum', bonusRate: 0.30 };
+    }
+
+    if (baseEarningsCents >= 20000 || totalPoints >= 200000) {
+        return { name: 'Gold', bonusRate: 0.20 };
+    }
+
+    if (baseEarningsCents >= 5000 || totalPoints >= 50000) {
+        return { name: 'Silver', bonusRate: 0.10 };
+    }
+
+    return { name: 'Bronze', bonusRate: 0 };
+};
+
+const buildAuthorAttributionSummaries = (stories = [], payoutRequests = []) => {
+    const authorMap = new Map();
+
+    stories.forEach((story) => {
+        const normalizedStory = normalizeStory(story);
+        const authorEmail = toText(normalizedStory.authorEmail, '').toLowerCase();
+
+        if (!authorEmail) {
+            return;
+        }
+
+        if (!authorMap.has(authorEmail)) {
+            authorMap.set(authorEmail, {
+                authorEmail,
+                authorName: normalizedStory.authorName || '',
+                totalViews: 0,
+                totalLikes: 0,
+                totalShares: 0,
+                publishedStories: 0,
+                featuredStories: 0,
+                totalStories: 0,
+            });
+        }
+
+        const summary = authorMap.get(authorEmail);
+        summary.authorName = summary.authorName || normalizedStory.authorName || '';
+        summary.totalViews += toCount(normalizedStory.viewCount, 0);
+        summary.totalLikes += toCount(normalizedStory.likeCount, 0);
+        summary.totalShares += toCount(normalizedStory.shareCount, 0);
+        summary.publishedStories += normalizedStory.publishedAt ? 1 : 0;
+        summary.featuredStories += normalizedStory.featured ? 1 : 0;
+        summary.totalStories += 1;
+    });
+
+    const payoutMap = new Map();
+    payoutRequests.map((request) => normalizePayoutRequest(request)).forEach((request) => {
+        const authorEmail = request.authorEmail;
+        if (!authorEmail) {
+            return;
+        }
+
+        if (!payoutMap.has(authorEmail)) {
+            payoutMap.set(authorEmail, { paidOutCents: 0, pendingPayoutCents: 0, requests: 0 });
+        }
+
+        const summary = payoutMap.get(authorEmail);
+        summary.requests += 1;
+
+        if (PAID_PAYOUT_STATUSES.includes(request.status)) {
+            summary.paidOutCents += request.netAmountCents;
+        } else if (PENDING_PAYOUT_STATUSES.includes(request.status)) {
+            summary.pendingPayoutCents += request.netAmountCents;
+        }
+    });
+
+    return Array.from(authorMap.values())
+        .map((summary) => {
+            const basePoints = summary.totalViews
+                + (summary.totalLikes * 10)
+                + (summary.totalShares * 20)
+                + (summary.publishedStories * 100)
+                + (summary.featuredStories * 500);
+            const shareBonusPoints = summary.totalShares * 50;
+            const campaignBonusPoints = summary.totalShares > 5 ? 200 : 0;
+            const multiplier = summary.totalShares > 10 ? 2 : 1;
+            const totalPoints = (basePoints + shareBonusPoints + campaignBonusPoints) * multiplier;
+            const baseEarningsUsd = (summary.totalViews * 0.0025)
+                + (summary.totalLikes * 0.125)
+                + (summary.totalShares * 0.25)
+                + (summary.publishedStories * 0.50);
+            const baseEarningsCents = Math.round(baseEarningsUsd * 100);
+            const tier = calculateTierFromTotals({ totalPoints, baseEarningsCents });
+            const tierBonusCents = Math.round(baseEarningsCents * tier.bonusRate);
+            const totalEarningsCents = baseEarningsCents + tierBonusCents;
+            const payoutTotals = payoutMap.get(summary.authorEmail) || { paidOutCents: 0, pendingPayoutCents: 0, requests: 0 };
+
+            return {
+                ...summary,
+                basePoints,
+                shareBonusPoints,
+                campaignBonusPoints,
+                multiplier,
+                totalPoints,
+                weeklyPointsEstimate: Math.round(totalPoints * 0.30),
+                monthlyPointsEstimate: Math.round(totalPoints * 0.80),
+                pointsApproximation: true,
+                tier: tier.name,
+                tierBonusRate: tier.bonusRate,
+                baseEarningsCents,
+                baseEarningsUsd: Number((baseEarningsCents / 100).toFixed(2)),
+                tierBonusCents,
+                tierBonusUsd: Number((tierBonusCents / 100).toFixed(2)),
+                totalEarningsCents,
+                totalEarningsUsd: Number((totalEarningsCents / 100).toFixed(2)),
+                paidOutCents: payoutTotals.paidOutCents,
+                pendingPayoutCents: payoutTotals.pendingPayoutCents,
+                paidOutUsd: Number((payoutTotals.paidOutCents / 100).toFixed(2)),
+                pendingPayoutUsd: Number((payoutTotals.pendingPayoutCents / 100).toFixed(2)),
+                availableEarningsCents: Math.max(totalEarningsCents - payoutTotals.paidOutCents - payoutTotals.pendingPayoutCents, 0),
+                availableEarningsUsd: Number((Math.max(totalEarningsCents - payoutTotals.paidOutCents - payoutTotals.pendingPayoutCents, 0) / 100).toFixed(2)),
+                payoutRequestCount: payoutTotals.requests,
+            };
+        })
+        .sort((left, right) => right.totalPoints - left.totalPoints || right.totalEarningsCents - left.totalEarningsCents || left.authorEmail.localeCompare(right.authorEmail));
+};
 
 const normalizeSimpleCard = (item = {}, index = 0, fallbackPrefix = 'item') => ({
     id: toText(item.id, `${fallbackPrefix}-${index + 1}`),
@@ -968,9 +1362,27 @@ exports.createStory = async (req, res) => {
         const publishedAt = toNullableText(req.body?.publishedAt || req.body?.published_at);
 
         const result = await pool.query(
-            `INSERT INTO waci_stories (slug, title, summary, location, published_at, image_url, link, featured, sort_order, updated_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
-             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, sort_order AS "sortOrder"`,
+            `INSERT INTO waci_stories (
+                slug,
+                title,
+                summary,
+                location,
+                published_at,
+                image_url,
+                link,
+                featured,
+                author_name,
+                author_email,
+                external_story_id,
+                source,
+                view_count,
+                like_count,
+                share_count,
+                sort_order,
+                updated_at
+            )
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
+             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
             [
                 slug,
                 title,
@@ -980,6 +1392,13 @@ exports.createStory = async (req, res) => {
                 toNullableText(req.body?.image || req.body?.image_url || req.body?.imageUrl),
                 toNullableText(req.body?.link),
                 toBoolean(req.body?.featured, true),
+                toNullableText(req.body?.authorName || req.body?.author_name || req.body?.contact_name),
+                toNullableText(req.body?.authorEmail || req.body?.author_email || req.body?.contact_email),
+                toNullableText(req.body?.externalStoryId || req.body?.external_story_id),
+                toNullableText(req.body?.source) || 'admin',
+                toCount(req.body?.viewCount ?? req.body?.view_count ?? req.body?.views, 0),
+                toCount(req.body?.likeCount ?? req.body?.like_count ?? req.body?.likes, 0),
+                toCount(req.body?.shareCount ?? req.body?.share_count ?? req.body?.shares, 0),
                 sortOrder,
             ],
         );
@@ -1019,10 +1438,17 @@ exports.updateStory = async (req, res) => {
                  image_url = $6,
                  link = $7,
                  featured = $8,
-                 sort_order = $9,
+                 author_name = $9,
+                 author_email = $10,
+                 external_story_id = $11,
+                 source = $12,
+                 view_count = $13,
+                 like_count = $14,
+                 share_count = $15,
+                 sort_order = $16,
                  updated_at = NOW()
-             WHERE id = $10
-             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, sort_order AS "sortOrder"`,
+             WHERE id = $17
+             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
             [
                 slug,
                 title,
@@ -1034,6 +1460,25 @@ exports.updateStory = async (req, res) => {
                     : toNullableText(req.body?.image || req.body?.image_url || req.body?.imageUrl),
                 req.body?.link === undefined ? current.link : toNullableText(req.body.link),
                 req.body?.featured === undefined ? current.featured : toBoolean(req.body.featured, current.featured),
+                req.body?.authorName === undefined && req.body?.author_name === undefined && req.body?.contact_name === undefined
+                    ? current.author_name
+                    : toNullableText(req.body?.authorName || req.body?.author_name || req.body?.contact_name),
+                req.body?.authorEmail === undefined && req.body?.author_email === undefined && req.body?.contact_email === undefined
+                    ? current.author_email
+                    : toNullableText(req.body?.authorEmail || req.body?.author_email || req.body?.contact_email),
+                req.body?.externalStoryId === undefined && req.body?.external_story_id === undefined
+                    ? current.external_story_id
+                    : toNullableText(req.body?.externalStoryId || req.body?.external_story_id),
+                req.body?.source === undefined ? current.source : (toNullableText(req.body.source) || current.source || 'admin'),
+                req.body?.viewCount === undefined && req.body?.view_count === undefined && req.body?.views === undefined
+                    ? toCount(current.view_count, 0)
+                    : toCount(req.body?.viewCount ?? req.body?.view_count ?? req.body?.views, 0),
+                req.body?.likeCount === undefined && req.body?.like_count === undefined && req.body?.likes === undefined
+                    ? toCount(current.like_count, 0)
+                    : toCount(req.body?.likeCount ?? req.body?.like_count ?? req.body?.likes, 0),
+                req.body?.shareCount === undefined && req.body?.share_count === undefined && req.body?.shares === undefined
+                    ? toCount(current.share_count, 0)
+                    : toCount(req.body?.shareCount ?? req.body?.share_count ?? req.body?.shares, 0),
                 req.body?.sortOrder === undefined && req.body?.sort_order === undefined ? current.sort_order : toSortOrder(req.body?.sortOrder ?? req.body?.sort_order, current.sort_order),
                 req.params.id,
             ],
@@ -1059,6 +1504,449 @@ exports.deleteStory = async (req, res) => {
     } catch (error) {
         console.error(error);
         return res.status(500).json({ success: false, message: 'Unable to delete WACI story.' });
+    }
+};
+
+const upsertStoryRecord = async (payload = {}, { defaultSource = 'website' } = {}) => {
+    await ensureWaciResourceTables();
+
+    const externalStoryId = toNullableText(payload.externalStoryId || payload.external_story_id || payload.storyId || payload.story_id);
+    const requestedId = toNullableText(payload.id);
+    const currentResult = externalStoryId
+        ? await pool.query('SELECT * FROM waci_stories WHERE external_story_id = $1 LIMIT 1', [externalStoryId])
+        : (/^[0-9a-f-]{36}$/i.test(String(requestedId || ''))
+            ? await pool.query('SELECT * FROM waci_stories WHERE id = $1 LIMIT 1', [requestedId])
+            : { rows: [] });
+
+    const current = currentResult.rows[0] || null;
+    const title = current && payload.title === undefined ? current.title : toText(payload.title, current?.title || 'Untitled story');
+    const slug = payload.slug === undefined
+        ? (current?.slug || toSlug(title, `story-${Date.now()}`))
+        : toSlug(payload.slug || title, current?.slug || `story-${Date.now()}`);
+    const sortOrder = (payload.sortOrder === undefined && payload.sort_order === undefined)
+        ? (current ? toSortOrder(current.sort_order, 0) : await getNextSortOrder('waci_stories'))
+        : toSortOrder(payload.sortOrder ?? payload.sort_order, current?.sort_order || 0);
+    const publishedAt = payload.publishedAt === undefined && payload.published_at === undefined
+        ? (current?.published_at || null)
+        : toNullableText(payload.publishedAt || payload.published_at);
+    const values = {
+        slug,
+        title,
+        summary: payload.summary === undefined && payload.text === undefined ? (current?.summary || '') : toText(payload.summary || payload.text, ''),
+        location: payload.location === undefined ? (current?.location || null) : toNullableText(payload.location),
+        publishedAt,
+        image: payload.image === undefined && payload.image_url === undefined && payload.imageUrl === undefined
+            ? (current?.image_url || null)
+            : toNullableText(payload.image || payload.image_url || payload.imageUrl),
+        link: payload.link === undefined ? (current?.link || null) : toNullableText(payload.link),
+        featured: payload.featured === undefined ? toBoolean(current?.featured, true) : toBoolean(payload.featured, true),
+        authorName: payload.authorName === undefined && payload.author_name === undefined && payload.contact_name === undefined
+            ? (current?.author_name || null)
+            : toNullableText(payload.authorName || payload.author_name || payload.contact_name),
+        authorEmail: payload.authorEmail === undefined && payload.author_email === undefined && payload.contact_email === undefined
+            ? (current?.author_email || null)
+            : toNullableText(payload.authorEmail || payload.author_email || payload.contact_email),
+        externalStoryId: externalStoryId || current?.external_story_id || null,
+        source: payload.source === undefined ? (current?.source || defaultSource) : (toNullableText(payload.source) || defaultSource),
+        viewCount: payload.viewCount === undefined && payload.view_count === undefined && payload.views === undefined
+            ? toCount(current?.view_count, 0)
+            : toCount(payload.viewCount ?? payload.view_count ?? payload.views, 0),
+        likeCount: payload.likeCount === undefined && payload.like_count === undefined && payload.likes === undefined
+            ? toCount(current?.like_count, 0)
+            : toCount(payload.likeCount ?? payload.like_count ?? payload.likes, 0),
+        shareCount: payload.shareCount === undefined && payload.share_count === undefined && payload.shares === undefined
+            ? toCount(current?.share_count, 0)
+            : toCount(payload.shareCount ?? payload.share_count ?? payload.shares, 0),
+        sortOrder,
+    };
+
+    const result = current
+        ? await pool.query(
+            `UPDATE waci_stories
+             SET slug = $1,
+                 title = $2,
+                 summary = $3,
+                 location = $4,
+                 published_at = $5,
+                 image_url = $6,
+                 link = $7,
+                 featured = $8,
+                 author_name = $9,
+                 author_email = $10,
+                 external_story_id = $11,
+                 source = $12,
+                 view_count = $13,
+                 like_count = $14,
+                 share_count = $15,
+                 sort_order = $16,
+                 updated_at = NOW()
+             WHERE id = $17
+             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
+            [
+                values.slug,
+                values.title,
+                values.summary,
+                values.location,
+                values.publishedAt,
+                values.image,
+                values.link,
+                values.featured,
+                values.authorName,
+                values.authorEmail,
+                values.externalStoryId,
+                values.source,
+                values.viewCount,
+                values.likeCount,
+                values.shareCount,
+                values.sortOrder,
+                current.id,
+            ],
+        )
+        : await pool.query(
+            `INSERT INTO waci_stories (
+                slug,
+                title,
+                summary,
+                location,
+                published_at,
+                image_url,
+                link,
+                featured,
+                author_name,
+                author_email,
+                external_story_id,
+                source,
+                view_count,
+                like_count,
+                share_count,
+                sort_order,
+                updated_at
+            )
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
+             RETURNING id::text AS id, slug, title, summary, location, COALESCE(TO_CHAR(published_at, 'YYYY-MM-DD'), '') AS "publishedAt", image_url AS image, link, featured, author_name AS "authorName", author_email AS "authorEmail", external_story_id AS "externalStoryId", source, view_count AS "viewCount", like_count AS "likeCount", share_count AS "shareCount", sort_order AS "sortOrder"`,
+            [
+                values.slug,
+                values.title,
+                values.summary,
+                values.location,
+                values.publishedAt,
+                values.image,
+                values.link,
+                values.featured,
+                values.authorName,
+                values.authorEmail,
+                values.externalStoryId,
+                values.source,
+                values.viewCount,
+                values.likeCount,
+                values.shareCount,
+                values.sortOrder,
+            ],
+        );
+
+    return normalizeStory(result.rows[0], values.sortOrder);
+};
+
+const getAuthorAttributionItems = async () => {
+    const [stories, payoutRequests] = await Promise.all([readStoriesFromTable(), readPayoutRequests()]);
+    return buildAuthorAttributionSummaries(stories, payoutRequests);
+};
+
+exports.submitStory = async (req, res) => {
+    const title = toNullableText(req.body?.title);
+    const authorEmail = toNullableText(req.body?.authorEmail || req.body?.author_email || req.body?.contact_email || req.body?.email);
+
+    if (!title) {
+        return res.status(400).json({ success: false, message: 'Story title is required.' });
+    }
+
+    if (!authorEmail) {
+        return res.status(400).json({ success: false, message: 'Author email is required for attribution.' });
+    }
+
+    try {
+        const item = await upsertStoryRecord(req.body, {
+            defaultSource: toNullableText(req.body?.source) || 'website',
+        });
+        const authorSummary = (await getAuthorAttributionItems()).find((summary) => summary.authorEmail === authorEmail.toLowerCase()) || null;
+
+        return res.status(201).json({ success: true, item, authorSummary });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to submit WACI story.' });
+    }
+};
+
+exports.handleWaciHubWebhook = async (req, res) => {
+    const expectedSecret = toText(process.env.WACI_WACIHUB_WEBHOOK_SECRET, '');
+    const providedSecret = toText(
+        req.get('x-waci-webhook-secret')
+        || req.get('x-wacihub-secret')
+        || (req.get('authorization') || '').replace(/^Bearer\s+/i, '')
+        || req.body?.secret,
+        '',
+    );
+
+    if (expectedSecret && providedSecret !== expectedSecret) {
+        return res.status(401).json({ success: false, message: 'Invalid WACIHub webhook secret.' });
+    }
+
+    try {
+        const storyPayload = req.body?.story || req.body?.data || req.body || {};
+        const mergedPayload = {
+            ...storyPayload,
+            views: req.body?.metrics?.views ?? storyPayload.views,
+            likes: req.body?.metrics?.likes ?? storyPayload.likes,
+            shares: req.body?.metrics?.shares ?? storyPayload.shares,
+            source: storyPayload.source || req.body?.source || 'wacihub',
+        };
+
+        if (!toNullableText(mergedPayload.title) || !toNullableText(mergedPayload.authorEmail || mergedPayload.author_email || mergedPayload.contact_email || mergedPayload.email)) {
+            return res.status(400).json({ success: false, message: 'Webhook payload must include a story title and author email.' });
+        }
+
+        const item = await upsertStoryRecord(mergedPayload, { defaultSource: 'wacihub' });
+        const authorSummary = (await getAuthorAttributionItems()).find((summary) => summary.authorEmail === toText(item.authorEmail, '').toLowerCase()) || null;
+
+        return res.json({ success: true, event: toText(req.body?.type, 'story.updated'), item, authorSummary });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to process WACIHub webhook.' });
+    }
+};
+
+exports.getStoryAttribution = async (req, res) => {
+    try {
+        const authorEmail = toText(req.query?.author_email || req.query?.authorEmail, '').toLowerCase();
+        const items = await getAuthorAttributionItems();
+        const filteredItems = authorEmail
+            ? items.filter((item) => item.authorEmail === authorEmail)
+            : items;
+
+        return res.json({
+            success: true,
+            methods: Object.values(WACI_PAYOUT_METHODS),
+            items: filteredItems,
+            note: 'Weekly and monthly points are estimated at 30% and 80% of total points until timestamp-based rollups are added.',
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to load WACI story attribution.' });
+    }
+};
+
+exports.requestStoryPayout = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+
+        const authorEmail = toText(req.body?.author_email || req.body?.authorEmail || req.body?.email, '').toLowerCase();
+        const authorName = toText(req.body?.author_name || req.body?.authorName || req.body?.name, '');
+        const payoutMethod = getPayoutMethodConfig(req.body?.payout_method || req.body?.payoutMethod || req.body?.method);
+
+        if (!authorEmail) {
+            return res.status(400).json({ success: false, message: 'Author email is required.' });
+        }
+
+        if (!payoutMethod) {
+            return res.status(400).json({ success: false, message: 'A valid payout method is required.' });
+        }
+
+        const authorSummary = (await getAuthorAttributionItems()).find((item) => item.authorEmail === authorEmail);
+
+        if (!authorSummary) {
+            return res.status(404).json({ success: false, message: 'No attributed story earnings were found for this author yet.' });
+        }
+
+        const requestedAmountCents = req.body?.amount_cents !== undefined
+            ? toCount(req.body.amount_cents, 0)
+            : (req.body?.amount !== undefined ? toCurrencyCents(req.body.amount, authorSummary.availableEarningsCents) : authorSummary.availableEarningsCents);
+
+        if (!requestedAmountCents || requestedAmountCents <= 0) {
+            return res.status(400).json({ success: false, message: 'There are no available earnings to request right now.' });
+        }
+
+        if (requestedAmountCents > authorSummary.availableEarningsCents) {
+            return res.status(400).json({ success: false, message: `Requested amount exceeds the currently available balance of ${formatMoneyFromCents(authorSummary.availableEarningsCents)}.` });
+        }
+
+        if (requestedAmountCents < payoutMethod.minAmountCents) {
+            return res.status(400).json({ success: false, message: `${payoutMethod.label} has a minimum payout of ${formatMoneyFromCents(payoutMethod.minAmountCents)}.` });
+        }
+
+        const feeAmountCents = Math.round(requestedAmountCents * payoutMethod.feeRate);
+        const netAmountCents = Math.max(requestedAmountCents - feeAmountCents, 0);
+        const paymentDetails = {
+            stripeAccountId: toNullableText(req.body?.stripe_account_id || req.body?.stripeAccountId),
+            paypalEmail: toNullableText(req.body?.paypal_email || req.body?.paypalEmail),
+            bankAccountName: toNullableText(req.body?.bank_account_name || req.body?.bankAccountName),
+            bankReference: toNullableText(req.body?.bank_reference || req.body?.bankReference),
+            mailingAddress: toNullableText(req.body?.mailing_address || req.body?.mailingAddress),
+        };
+
+        const result = await pool.query(
+            `INSERT INTO waci_story_payout_requests (
+                author_email,
+                author_name,
+                payout_method,
+                status,
+                requested_amount_cents,
+                fee_amount_cents,
+                net_amount_cents,
+                total_points,
+                payment_details,
+                stats_snapshot,
+                admin_notes,
+                updated_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,NOW())
+            RETURNING id::text AS id, author_email, author_name, payout_method, status, requested_amount_cents, fee_amount_cents, net_amount_cents, total_points, payment_details, stats_snapshot, admin_notes, stripe_reference_id, last_event_type, created_at, updated_at`,
+            [
+                authorEmail,
+                authorName || authorSummary.authorName || null,
+                payoutMethod.id,
+                'created',
+                requestedAmountCents,
+                feeAmountCents,
+                netAmountCents,
+                authorSummary.totalPoints,
+                JSON.stringify(paymentDetails),
+                JSON.stringify(authorSummary),
+                toNullableText(req.body?.notes),
+            ],
+        );
+
+        const item = normalizePayoutRequest(result.rows[0]);
+        const emailResult = await sendPayoutStatusEmails(item, 'created');
+
+        return res.status(201).json({
+            success: true,
+            item,
+            authorSummary,
+            admin_email_sent: Boolean(emailResult.admin?.sent),
+            author_email_sent: Boolean(emailResult.author?.sent),
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to create WACI payout request.' });
+    }
+};
+
+exports.getPayoutRequests = async (_req, res) => {
+    try {
+        const items = await readPayoutRequests();
+        return res.json({ success: true, items, methods: Object.values(WACI_PAYOUT_METHODS) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to load WACI payout requests.' });
+    }
+};
+
+exports.updatePayoutRequestStatus = async (req, res) => {
+    try {
+        await ensureWaciResourceTables();
+        const currentResult = await pool.query('SELECT * FROM waci_story_payout_requests WHERE id = $1 LIMIT 1', [req.params.id]);
+
+        if (!currentResult.rows.length) {
+            return res.status(404).json({ success: false, message: 'WACI payout request not found.' });
+        }
+
+        const current = currentResult.rows[0];
+        const nextStatus = toText(req.body?.status, current.status || 'created').toLowerCase();
+        const allowedStatuses = ['created', 'pending', 'processing', 'approved', 'scheduled', 'completed', 'paid', 'failed', 'cancelled'];
+
+        if (!allowedStatuses.includes(nextStatus)) {
+            return res.status(400).json({ success: false, message: 'Invalid payout status.' });
+        }
+
+        const result = await pool.query(
+            `UPDATE waci_story_payout_requests
+             SET status = $1,
+                 admin_notes = $2,
+                 stripe_reference_id = COALESCE($3, stripe_reference_id),
+                 last_event_type = COALESCE($4, last_event_type),
+                 updated_at = NOW()
+             WHERE id = $5
+             RETURNING id::text AS id, author_email, author_name, payout_method, status, requested_amount_cents, fee_amount_cents, net_amount_cents, total_points, payment_details, stats_snapshot, admin_notes, stripe_reference_id, last_event_type, created_at, updated_at`,
+            [
+                nextStatus,
+                req.body?.notes === undefined ? current.admin_notes : toNullableText(req.body.notes),
+                toNullableText(req.body?.stripe_reference_id || req.body?.stripeReferenceId),
+                toNullableText(req.body?.event_type || req.body?.eventType),
+                req.params.id,
+            ],
+        );
+
+        const item = normalizePayoutRequest(result.rows[0]);
+        const shouldNotify = nextStatus !== String(current.status || '').toLowerCase() && ['created', 'completed', 'paid', 'failed'].includes(nextStatus);
+        const emailResult = shouldNotify
+            ? await sendPayoutStatusEmails(item, nextStatus === 'paid' ? 'completed' : nextStatus)
+            : { admin: { sent: false, skipped: true }, author: { sent: false, skipped: true } };
+
+        return res.json({
+            success: true,
+            item,
+            admin_email_sent: Boolean(emailResult.admin?.sent),
+            author_email_sent: Boolean(emailResult.author?.sent),
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Unable to update WACI payout request.' });
+    }
+};
+
+exports.handlePayoutWebhook = async (req, res) => {
+    const stripe = getWaciStripeClient();
+    const signature = req.headers['stripe-signature'];
+    const webhookSecret = process.env.WACI_STRIPE_PAYOUT_WEBHOOK_SECRET || process.env.WACI_STRIPE_WEBHOOK_SECRET;
+
+    if (!stripe || !webhookSecret) {
+        return res.status(503).json({ message: 'WACI payout webhook handling is not configured.' });
+    }
+
+    if (!signature) {
+        return res.status(400).send('Missing Stripe signature header.');
+    }
+
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+    } catch (error) {
+        console.error('WACI payout webhook signature verification failed:', error.message || error);
+        return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+
+    try {
+        const payload = event.data?.object || {};
+        const payoutRequestId = toNullableText(payload.metadata?.payoutRequestId || payload.metadata?.payout_request_id);
+
+        if (payoutRequestId) {
+            const currentResult = await pool.query('SELECT * FROM waci_story_payout_requests WHERE id = $1 LIMIT 1', [payoutRequestId]);
+
+            if (currentResult.rows.length) {
+                const nextStatus = /failed|canceled/.test(event.type)
+                    ? 'failed'
+                    : (/paid|completed|succeeded/.test(event.type) ? 'completed' : 'processing');
+                const updatedResult = await pool.query(
+                    `UPDATE waci_story_payout_requests
+                     SET status = $1,
+                         stripe_reference_id = COALESCE($2, stripe_reference_id),
+                         last_event_type = $3,
+                         updated_at = NOW()
+                     WHERE id = $4
+                     RETURNING id::text AS id, author_email, author_name, payout_method, status, requested_amount_cents, fee_amount_cents, net_amount_cents, total_points, payment_details, stats_snapshot, admin_notes, stripe_reference_id, last_event_type, created_at, updated_at`,
+                    [nextStatus, toNullableText(payload.id), event.type, payoutRequestId],
+                );
+
+                if (['completed', 'failed'].includes(nextStatus)) {
+                    await sendPayoutStatusEmails(updatedResult.rows[0], nextStatus);
+                }
+            }
+        }
+
+        return res.json({ received: true, type: event.type });
+    } catch (error) {
+        console.error('WACI payout webhook processing failed:', error);
+        return res.status(500).json({ message: 'Unable to process WACI payout webhook.' });
     }
 };
 

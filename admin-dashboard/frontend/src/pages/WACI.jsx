@@ -13,6 +13,8 @@ const WACI_SECTION_LINKS = [
     { id: 'focus-areas', label: 'Focus Areas' },
     { id: 'programs', label: 'Programs' },
     { id: 'stories', label: 'Stories' },
+    { id: 'story-attribution', label: 'Story Attribution' },
+    { id: 'payout-requests', label: 'Payout Requests' },
     { id: 'resources', label: 'Resources' },
     { id: 'newsletter-subscribers', label: 'Newsletter Subscribers' },
     { id: 'volunteers', label: 'Volunteers' },
@@ -133,6 +135,13 @@ const formatDateTime = (value) => {
     return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString();
 };
 
+const formatCurrency = (value) => {
+    const amount = Number(value || 0);
+    return Number.isFinite(amount)
+        ? amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+        : '$0.00';
+};
+
 const resolveImageUrl = (value) => {
     const normalized = String(value || '').trim();
 
@@ -168,6 +177,8 @@ function WACI() {
     const [volunteers, setVolunteers] = useState([]);
     const [partnerRequests, setPartnerRequests] = useState([]);
     const [donorRequests, setDonorRequests] = useState([]);
+    const [authorAttribution, setAuthorAttribution] = useState([]);
+    const [payoutRequests, setPayoutRequests] = useState([]);
     const [loadingContent, setLoadingContent] = useState(true);
     const [loadingSupport, setLoadingSupport] = useState(true);
     const [loadingResources, setLoadingResources] = useState(true);
@@ -180,6 +191,7 @@ function WACI() {
     const [uploadingImageTarget, setUploadingImageTarget] = useState('');
     const [savingRecordKey, setSavingRecordKey] = useState('');
     const [deletingRecordKey, setDeletingRecordKey] = useState('');
+    const [updatingPayoutRequestId, setUpdatingPayoutRequestId] = useState('');
     const [activeSectionId, setActiveSectionId] = useState(WACI_SECTION_LINKS[0]?.id || 'overview');
 
     const openSupportCount = useMemo(
@@ -236,7 +248,7 @@ function WACI() {
         setLoadingResources(true);
 
         try {
-            const [overviewRes, programsRes, storiesRes, resourcesRes, subscribersRes, volunteersRes, partnerRes, donorsRes] = await Promise.all([
+            const [overviewRes, programsRes, storiesRes, resourcesRes, subscribersRes, volunteersRes, partnerRes, donorsRes, attributionRes, payoutRes] = await Promise.all([
                 API.get('/api/waci/admin/overview'),
                 API.get('/api/waci/admin/programs'),
                 API.get('/api/waci/admin/stories'),
@@ -245,6 +257,8 @@ function WACI() {
                 API.get('/api/waci/admin/volunteers'),
                 API.get('/api/waci/admin/partners'),
                 API.get('/api/waci/admin/donors'),
+                API.get('/api/waci/admin/story-attribution'),
+                API.get('/api/waci/admin/payout-requests'),
             ]);
 
             setOverview(overviewRes.data?.overview || null);
@@ -255,6 +269,8 @@ function WACI() {
             setVolunteers(Array.isArray(volunteersRes.data?.items) ? volunteersRes.data.items : (Array.isArray(volunteersRes.data) ? volunteersRes.data : []));
             setPartnerRequests(Array.isArray(partnerRes.data?.items) ? partnerRes.data.items : (Array.isArray(partnerRes.data) ? partnerRes.data : []));
             setDonorRequests(Array.isArray(donorsRes.data?.items) ? donorsRes.data.items : (Array.isArray(donorsRes.data) ? donorsRes.data : []));
+            setAuthorAttribution(Array.isArray(attributionRes.data?.items) ? attributionRes.data.items : []);
+            setPayoutRequests(Array.isArray(payoutRes.data?.items) ? payoutRes.data.items : []);
         } catch (err) {
             console.error(err);
             setError(err?.response?.data?.message || err?.response?.data || 'Unable to load WACI admin records.');
@@ -455,6 +471,13 @@ function WACI() {
                 publishedAt: '',
                 image: '',
                 link: '',
+                authorName: '',
+                authorEmail: '',
+                externalStoryId: '',
+                source: 'admin',
+                viewCount: 0,
+                likeCount: 0,
+                shareCount: 0,
                 featured: true,
                 sortOrder: current.length,
             },
@@ -475,6 +498,13 @@ function WACI() {
                 publishedAt: story.publishedAt,
                 image: story.image,
                 link: story.link,
+                authorName: story.authorName,
+                authorEmail: story.authorEmail,
+                externalStoryId: story.externalStoryId,
+                source: story.source,
+                viewCount: Number(story.viewCount || 0),
+                likeCount: Number(story.likeCount || 0),
+                shareCount: Number(story.shareCount || 0),
                 featured: Boolean(story.featured),
                 sortOrder: Number(story.sortOrder || 0),
             };
@@ -613,6 +643,27 @@ function WACI() {
             setError(err?.response?.data?.message || err?.response?.data || 'Unable to delete WACI resource.');
         } finally {
             setDeletingRecordKey('');
+        }
+    };
+
+    const updatePayoutRequestStatus = async (requestId, status) => {
+        setUpdatingPayoutRequestId(requestId);
+        setMessage('');
+        setError('');
+
+        try {
+            const res = await API.patch(`/api/waci/admin/payout-requests/${requestId}`, { status });
+            const updatedItem = res.data?.item;
+
+            setPayoutRequests((current) => current.map((item) => (
+                item.id === requestId ? { ...item, ...(updatedItem || {}), status: updatedItem?.status || status } : item
+            )));
+            setMessage('WACI payout request updated successfully.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || 'Unable to update WACI payout request.');
+        } finally {
+            setUpdatingPayoutRequestId('');
         }
     };
 
@@ -1274,12 +1325,40 @@ function WACI() {
                                                 <input value={story.title || ''} onChange={(event) => updateStoryField(index, 'title', event.target.value)} />
                                             </label>
                                             <label>
+                                                <span>Author name</span>
+                                                <input value={story.authorName || ''} onChange={(event) => updateStoryField(index, 'authorName', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Author email</span>
+                                                <input value={story.authorEmail || ''} onChange={(event) => updateStoryField(index, 'authorEmail', event.target.value)} />
+                                            </label>
+                                            <label>
                                                 <span>Location</span>
                                                 <input value={story.location || ''} onChange={(event) => updateStoryField(index, 'location', event.target.value)} />
                                             </label>
                                             <label>
                                                 <span>Published date</span>
                                                 <input type="date" value={story.publishedAt || ''} onChange={(event) => updateStoryField(index, 'publishedAt', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Source</span>
+                                                <input value={story.source || ''} onChange={(event) => updateStoryField(index, 'source', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>External story ID</span>
+                                                <input value={story.externalStoryId || ''} onChange={(event) => updateStoryField(index, 'externalStoryId', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Views</span>
+                                                <input type="number" min="0" value={story.viewCount ?? 0} onChange={(event) => updateStoryField(index, 'viewCount', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Likes</span>
+                                                <input type="number" min="0" value={story.likeCount ?? 0} onChange={(event) => updateStoryField(index, 'likeCount', event.target.value)} />
+                                            </label>
+                                            <label>
+                                                <span>Shares</span>
+                                                <input type="number" min="0" value={story.shareCount ?? 0} onChange={(event) => updateStoryField(index, 'shareCount', event.target.value)} />
                                             </label>
                                             <label>
                                                 <span>Sort order</span>
@@ -1323,6 +1402,115 @@ function WACI() {
                         </div>
                     ) : (
                         <p className="muted">No WACI stories yet. Click “Add Story” to create one.</p>
+                    )}
+                </section>
+
+                <section id="story-attribution" className="record-card">
+                    <div className="record-header">
+                        <div>
+                            <h3>Story Attribution</h3>
+                            <p className="muted">Author earnings are grouped by email and calculated from views, likes, shares, published stories, and featured stories.</p>
+                        </div>
+                    </div>
+
+                    {loadingResources ? (
+                        <p className="muted">Loading attribution data…</p>
+                    ) : authorAttribution.length ? (
+                        <div className="table-card">
+                            <table className="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Author</th>
+                                        <th>Stories</th>
+                                        <th>Views</th>
+                                        <th>Likes</th>
+                                        <th>Shares</th>
+                                        <th>Points</th>
+                                        <th>Tier</th>
+                                        <th>Available</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {authorAttribution.map((author) => (
+                                        <tr key={author.authorEmail}>
+                                            <td>
+                                                <strong>{author.authorName || 'Unnamed author'}</strong>
+                                                <div className="muted">{author.authorEmail}</div>
+                                            </td>
+                                            <td>{author.totalStories}</td>
+                                            <td>{Number(author.totalViews || 0).toLocaleString()}</td>
+                                            <td>{Number(author.totalLikes || 0).toLocaleString()}</td>
+                                            <td>{Number(author.totalShares || 0).toLocaleString()}</td>
+                                            <td>
+                                                {Number(author.totalPoints || 0).toLocaleString()}
+                                                <div className="muted">weekly est. {Number(author.weeklyPointsEstimate || 0).toLocaleString()}</div>
+                                            </td>
+                                            <td>{author.tier || 'Bronze'}</td>
+                                            <td>{formatCurrency(author.availableEarningsUsd || 0)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <p className="muted">No author attribution records yet. Story author emails and engagement stats will appear here once stories are submitted or synced.</p>
+                    )}
+                </section>
+
+                <section id="payout-requests" className="record-card">
+                    <div className="record-header">
+                        <div>
+                            <h3>Payout Requests</h3>
+                            <p className="muted">Track payout requests from authors and update the status when a payout is completed or fails.</p>
+                        </div>
+                    </div>
+
+                    {loadingResources ? (
+                        <p className="muted">Loading payout requests…</p>
+                    ) : payoutRequests.length ? (
+                        <div className="table-card">
+                            <table className="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Author</th>
+                                        <th>Method</th>
+                                        <th>Requested</th>
+                                        <th>Fee</th>
+                                        <th>Net</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {payoutRequests.map((request) => (
+                                        <tr key={request.id}>
+                                            <td>
+                                                <strong>{request.authorName || 'Unnamed author'}</strong>
+                                                <div className="muted">{request.authorEmail}</div>
+                                            </td>
+                                            <td>{request.payoutMethodLabel || request.payoutMethod}</td>
+                                            <td>{formatCurrency(request.requestedAmountUsd || 0)}</td>
+                                            <td>{formatCurrency(request.feeAmountUsd || 0)}</td>
+                                            <td>{formatCurrency(request.netAmountUsd || 0)}</td>
+                                            <td>
+                                                <select
+                                                    value={request.status || 'created'}
+                                                    onChange={(event) => updatePayoutRequestStatus(request.id, event.target.value)}
+                                                    disabled={updatingPayoutRequestId === request.id}
+                                                >
+                                                    {['created', 'processing', 'completed', 'failed', 'cancelled'].map((status) => (
+                                                        <option key={status} value={status}>{status}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td>{formatDateTime(request.createdAt || request.created_at)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <p className="muted">No payout requests yet.</p>
                     )}
                 </section>
 

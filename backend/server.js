@@ -17,6 +17,7 @@ const adrianStoreRoutes = require('./routes/adrianStore');
 const storefrontRoutes = require('./routes/storefront');
 const waciRoutes = require('./routes/waci');
 const storefrontController = require('./controllers/storefrontController');
+const waciController = require('./controllers/waciController');
 
 const PORT = Number(process.env.PORT) || 5000;
 const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -70,6 +71,7 @@ app.use(
     })
 );
 app.post('/api/storefront/webhook', express.raw({ type: 'application/json' }), storefrontController.handleStripeWebhook);
+app.post('/api/waci/payouts/webhook', express.raw({ type: 'application/json' }), waciController.handlePayoutWebhook);
 app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
