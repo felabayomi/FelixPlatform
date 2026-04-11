@@ -4,6 +4,7 @@ let ensureProductCategoriesTablePromise = null;
 let productsCache = {
     data: [],
     expiresAt: 0,
+    initialized: false,
 };
 
 const PRODUCTS_CACHE_TTL_MS = Number(process.env.PRODUCTS_CACHE_TTL_MS || 1000 * 60 * 10);
@@ -144,13 +145,18 @@ const syncProductCategories = async (client, productId, categoryIds) => {
 };
 
 const hasProductsCache = () =>
-    Array.isArray(productsCache.data) &&
-    productsCache.data.length > 0;
+    Boolean(productsCache.initialized) &&
+    Array.isArray(productsCache.data);
+
+const hasFreshProductsCache = () =>
+    hasProductsCache() &&
+    productsCache.expiresAt > Date.now();
 
 const updateProductsCache = (products) => {
     productsCache = {
         data: Array.isArray(products) ? products : [],
         expiresAt: Date.now() + PRODUCTS_CACHE_TTL_MS,
+        initialized: true,
     };
 
     return productsCache.data;
@@ -160,6 +166,7 @@ const invalidateProductsCache = () => {
     productsCache = {
         data: [],
         expiresAt: 0,
+        initialized: false,
     };
 };
 
@@ -170,10 +177,16 @@ const sendProductsResponse = (res, products, source) => {
 
 exports.getProducts = async (req, res) => {
     try {
-        await ensureProductCategoriesTable();
-
         const appName = normalizeOptionalText(req.query?.app_name);
         const storefrontKey = normalizeOptionalText(req.query?.storefront_key);
+
+        // Admin products page requests the unfiltered catalog; serve warm cache instantly.
+        if (!appName && !storefrontKey && hasFreshProductsCache()) {
+            return sendProductsResponse(res, productsCache.data, 'cache');
+        }
+
+        await ensureProductCategoriesTable();
+
         const filters = [];
         const values = [];
 
