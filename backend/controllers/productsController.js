@@ -175,6 +175,30 @@ const sendProductsResponse = (res, products, source) => {
     return res.json(products);
 };
 
+const toAdminProductView = (product) => ({
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    category_id: product.category_id,
+    category_ids: Array.isArray(product.category_ids) ? product.category_ids : [],
+    category_names: Array.isArray(product.category_names) ? product.category_names : [],
+    type: product.type,
+    price_type: product.price_type,
+    unit: product.unit,
+    subscription_interval: product.subscription_interval,
+    action_label: product.action_label,
+    image_url: product.image_url,
+    created_at: product.created_at,
+    updated_at: product.updated_at,
+    app_name: product.app_name,
+    storefront_key: product.storefront_key,
+    active: product.active,
+    featured: product.featured,
+    inventory_count: product.inventory_count ?? product.stock ?? null,
+    stock: product.stock ?? product.inventory_count ?? null,
+});
+
 exports.getProducts = async (req, res) => {
     try {
         const appName = normalizeOptionalText(req.query?.app_name);
@@ -204,33 +228,9 @@ exports.getProducts = async (req, res) => {
 
         const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
-        const selectColumns = adminView
-            ? `
-                p.id,
-                p.name,
-                p.description,
-                p.price,
-                p.category_id,
-                p.type,
-                p.price_type,
-                p.unit,
-                p.subscription_interval,
-                p.action_label,
-                p.image_url,
-                p.created_at,
-                p.updated_at,
-                p.app_name,
-                p.storefront_key,
-                p.active,
-                p.featured,
-                p.inventory_count,
-                p.stock
-            `
-            : 'p.*';
-
         const result = await pool.query(`
             SELECT
-                ${selectColumns},
+                p.*,
                 COALESCE(
                     category_map.category_ids,
                     CASE
@@ -266,17 +266,25 @@ exports.getProducts = async (req, res) => {
             ORDER BY p.created_at DESC, p.name ASC
         `, values);
 
-        // Only cache full unfiltered catalog — filtered or admin-view queries must not overwrite it.
+        // Only cache full unfiltered catalog - filtered or admin-view queries must not overwrite it.
         const products = (!appName && !storefrontKey && !adminView)
             ? updateProductsCache(result.rows)
             : result.rows;
-        return sendProductsResponse(res, products, 'database');
+
+        const responseProducts = adminView
+            ? products.map(toAdminProductView)
+            : products;
+
+        return sendProductsResponse(res, responseProducts, 'database');
     } catch (err) {
         console.error('Product catalog query failed:', err);
 
         if (hasProductsCache()) {
             console.warn('Serving last known real product catalog after database failure.');
-            return sendProductsResponse(res, productsCache.data, 'stale-cache');
+            const fallbackProducts = adminView
+                ? productsCache.data.map(toAdminProductView)
+                : productsCache.data;
+            return sendProductsResponse(res, fallbackProducts, 'stale-cache');
         }
 
         res.set('X-Catalog-Source', 'unavailable');
