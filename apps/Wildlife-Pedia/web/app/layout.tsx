@@ -8,10 +8,37 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
     const content = await getWildlifePediaSiteContent();
+    const title = "Wildlife-Pedia | Wildlife intelligence for everyday people";
+    const description = content.heroText;
 
     return {
-        title: "Wildlife-Pedia | Learn wildlife. Prevent conflict. Take action.",
-        description: content.heroText,
+        metadataBase: new URL("https://wildlife-pedia.com"),
+        title,
+        description,
+        applicationName: "Wildlife-Pedia",
+        keywords: [
+            "Wildlife-Pedia",
+            "wildlife education",
+            "African wildlife",
+            "human wildlife conflict",
+            "species directory",
+            "conservation projects",
+        ],
+        alternates: {
+            canonical: "/",
+        },
+        openGraph: {
+            title,
+            description,
+            url: "https://wildlife-pedia.com",
+            siteName: "Wildlife-Pedia",
+            type: "website",
+        },
+        twitter: {
+            card: "summary_large_image",
+            title,
+            description,
+        },
     };
 }
 
