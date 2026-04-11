@@ -74,6 +74,12 @@ function WildlifePedia() {
                     <p className="muted">Monitor species content, habitat knowledge, conservation projects, supporter leads, and public sighting reports from the shared Felix admin dashboard.</p>
                 </div>
                 <div className="toolbar-actions">
+                    <a href="https://wildlife-pedia.com" target="_blank" rel="noreferrer" className="secondary-button refresh-button">
+                        Open live domain
+                    </a>
+                    <a href="https://wildlife-pedia-web.vercel.app" target="_blank" rel="noreferrer" className="secondary-button refresh-button">
+                        Open preview
+                    </a>
                     <button type="button" className="secondary-button refresh-button" onClick={loadData} disabled={loading}>
                         {loading ? 'Refreshing…' : 'Refresh Wildlife-Pedia'}
                     </button>
@@ -81,6 +87,28 @@ function WildlifePedia() {
             </div>
 
             {error ? <p className="message-error">{error}</p> : null}
+
+            <div className="list-card">
+                <div className="record-header">
+                    <div>
+                        <h3>Launch status</h3>
+                        <p className="muted">Official public domain and preview access for the Wildlife-Pedia launch.</p>
+                    </div>
+                    <span className="table-chip">Live</span>
+                </div>
+                <div className="record-list">
+                    <div className="record-card compact-card">
+                        <strong>Public domain</strong>
+                        <a href="https://wildlife-pedia.com" target="_blank" rel="noreferrer">wildlife-pedia.com</a>
+                        <span className="muted">Primary public-facing launch URL</span>
+                    </div>
+                    <div className="record-card compact-card">
+                        <strong>Preview backup</strong>
+                        <a href="https://wildlife-pedia-web.vercel.app" target="_blank" rel="noreferrer">wildlife-pedia-web.vercel.app</a>
+                        <span className="muted">Fallback share link while DNS finishes propagating</span>
+                    </div>
+                </div>
+            </div>
 
             <div className="stats-grid">
                 <div className="stat-card"><strong>Species</strong><span>{overview.species || 0} profiles</span></div>

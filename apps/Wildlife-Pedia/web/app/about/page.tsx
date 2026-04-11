@@ -17,6 +17,12 @@ export default function AboutPage() {
             text: "Every page is designed to connect learning with the A & F Wildlife Foundation’s real conservation work.",
         },
     ];
+    const audiences = [
+        "Students and educators",
+        "Families and travelers",
+        "Communities near wildlife corridors",
+        "Conservation supporters and partners",
+    ];
 
     return (
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -38,6 +44,20 @@ export default function AboutPage() {
                             <p className="mt-2">{pillar.text}</p>
                         </div>
                     ))}
+                </div>
+
+                <div className="mt-8 rounded-[1.4rem] border border-white/10 bg-black/10 p-5">
+                    <p className="soft-label">Who it serves</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {audiences.map((item) => (
+                            <span key={item} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200">
+                                {item}
+                            </span>
+                        ))}
+                    </div>
+                    <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
+                        At launch, Wildlife-Pedia is already structured to support discovery, safer coexistence, public education, and real conservation participation — all from one experience.
+                    </p>
                 </div>
             </div>
         </div>

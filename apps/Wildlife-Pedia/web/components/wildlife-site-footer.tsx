@@ -35,8 +35,22 @@ export default async function WildlifeSiteFooter() {
                 </div>
 
                 <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-200">Platform Note</h3>
-                    <p className="mt-3 text-sm text-slate-300">{content.footerSubtext}</p>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-200">Launch & Contact</h3>
+                    <div className="mt-3 space-y-2 text-sm text-slate-300">
+                        <p>{content.footerSubtext}</p>
+                        <p>
+                            Public domain:{" "}
+                            <a href="https://wildlife-pedia.com" className="text-emerald-200 hover:text-white" target="_blank" rel="noreferrer">
+                                wildlife-pedia.com
+                            </a>
+                        </p>
+                        <p>
+                            Email:{" "}
+                            <a href={`mailto:${content.supportEmail}`} className="text-emerald-200 hover:text-white">
+                                {content.supportEmail}
+                            </a>
+                        </p>
+                    </div>
                 </div>
             </div>
 

@@ -111,6 +111,13 @@ export default function WildlifeHomePage({
                                     {content.heroSecondaryLabel}
                                 </Link>
                             </div>
+                            <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-white/75">
+                                {["Education-first", "Conflict-aware", "Community-powered", "Action-backed"].map((label) => (
+                                    <span key={label} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                                        {label}
+                                    </span>
+                                ))}
+                            </div>
                             <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
                                 {[
                                     { label: "Species guides", value: String(species.length || 5) },
@@ -142,6 +149,43 @@ export default function WildlifeHomePage({
                                     <p className="mt-2 text-sm text-white/80">Report sightings, support field projects, volunteer, and help turn awareness into safer action.</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="px-4 pb-4 md:px-6 lg:px-8">
+                    <div className="mx-auto max-w-7xl rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_10px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                            <div>
+                                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300/80">Quick Start</p>
+                                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white md:text-3xl">Three ways to use Wildlife-Pedia today.</h2>
+                                <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">Whether you are learning, reporting, or looking to contribute, the platform is designed to help you move quickly from curiosity to useful action.</p>
+                            </div>
+                        </div>
+                        <div className="mt-6 grid gap-4 md:grid-cols-3">
+                            {[
+                                {
+                                    title: "Explore a species",
+                                    text: "Start with practical, readable profiles that explain behavior, habitat, and coexistence tips.",
+                                    href: "/species",
+                                },
+                                {
+                                    title: "Report a sighting",
+                                    text: "Share a recent encounter calmly and clearly so the community knowledge layer keeps improving.",
+                                    href: "/report",
+                                },
+                                {
+                                    title: "Support the mission",
+                                    text: "Volunteer, donate, or sponsor conservation awareness through the A & F Wildlife Foundation.",
+                                    href: "/get-involved",
+                                },
+                            ].map((item) => (
+                                <Link key={item.title} href={item.href} className="rounded-2xl border border-white/10 bg-black/10 p-5 transition hover:border-emerald-300/40 hover:bg-black/20">
+                                    <p className="text-lg font-semibold text-white">{item.title}</p>
+                                    <p className="mt-2 text-sm leading-7 text-white/70">{item.text}</p>
+                                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">Open <ArrowRight className="h-4 w-4" /></span>
+                                </Link>
+                            ))}
                         </div>
                     </div>
                 </section>
