@@ -12,19 +12,27 @@ export default async function ContactPage() {
                 <p className="soft-label">Contact</p>
                 <h1 className="mt-3 text-4xl font-semibold text-white">Talk to the Wildlife-Pedia team.</h1>
                 <p className="mt-4 text-slate-300">
-                    Reach out for partnerships, educational collaboration, volunteer interest, species adoption support, or public awareness initiatives.
+                    Reach out for school collaborations, conservation partnerships, volunteer opportunities, species-support inquiries, or public awareness campaigns.
                 </p>
 
-                <div className="mt-6 rounded-[1.4rem] border border-white/10 bg-black/10 p-4 text-sm text-slate-300">
-                    <p className="font-semibold text-white">Support email</p>
-                    <p className="mt-1">{content.supportEmail}</p>
+                <div className="mt-6 space-y-3 rounded-[1.4rem] border border-white/10 bg-black/10 p-4 text-sm text-slate-300">
+                    <div>
+                        <p className="font-semibold text-white">Support email</p>
+                        <p className="mt-1">{content.supportEmail}</p>
+                    </div>
+                    <ul className="space-y-2 text-slate-300">
+                        <li>• Education and school outreach</li>
+                        <li>• Campaigns and community awareness</li>
+                        <li>• Volunteering, giving, and species adoption</li>
+                        <li>• Media, storytelling, and conservation visibility</li>
+                    </ul>
                 </div>
             </div>
 
             <div className="section-shell p-6 sm:p-8">
-                <h2 className="text-2xl font-semibold text-white">Quick actions</h2>
+                <h2 className="text-2xl font-semibold text-white">Start with the fastest path</h2>
                 <div className="mt-4 space-y-3 text-sm text-slate-300">
-                    <p>Use Wildlife-Pedia to report sightings, get involved, and support wildlife protection through the A & F Wildlife Foundation.</p>
+                    <p>If your goal is immediate action, Wildlife-Pedia already gives you direct routes to report a sighting, support a species, or join the wider conservation network.</p>
                 </div>
                 <div className="mt-6 flex flex-wrap gap-3">
                     <Link href="/report" className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Report a sighting</Link>

@@ -60,6 +60,12 @@ export default function WildlifeActionForm() {
                 </button>
             </div>
 
+            <p className="mt-4 text-sm leading-6 text-slate-300">
+                {mode === "volunteer"
+                    ? "Best for educators, storytellers, campaign helpers, and community supporters who want to contribute time or skills."
+                    : "Best for donors, species adopters, and sponsors who want to back awareness, coexistence, or wildlife protection work."}
+            </p>
+
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                 <label className="block">
                     <span className="mb-2 block text-sm font-medium text-white/80">Full name</span>

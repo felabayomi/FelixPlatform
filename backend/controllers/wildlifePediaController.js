@@ -10,10 +10,10 @@ let ensureSupportRequestsTablePromise = null;
 let ensureWildlifePediaTablesPromise = null;
 
 const DEFAULT_SITE_CONTENT = {
-    heroEyebrow: 'Learn wildlife. Prevent conflict. Take action.',
-    heroTitle: 'Wildlife-Pedia makes conservation knowledge practical.',
+    heroEyebrow: 'Nature intelligence for everyday people',
+    heroTitle: 'Wildlife-Pedia turns curiosity into coexistence.',
     heroText:
-        'Explore species, understand habitats, learn safe coexistence, and support real conservation action through the A & F Wildlife Foundation.',
+        'Explore species profiles, habitat guides, warning signs, and action pathways that help people understand wildlife and protect it with the A & F Wildlife Foundation.',
     heroPrimaryLabel: 'Explore Species',
     heroPrimaryLink: '/species',
     heroSecondaryLabel: 'Report a Sighting',
@@ -21,9 +21,9 @@ const DEFAULT_SITE_CONTENT = {
     supportEmail: 'hello@afwildlifefoundation.org',
     footerTitle: 'Wildlife-Pedia',
     footerText:
-        'An educational and action-oriented platform helping people understand wildlife, reduce conflict, and support real protection work.',
+        'A modern public knowledge hub for species discovery, safer human–wildlife coexistence, and conservation participation.',
     footerSubtext:
-        'Powered by the Felix Platform shared backend, admin, data, and support stack.',
+        'Built on the Felix Platform and connected to A & F Wildlife Foundation action.',
 };
 
 const DEFAULT_SPECIES = [

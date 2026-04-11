@@ -113,10 +113,10 @@ export default function WildlifeHomePage({
                             </div>
                             <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
                                 {[
-                                    { label: "Species profiles", value: String(species.length || 5) },
-                                    { label: "Habitat zones", value: String(habitats.length || 3) },
-                                    { label: "Action pathways", value: String(projects.length || 3) },
-                                    { label: "Shared mission", value: "1" },
+                                    { label: "Species guides", value: String(species.length || 5) },
+                                    { label: "Ecosystem explainers", value: String(habitats.length || 3) },
+                                    { label: "Action routes", value: String(projects.length || 3) },
+                                    { label: "Reporting tool", value: "Live" },
                                 ].map((item) => (
                                     <div key={item.label} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-[0_10px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl">
                                         <p className="text-2xl font-semibold text-emerald-300 md:text-3xl">{item.value}</p>
@@ -134,12 +134,12 @@ export default function WildlifeHomePage({
                             />
                             <div className="mt-4 grid gap-3 sm:grid-cols-2">
                                 <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
-                                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/80">Discover</p>
-                                    <p className="mt-2 text-sm text-white/80">Species profiles, habitat context, and simple explanations that are easy to use.</p>
+                                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/80">Understand</p>
+                                    <p className="mt-2 text-sm text-white/80">Learn the species, the habitat, and the real warning signs that matter in everyday encounters.</p>
                                 </div>
                                 <div className="rounded-2xl border border-amber-200/20 bg-amber-200/10 p-4">
-                                    <p className="text-xs uppercase tracking-[0.2em] text-amber-100/80">Act</p>
-                                    <p className="mt-2 text-sm text-white/80">Report sightings, support conservation projects, volunteer, and help prevent conflict.</p>
+                                    <p className="text-xs uppercase tracking-[0.2em] text-amber-100/80">Respond</p>
+                                    <p className="mt-2 text-sm text-white/80">Report sightings, support field projects, volunteer, and help turn awareness into safer action.</p>
                                 </div>
                             </div>
                         </div>
@@ -149,15 +149,16 @@ export default function WildlifeHomePage({
                 <section id="about" className="px-4 py-14 md:px-6 lg:px-8">
                     <div className="mx-auto max-w-7xl">
                         <div className="mx-auto max-w-3xl text-center">
-                            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300/80">About Wildlife-Pedia</p>
-                            <h2 className="text-3xl font-semibold tracking-tight text-white md:text-5xl">Where wildlife learning meets real-world action.</h2>
-                            <p className="mt-5 text-base leading-7 text-white/70 md:text-lg">Wildlife-Pedia is designed to make wildlife knowledge accessible, engaging, and relevant to daily life — while connecting that knowledge to safer coexistence and meaningful support for the A & F Wildlife Foundation.</p>
+                            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300/80">Why Wildlife-Pedia</p>
+                            <h2 className="text-3xl font-semibold tracking-tight text-white md:text-5xl">Wildlife intelligence, designed for real life.</h2>
+                            <p className="mt-5 text-base leading-7 text-white/70 md:text-lg">Think of Wildlife-Pedia as part encyclopedia, part field guide, part citizen-awareness tool, and part conservation action hub — built to help people understand wildlife and respond more responsibly alongside the A & F Wildlife Foundation.</p>
                         </div>
-                        <div className="mt-10 grid gap-6 lg:grid-cols-3">
+                        <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
                             {[
-                                { icon: BookOpen, title: "Accessible knowledge", text: "Clear profiles, vivid visuals, and practical explanations for species and ecosystems." },
-                                { icon: AlertTriangle, title: "Conflict prevention", text: "Safety-focused guidance for real encounters, shared landscapes, and human–wildlife interfaces." },
-                                { icon: HeartHandshake, title: "Action pathways", text: "Volunteer, donate, adopt a species, and support conservation work beyond awareness." },
+                                { icon: BookOpen, title: "Learn the species", text: "Clear profiles, habitat context, and plain-language explanations that make wildlife easier to understand." },
+                                { icon: MapPinned, title: "See the landscape", text: "Understand where animals move, where pressure is rising, and why shared ecosystems need smarter planning." },
+                                { icon: AlertTriangle, title: "Respond safely", text: "Use field-ready guidance for real encounters, conflict prevention, and community awareness." },
+                                { icon: HeartHandshake, title: "Back the work", text: "Volunteer, donate, adopt a species, or support public education campaigns that move beyond awareness." },
                             ].map((item) => (
                                 <div key={item.title} className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_10px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl">
                                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-300/10 text-emerald-300"><item.icon className="h-5 w-5" /></div>
@@ -258,8 +259,8 @@ export default function WildlifeHomePage({
                 <section className="px-4 py-14 md:px-6 lg:px-8">
                     <div className="mx-auto max-w-7xl grid gap-6 lg:grid-cols-[1fr_0.95fr]">
                         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_10px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl">
-                            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300/80">Insights & Community</p>
-                            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">Stories, alerts, and practical field insights.</h2>
+                            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300/80">Field Notes & Community Signals</p>
+                            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">Stories, sightings, and practical briefings from the field.</h2>
                             <div className="mt-6 space-y-4">
                                 {featuredPosts.map((post) => (
                                     <div key={post.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
@@ -275,9 +276,9 @@ export default function WildlifeHomePage({
                             <Link href="/blog" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">Visit the blog <ArrowRight className="h-4 w-4" /></Link>
                         </div>
                         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_10px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl" id="join">
-                            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300/80">Get Connected</p>
+                            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300/80">Join the Network</p>
                             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">Stay informed and help protect wildlife.</h2>
-                            <p className="mt-4 text-sm leading-7 text-white/70">Join for species updates, safety resources, volunteer calls, and new conservation campaigns.</p>
+                            <p className="mt-4 text-sm leading-7 text-white/70">Get species explainers, safety resources, volunteer calls, and fresh conservation campaigns straight to your inbox.</p>
 
                             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                                 <label className="block">
