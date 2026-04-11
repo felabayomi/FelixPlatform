@@ -182,8 +182,8 @@ exports.getProducts = async (req, res) => {
         const view = normalizeOptionalText(req.query?.view);
         const adminView = view === 'admin';
 
-        // Admin products page requests the unfiltered catalog; serve warm cache instantly.
-        if (!appName && !storefrontKey && hasFreshProductsCache()) {
+        // Serve warm cache only for unfiltered storefront requests (never for admin view — it uses a lean projection).
+        if (!appName && !storefrontKey && !adminView && hasFreshProductsCache()) {
             return sendProductsResponse(res, productsCache.data, 'cache');
         }
 
@@ -266,8 +266,8 @@ exports.getProducts = async (req, res) => {
             ORDER BY p.created_at DESC, p.name ASC
         `, values);
 
-        // Only cache the unfiltered full catalog — filtered queries must not overwrite it.
-        const products = (!appName && !storefrontKey)
+        // Only cache full unfiltered catalog — filtered or admin-view queries must not overwrite it.
+        const products = (!appName && !storefrontKey && !adminView)
             ? updateProductsCache(result.rows)
             : result.rows;
         return sendProductsResponse(res, products, 'database');
