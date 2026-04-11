@@ -41,6 +41,26 @@ const formatDate = (value) => {
     }
 };
 
+const resolveImageUrl = (value) => {
+    const rawValue = String(value || '').trim();
+
+    if (!rawValue) {
+        return '';
+    }
+
+    if (/^https?:\/\//i.test(rawValue) || rawValue.startsWith('data:')) {
+        return rawValue;
+    }
+
+    const baseUrl = String(API?.defaults?.baseURL || '').replace(/\/$/, '');
+
+    if (rawValue.startsWith('/')) {
+        return baseUrl ? `${baseUrl}${rawValue}` : rawValue;
+    }
+
+    return rawValue;
+};
+
 const createBlankSection = () => ({
     id: createDraftId('section'),
     eyebrow: '',
@@ -127,6 +147,7 @@ function WildlifePedia() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [savingRecordKey, setSavingRecordKey] = useState('');
+    const [uploadingImageTarget, setUploadingImageTarget] = useState('');
     const [deletingRecordKey, setDeletingRecordKey] = useState('');
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
@@ -307,6 +328,98 @@ function WildlifePedia() {
         setter((current) => current.map((item, currentIndex) => (
             currentIndex === index ? { ...item, [field]: value } : item
         )));
+    };
+
+    const uploadImageToCloudinary = async ({ file, target, onUploaded, successMessage, errorMessage }) => {
+        if (!file) {
+            return;
+        }
+
+        setUploadingImageTarget(target);
+        setMessage('');
+        setError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const res = await API.post('/products/upload-image', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const uploadedUrl = res.data?.imageUrl || res.data?.secureUrl || res.data?.url || '';
+
+            if (!uploadedUrl) {
+                throw new Error('Cloudinary upload did not return an image URL.');
+            }
+
+            onUploaded(uploadedUrl);
+            setMessage(successMessage || 'Image uploaded to Cloudinary successfully. Save to publish the change.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || err.message || errorMessage || 'Unable to upload image to Cloudinary.');
+        } finally {
+            setUploadingImageTarget('');
+        }
+    };
+
+    const handlePageImageUpload = (pageIndex, file) => uploadImageToCloudinary({
+        file,
+        target: `page:${pageIndex}`,
+        onUploaded: (uploadedUrl) => updatePageField(pageIndex, 'image', uploadedUrl),
+        successMessage: 'Page image uploaded to Cloudinary successfully. Save page content to publish the change.',
+        errorMessage: 'Unable to upload page image to Cloudinary.',
+    });
+
+    const handleSectionImageUpload = (pageIndex, sectionIndex, file) => uploadImageToCloudinary({
+        file,
+        target: `section:${pageIndex}:${sectionIndex}`,
+        onUploaded: (uploadedUrl) => updatePageSectionField(pageIndex, sectionIndex, 'image', uploadedUrl),
+        successMessage: 'Section image uploaded to Cloudinary successfully. Save page content to publish the change.',
+        errorMessage: 'Unable to upload section image to Cloudinary.',
+    });
+
+    const handleRecordImageUpload = (type, index, file, setter, label) => uploadImageToCloudinary({
+        file,
+        target: `${type}:${index}`,
+        onUploaded: (uploadedUrl) => updateListItem(setter, index, 'image', uploadedUrl),
+        successMessage: `${label} image uploaded to Cloudinary successfully. Save to publish the change.`,
+        errorMessage: `Unable to upload ${label.toLowerCase()} image to Cloudinary.`,
+    });
+
+    const renderImageField = ({ label, value, onChange, onUpload, uploadTargetKey, helperText, alt }) => {
+        const previewUrl = resolveImageUrl(value);
+
+        return (
+            <div className="image-upload-block">
+                <label>
+                    <span>{label}</span>
+                    <input value={value || ''} onChange={onChange} placeholder="https://res.cloudinary.com/..." />
+                </label>
+                <div className="product-actions">
+                    <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                        {uploadingImageTarget === uploadTargetKey ? 'Uploading…' : 'Upload to Cloudinary'}
+                        <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(event) => {
+                                onUpload(event.target.files?.[0]);
+                                event.target.value = '';
+                            }}
+                        />
+                    </label>
+                    <span className="muted">{helperText || 'Upload an image or paste a direct image URL.'}</span>
+                </div>
+                {previewUrl ? (
+                    <div className="image-preview-wrapper">
+                        <img className="product-image-preview" src={previewUrl} alt={alt || label} />
+                    </div>
+                ) : null}
+            </div>
+        );
     };
 
     const saveSpecies = async (item, index) => {
@@ -557,7 +670,15 @@ function WildlifePedia() {
                             <label><span>Hero title</span><input value={page.heroTitle || ''} onChange={(event) => updatePageField(pageIndex, 'heroTitle', event.target.value)} /></label>
                             <label><span>Hero text</span><textarea rows="3" value={page.heroText || ''} onChange={(event) => updatePageField(pageIndex, 'heroText', event.target.value)} /></label>
                             <label><span>Intro</span><textarea rows="3" value={page.intro || ''} onChange={(event) => updatePageField(pageIndex, 'intro', event.target.value)} /></label>
-                            <label><span>Hero image URL</span><input value={page.image || ''} onChange={(event) => updatePageField(pageIndex, 'image', event.target.value)} /></label>
+                            {renderImageField({
+                                label: 'Hero image URL',
+                                value: page.image,
+                                onChange: (event) => updatePageField(pageIndex, 'image', event.target.value),
+                                onUpload: (file) => handlePageImageUpload(pageIndex, file),
+                                uploadTargetKey: `page:${pageIndex}`,
+                                helperText: 'Upload a page hero image to Cloudinary or paste a direct image URL.',
+                                alt: `${page.title || `Page ${pageIndex + 1}`} preview`,
+                            })}
                             <label>
                                 <span>Show in navigation</span>
                                 <select value={page.showInNav ? 'yes' : 'no'} onChange={(event) => updatePageField(pageIndex, 'showInNav', event.target.value === 'yes')}>
@@ -583,7 +704,15 @@ function WildlifePedia() {
                                     <label><span>Items (one per line)</span><textarea rows="4" value={Array.isArray(section.items) ? section.items.join('\n') : ''} onChange={(event) => updatePageSectionField(pageIndex, sectionIndex, 'items', event.target.value.split('\n').map((item) => item.trim()).filter(Boolean))} /></label>
                                     <label><span>CTA label</span><input value={section.ctaLabel || ''} onChange={(event) => updatePageSectionField(pageIndex, sectionIndex, 'ctaLabel', event.target.value)} /></label>
                                     <label><span>CTA link</span><input value={section.ctaLink || ''} onChange={(event) => updatePageSectionField(pageIndex, sectionIndex, 'ctaLink', event.target.value)} /></label>
-                                    <label><span>Image URL</span><input value={section.image || ''} onChange={(event) => updatePageSectionField(pageIndex, sectionIndex, 'image', event.target.value)} /></label>
+                                    {renderImageField({
+                                        label: 'Image URL',
+                                        value: section.image,
+                                        onChange: (event) => updatePageSectionField(pageIndex, sectionIndex, 'image', event.target.value),
+                                        onUpload: (file) => handleSectionImageUpload(pageIndex, sectionIndex, file),
+                                        uploadTargetKey: `section:${pageIndex}:${sectionIndex}`,
+                                        helperText: 'Upload a section image to Cloudinary or paste a direct image URL.',
+                                        alt: `${section.title || `Section ${sectionIndex + 1}`} preview`,
+                                    })}
                                 </div>
                             </div>
                         ))}
@@ -613,7 +742,15 @@ function WildlifePedia() {
                                     <label><span>Diet</span><input value={item.diet || ''} onChange={(event) => updateListItem(setSpecies, index, 'diet', event.target.value)} /></label>
                                     <label><span>Conservation status</span><input value={item.conservationStatus || ''} onChange={(event) => updateListItem(setSpecies, index, 'conservationStatus', event.target.value)} /></label>
                                     <label><span>Risk level</span><input value={item.riskLevel || ''} onChange={(event) => updateListItem(setSpecies, index, 'riskLevel', event.target.value)} /></label>
-                                    <label><span>Image URL</span><input value={item.image || ''} onChange={(event) => updateListItem(setSpecies, index, 'image', event.target.value)} /></label>
+                                    {renderImageField({
+                                        label: 'Image URL',
+                                        value: item.image,
+                                        onChange: (event) => updateListItem(setSpecies, index, 'image', event.target.value),
+                                        onUpload: (file) => handleRecordImageUpload('species', index, file, setSpecies, 'Species'),
+                                        uploadTargetKey: `species:${index}`,
+                                        helperText: 'Upload a species image to Cloudinary or paste a direct image URL.',
+                                        alt: `${item.name || 'Species'} preview`,
+                                    })}
                                     <label><span>Summary</span><textarea rows="3" value={item.summary || ''} onChange={(event) => updateListItem(setSpecies, index, 'summary', event.target.value)} /></label>
                                     <label><span>Body</span><textarea rows="4" value={item.body || ''} onChange={(event) => updateListItem(setSpecies, index, 'body', event.target.value)} /></label>
                                     <label><span>Coexistence tips</span><textarea rows="3" value={item.coexistenceTips || ''} onChange={(event) => updateListItem(setSpecies, index, 'coexistenceTips', event.target.value)} /></label>
@@ -646,7 +783,15 @@ function WildlifePedia() {
                                     <label><span>Title</span><input value={item.title || ''} onChange={(event) => updateListItem(setHabitats, index, 'title', event.target.value)} /></label>
                                     <label><span>Slug</span><input value={item.slug || ''} onChange={(event) => updateListItem(setHabitats, index, 'slug', event.target.value)} /></label>
                                     <label><span>Region</span><input value={item.region || ''} onChange={(event) => updateListItem(setHabitats, index, 'region', event.target.value)} /></label>
-                                    <label><span>Image URL</span><input value={item.image || ''} onChange={(event) => updateListItem(setHabitats, index, 'image', event.target.value)} /></label>
+                                    {renderImageField({
+                                        label: 'Image URL',
+                                        value: item.image,
+                                        onChange: (event) => updateListItem(setHabitats, index, 'image', event.target.value),
+                                        onUpload: (file) => handleRecordImageUpload('habitat', index, file, setHabitats, 'Habitat'),
+                                        uploadTargetKey: `habitat:${index}`,
+                                        helperText: 'Upload a habitat image to Cloudinary or paste a direct image URL.',
+                                        alt: `${item.title || 'Habitat'} preview`,
+                                    })}
                                     <label><span>Summary</span><textarea rows="3" value={item.summary || ''} onChange={(event) => updateListItem(setHabitats, index, 'summary', event.target.value)} /></label>
                                     <label><span>Body</span><textarea rows="4" value={item.body || ''} onChange={(event) => updateListItem(setHabitats, index, 'body', event.target.value)} /></label>
                                     <label><span>Human interaction</span><textarea rows="3" value={item.humanInteraction || ''} onChange={(event) => updateListItem(setHabitats, index, 'humanInteraction', event.target.value)} /></label>
@@ -681,7 +826,15 @@ function WildlifePedia() {
                                     <label><span>Status</span><input value={item.status || ''} onChange={(event) => updateListItem(setProjects, index, 'status', event.target.value)} /></label>
                                     <label><span>CTA label</span><input value={item.ctaLabel || ''} onChange={(event) => updateListItem(setProjects, index, 'ctaLabel', event.target.value)} /></label>
                                     <label><span>CTA link</span><input value={item.ctaLink || ''} onChange={(event) => updateListItem(setProjects, index, 'ctaLink', event.target.value)} /></label>
-                                    <label><span>Image URL</span><input value={item.image || ''} onChange={(event) => updateListItem(setProjects, index, 'image', event.target.value)} /></label>
+                                    {renderImageField({
+                                        label: 'Image URL',
+                                        value: item.image,
+                                        onChange: (event) => updateListItem(setProjects, index, 'image', event.target.value),
+                                        onUpload: (file) => handleRecordImageUpload('project', index, file, setProjects, 'Project'),
+                                        uploadTargetKey: `project:${index}`,
+                                        helperText: 'Upload a project image to Cloudinary or paste a direct image URL.',
+                                        alt: `${item.title || 'Project'} preview`,
+                                    })}
                                     <label><span>Summary</span><textarea rows="3" value={item.summary || ''} onChange={(event) => updateListItem(setProjects, index, 'summary', event.target.value)} /></label>
                                     <label><span>Body</span><textarea rows="4" value={item.body || ''} onChange={(event) => updateListItem(setProjects, index, 'body', event.target.value)} /></label>
                                     <label><span>Featured</span><select value={item.featured ? 'yes' : 'no'} onChange={(event) => updateListItem(setProjects, index, 'featured', event.target.value === 'yes')}><option value="yes">Yes</option><option value="no">No</option></select></label>
@@ -714,7 +867,15 @@ function WildlifePedia() {
                                     <label><span>Slug</span><input value={item.slug || ''} onChange={(event) => updateListItem(setPosts, index, 'slug', event.target.value)} /></label>
                                     <label><span>Category</span><input value={item.category || ''} onChange={(event) => updateListItem(setPosts, index, 'category', event.target.value)} /></label>
                                     <label><span>Published date</span><input type="date" value={item.publishedAt || ''} onChange={(event) => updateListItem(setPosts, index, 'publishedAt', event.target.value)} /></label>
-                                    <label><span>Image URL</span><input value={item.image || ''} onChange={(event) => updateListItem(setPosts, index, 'image', event.target.value)} /></label>
+                                    {renderImageField({
+                                        label: 'Image URL',
+                                        value: item.image,
+                                        onChange: (event) => updateListItem(setPosts, index, 'image', event.target.value),
+                                        onUpload: (file) => handleRecordImageUpload('post', index, file, setPosts, 'Post'),
+                                        uploadTargetKey: `post:${index}`,
+                                        helperText: 'Upload a blog image to Cloudinary or paste a direct image URL.',
+                                        alt: `${item.title || 'Post'} preview`,
+                                    })}
                                     <label><span>Excerpt</span><textarea rows="3" value={item.excerpt || ''} onChange={(event) => updateListItem(setPosts, index, 'excerpt', event.target.value)} /></label>
                                     <label><span>Body</span><textarea rows="5" value={item.body || ''} onChange={(event) => updateListItem(setPosts, index, 'body', event.target.value)} /></label>
                                     <label><span>Featured</span><select value={item.featured ? 'yes' : 'no'} onChange={(event) => updateListItem(setPosts, index, 'featured', event.target.value === 'yes')}><option value="yes">Yes</option><option value="no">No</option></select></label>

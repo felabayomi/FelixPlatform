@@ -794,6 +794,78 @@ function WACI() {
         }
     };
 
+    const handleProgramImageUpload = async (index, file) => {
+        if (!file) {
+            return;
+        }
+
+        const target = `program:${index}`;
+        setUploadingImageTarget(target);
+        setMessage('');
+        setError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const res = await API.post('/products/upload-image', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const uploadedUrl = res.data?.imageUrl || res.data?.secureUrl || res.data?.url || '';
+
+            if (!uploadedUrl) {
+                throw new Error('Image upload did not return a usable image URL.');
+            }
+
+            updateProgramField(index, 'image', uploadedUrl);
+            setMessage('WACI program image uploaded successfully. Save program to publish the change.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || err.message || 'Unable to upload WACI program image.');
+        } finally {
+            setUploadingImageTarget('');
+        }
+    };
+
+    const handleStoryImageUpload = async (index, file) => {
+        if (!file) {
+            return;
+        }
+
+        const target = `story:${index}`;
+        setUploadingImageTarget(target);
+        setMessage('');
+        setError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const res = await API.post('/products/upload-image', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const uploadedUrl = res.data?.imageUrl || res.data?.secureUrl || res.data?.url || '';
+
+            if (!uploadedUrl) {
+                throw new Error('Image upload did not return a usable image URL.');
+            }
+
+            updateStoryField(index, 'image', uploadedUrl);
+            setMessage('WACI story image uploaded successfully. Save story to publish the change.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.message || err?.response?.data || err.message || 'Unable to upload WACI story image.');
+        } finally {
+            setUploadingImageTarget('');
+        }
+    };
+
     const handleSave = async () => {
         setSaving(true);
         setError('');
@@ -1316,10 +1388,24 @@ function WACI() {
                                                 <span>Description</span>
                                                 <textarea rows="4" value={program.text || ''} onChange={(event) => updateProgramField(index, 'text', event.target.value)} />
                                             </label>
-                                            <label>
-                                                <span>Image URL</span>
-                                                <input value={program.image || ''} onChange={(event) => updateProgramField(index, 'image', event.target.value)} />
-                                            </label>
+                                            <div className="image-upload-block">
+                                                <label>
+                                                    <span>Image URL</span>
+                                                    <input value={program.image || ''} onChange={(event) => updateProgramField(index, 'image', event.target.value)} />
+                                                </label>
+                                                <div className="product-actions">
+                                                    <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                                        {uploadingImageTarget === `program:${index}` ? 'Uploading…' : 'Upload image'}
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            style={{ display: 'none' }}
+                                                            onChange={(event) => handleProgramImageUpload(index, event.target.files?.[0])}
+                                                        />
+                                                    </label>
+                                                    <span className="muted">Upload a program image to Cloudinary or paste a direct URL.</span>
+                                                </div>
+                                            </div>
                                             <label>
                                                 <span>CTA label</span>
                                                 <input value={program.ctaLabel || ''} onChange={(event) => updateProgramField(index, 'ctaLabel', event.target.value)} />
@@ -1454,10 +1540,24 @@ function WACI() {
                                                 <span>Review notes / rejection reason</span>
                                                 <textarea rows="3" value={story.reviewNotes || ''} onChange={(event) => updateStoryField(index, 'reviewNotes', event.target.value)} />
                                             </label>
-                                            <label>
-                                                <span>Image URL</span>
-                                                <input value={story.image || ''} onChange={(event) => updateStoryField(index, 'image', event.target.value)} />
-                                            </label>
+                                            <div className="image-upload-block">
+                                                <label>
+                                                    <span>Image URL</span>
+                                                    <input value={story.image || ''} onChange={(event) => updateStoryField(index, 'image', event.target.value)} />
+                                                </label>
+                                                <div className="product-actions">
+                                                    <label className="secondary-button" style={{ cursor: 'pointer' }}>
+                                                        {uploadingImageTarget === `story:${index}` ? 'Uploading…' : 'Upload image'}
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            style={{ display: 'none' }}
+                                                            onChange={(event) => handleStoryImageUpload(index, event.target.files?.[0])}
+                                                        />
+                                                    </label>
+                                                    <span className="muted">Upload a story image to Cloudinary or paste a direct URL.</span>
+                                                </div>
+                                            </div>
                                             <label>
                                                 <span>Story link</span>
                                                 <input value={story.link || ''} onChange={(event) => updateStoryField(index, 'link', event.target.value)} />
