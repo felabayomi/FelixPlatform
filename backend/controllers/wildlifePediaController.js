@@ -259,6 +259,20 @@ const DEFAULT_HABITATS = [
         sortOrder: 2,
     },
     {
+        id: 'mountain-forests-highlands',
+        slug: 'mountain-forests-highlands',
+        title: 'Mountain Forests & Highlands',
+        summary:
+            'Cooler, biodiverse highland systems that support gorillas, rare birds, watersheds, and climate-sensitive habitats.',
+        body:
+            'Montane forests and highland ecosystems are biodiversity strongholds, water towers, and climate buffers all at once. They are also highly sensitive to disturbance, tourism pressure, and land conversion on steep slopes.\n\nWildlife-Pedia treats highland habitats as places where careful stewardship matters twice: for species survival and for the communities downstream who depend on healthy water and forest systems.',
+        humanInteraction: 'Tourism, farming on slopes, trail access, watershed protection',
+        region: 'Albertine Rift and East African highlands',
+        image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80',
+        featured: true,
+        sortOrder: 3,
+    },
+    {
         id: 'forest-edges',
         slug: 'forest-edges',
         title: 'Forests & Edge Zones',
@@ -270,7 +284,35 @@ const DEFAULT_HABITATS = [
         region: 'Central, East, and West Africa',
         image: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
         featured: false,
-        sortOrder: 3,
+        sortOrder: 4,
+    },
+    {
+        id: 'mangroves-coastal-estuaries',
+        slug: 'mangroves-coastal-estuaries',
+        title: 'Mangroves & Coastal Estuaries',
+        summary:
+            'Productive shoreline habitats that protect fish nurseries, birds, coastal livelihoods, and natural storm buffering.',
+        body:
+            'Mangroves and estuaries connect land and sea in ways that are easy to overlook but hugely important. They support fisheries, migratory birds, shoreline stability, and a wide range of species that depend on tidal rhythms and sheltered nursery zones.\n\nWhen mangroves are degraded, communities lose more than habitat — they lose protection, productivity, and resilience. Wildlife-Pedia highlights these systems to broaden what people imagine when they think about conservation.',
+        humanInteraction: 'Fishing, wood harvesting, shoreline settlement, boat traffic',
+        region: 'West and East African coasts',
+        image: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        sortOrder: 5,
+    },
+    {
+        id: 'deserts-drylands',
+        slug: 'deserts-drylands',
+        title: 'Deserts & Drylands',
+        summary:
+            'Water-limited landscapes where wildlife survival depends on movement, adaptation, and careful resource use.',
+        body:
+            'Drylands and semi-arid habitats may look empty at first glance, but they hold finely balanced systems shaped by scarcity, movement, and seasonal change. Wildlife in these areas often relies on broad ranges and access to key water points.\n\nFor people, that means shared pressure can build quickly around routes, wells, and grazing areas. Wildlife-Pedia uses dryland habitats to show why conservation and coexistence are also planning challenges.',
+        humanInteraction: 'Water-point pressure, grazing routes, road travel, settlement spread',
+        region: 'Sahel, Horn of Africa, and Southern African drylands',
+        image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        sortOrder: 6,
     },
 ];
 

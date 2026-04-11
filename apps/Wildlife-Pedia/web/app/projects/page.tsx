@@ -18,14 +18,17 @@ export default async function ProjectsPage() {
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                     {projects.map((project) => (
-                        <article key={project.id} className="glass-panel rounded-[1.5rem] p-5">
-                            <p className="text-xs uppercase tracking-[0.22em] text-emerald-300/75">{project.status || "Active"}</p>
-                            <h2 className="mt-3 text-xl font-semibold text-white">{project.title}</h2>
-                            <p className="mt-3 text-sm leading-7 text-slate-300">{project.summary}</p>
-                            <p className="mt-3 text-sm leading-7 text-slate-300">{project.body}</p>
-                            <Link href={project.ctaLink || "/get-involved"} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-200 hover:text-white">
-                                {project.ctaLabel || "Learn more"} <ArrowRight className="h-4 w-4" />
-                            </Link>
+                        <article key={project.id} className="glass-panel overflow-hidden rounded-[1.5rem] p-0">
+                            {project.image ? <img src={project.image} alt={project.title} className="h-48 w-full object-cover" /> : null}
+                            <div className="p-5">
+                                <p className="text-xs uppercase tracking-[0.22em] text-emerald-300/75">{project.status || "Active"}</p>
+                                <h2 className="mt-3 text-xl font-semibold text-white">{project.title}</h2>
+                                <p className="mt-3 text-sm leading-7 text-slate-300">{project.summary}</p>
+                                <p className="mt-3 text-sm leading-7 text-slate-300">{project.body}</p>
+                                <Link href={project.ctaLink || "/get-involved"} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-200 hover:text-white">
+                                    {project.ctaLabel || "Learn more"} <ArrowRight className="h-4 w-4" />
+                                </Link>
+                            </div>
                         </article>
                     ))}
                 </div>
