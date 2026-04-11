@@ -1,4 +1,6 @@
 import { AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react";
+import WildlifePageSections from "@/components/wildlife-page-sections";
+import { getWildlifePageContent, getWildlifePediaSiteContent } from "@/lib/wildlife-api";
 
 const safetyCards = [
     {
@@ -27,14 +29,19 @@ const safetyCards = [
     },
 ];
 
-export default function SafetyPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SafetyPage() {
+    const content = await getWildlifePediaSiteContent();
+    const page = getWildlifePageContent(content, "safety");
+
     return (
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
             <div className="section-shell p-6 sm:p-8">
-                <p className="soft-label">Human–Wildlife Conflict & Safety</p>
-                <h1 className="mt-3 text-4xl font-semibold text-white">Safety starts with understanding.</h1>
+                <p className="soft-label">{page?.title || "Human–Wildlife Conflict & Safety"}</p>
+                <h1 className="mt-3 text-4xl font-semibold text-white">{page?.heroTitle || "Safety starts with understanding."}</h1>
                 <p className="mt-4 max-w-3xl text-slate-300">
-                    Wildlife-Pedia is not only about learning species names — it is about helping people make safer, more responsible decisions where wildlife and everyday life intersect.
+                    {page?.heroText || "Wildlife-Pedia is not only about learning species names — it is about helping people make safer, more responsible decisions where wildlife and everyday life intersect."}
                 </p>
 
                 <div className="mt-8 grid gap-5 lg:grid-cols-3">
@@ -49,6 +56,8 @@ export default function SafetyPage() {
                         </article>
                     ))}
                 </div>
+
+                <WildlifePageSections sections={page?.sections} />
 
                 <div className="mt-8 grid gap-5 lg:grid-cols-2">
                     <div className="rounded-[1.4rem] border border-amber-300/20 bg-amber-300/10 p-5 text-sm text-amber-50">

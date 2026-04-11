@@ -1,20 +1,27 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { getWildlifeProjects } from "@/lib/wildlife-api";
+import WildlifePageSections from "@/components/wildlife-page-sections";
+import { getWildlifePageContent, getWildlifePediaSiteContent, getWildlifeProjects } from "@/lib/wildlife-api";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
-    const projects = await getWildlifeProjects();
+    const [projects, content] = await Promise.all([
+        getWildlifeProjects(),
+        getWildlifePediaSiteContent(),
+    ]);
+    const page = getWildlifePageContent(content, "projects");
 
     return (
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
             <div className="section-shell p-6 sm:p-8">
-                <p className="soft-label">Conservation Projects</p>
-                <h1 className="mt-3 text-4xl font-semibold text-white">Support field-linked wildlife action.</h1>
+                <p className="soft-label">{page?.title || "Conservation Projects"}</p>
+                <h1 className="mt-3 text-4xl font-semibold text-white">{page?.heroTitle || "Support field-linked wildlife action."}</h1>
                 <p className="mt-4 max-w-3xl text-slate-300">
-                    These projects connect Wildlife-Pedia’s educational layer to public participation, coexistence awareness, and the ongoing work of the A & F Wildlife Foundation.
+                    {page?.heroText || "These projects connect Wildlife-Pedia’s educational layer to public participation, coexistence awareness, and the ongoing work of the A & F Wildlife Foundation."}
                 </p>
+
+                <WildlifePageSections sections={page?.sections} />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                     {projects.map((project) => (

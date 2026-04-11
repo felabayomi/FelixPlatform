@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { Menu, PawPrint, X } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-const links = [
+const baseLinks = [
     { href: "/#about", label: "About" },
     { href: "/species", label: "Species" },
     { href: "/habitats", label: "Habitats" },
@@ -15,8 +15,13 @@ const links = [
     { href: "/get-involved", label: "Get Involved" },
 ];
 
-export default function WildlifeSiteHeader() {
+type WildlifeSiteHeaderProps = {
+    customLinks?: Array<{ href: string; label: string }>;
+};
+
+export default function WildlifeSiteHeader({ customLinks = [] }: WildlifeSiteHeaderProps) {
     const [open, setOpen] = useState(false);
+    const links = useMemo(() => [...baseLinks, ...customLinks], [customLinks]);
 
     return (
         <header className="sticky top-0 z-50 border-b border-white/10 bg-[#08120e]/85 backdrop-blur-xl">

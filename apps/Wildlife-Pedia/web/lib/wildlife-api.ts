@@ -1,5 +1,29 @@
 import axios from "axios";
 
+export type WildlifePageSection = {
+    id: string;
+    eyebrow?: string;
+    title: string;
+    body?: string;
+    items?: string[];
+    ctaLabel?: string;
+    ctaLink?: string;
+    image?: string;
+};
+
+export type WildlifeCustomPage = {
+    id: string;
+    slug: string;
+    title: string;
+    navigationLabel?: string;
+    heroTitle?: string;
+    heroText?: string;
+    intro?: string;
+    image?: string;
+    showInNav?: boolean;
+    sections?: WildlifePageSection[];
+};
+
 export type WildlifePediaSiteContent = {
     heroEyebrow: string;
     heroTitle: string;
@@ -12,6 +36,7 @@ export type WildlifePediaSiteContent = {
     footerTitle: string;
     footerText: string;
     footerSubtext: string;
+    pages?: WildlifeCustomPage[];
 };
 
 export type SpeciesProfile = {
@@ -91,16 +116,26 @@ const DEFAULT_SITE_CONTENT: WildlifePediaSiteContent = {
     footerText:
         "A modern public knowledge hub for species discovery, safer human–wildlife coexistence, and conservation participation.",
     footerSubtext: "Built on the Felix Platform and connected to A & F Wildlife Foundation action.",
+    pages: [],
 };
 
 export async function getWildlifePediaSiteContent(): Promise<WildlifePediaSiteContent> {
     try {
         const res = await API.get("/api/wildlife-pedia/site-content");
-        return { ...DEFAULT_SITE_CONTENT, ...(res.data?.content || {}) };
+        return {
+            ...DEFAULT_SITE_CONTENT,
+            ...(res.data?.content || {}),
+            pages: Array.isArray(res.data?.content?.pages) ? res.data.content.pages : DEFAULT_SITE_CONTENT.pages,
+        };
     } catch (error) {
         console.error("Unable to fetch Wildlife-Pedia site content", error);
         return DEFAULT_SITE_CONTENT;
     }
+}
+
+export function getWildlifePageContent(content: WildlifePediaSiteContent | null | undefined, slug: string): WildlifeCustomPage | null {
+    const pages = Array.isArray(content?.pages) ? content.pages : [];
+    return pages.find((page) => String(page.slug || '').toLowerCase() === String(slug || '').toLowerCase()) || null;
 }
 
 export async function getWildlifeSpecies(options?: { featured?: boolean; q?: string; habitat?: string }): Promise<SpeciesProfile[]> {

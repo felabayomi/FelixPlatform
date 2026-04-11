@@ -4,6 +4,10 @@ import { getWildlifePediaSiteContent } from "@/lib/wildlife-api";
 export default async function WildlifeSiteFooter() {
     const content = await getWildlifePediaSiteContent();
     const year = new Date().getFullYear();
+    const reservedSlugs = new Set(["about", "species", "habitats", "safety", "projects", "blog", "report", "get-involved", "contact"]);
+    const customPages = Array.isArray(content.pages)
+        ? content.pages.filter((page) => page?.slug && page.showInNav !== false && !reservedSlugs.has(String(page.slug).toLowerCase()))
+        : [];
 
     return (
         <footer className="border-t border-white/10 bg-[rgba(4,14,10,0.92)]">
@@ -21,6 +25,11 @@ export default async function WildlifeSiteFooter() {
                         <li><Link href="/habitats" className="hover:text-white">Habitats</Link></li>
                         <li><Link href="/safety" className="hover:text-white">Conflict & Safety</Link></li>
                         <li><Link href="/blog" className="hover:text-white">Insights</Link></li>
+                        {customPages.slice(0, 4).map((page) => (
+                            <li key={page.id || page.slug}>
+                                <Link href={`/${page.slug}`} className="hover:text-white">{page.navigationLabel || page.title}</Link>
+                            </li>
+                        ))}
                     </ul>
                 </div>
 

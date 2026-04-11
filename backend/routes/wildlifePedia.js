@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
     getSiteContent,
+    getAdminSiteContent,
     updateSiteContent,
     getSpecies,
     getSpeciesBySlug,
@@ -27,6 +28,9 @@ const {
     createProject,
     updateProject,
     deleteProject,
+    createPost,
+    updatePost,
+    deletePost,
 } = require('../controllers/wildlifePediaController');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
@@ -42,6 +46,7 @@ router.post('/donor', submitDonor);
 router.post('/sightings/report', submitSightingReport);
 
 router.get('/admin/overview', authenticateToken, requireAdmin, getAdminOverview);
+router.get('/admin/site-content', authenticateToken, requireAdmin, getAdminSiteContent);
 router.put('/admin/site-content', authenticateToken, requireAdmin, updateSiteContent);
 router.get('/admin/species', authenticateToken, requireAdmin, getSpecies);
 router.post('/admin/species', authenticateToken, requireAdmin, createSpecies);
@@ -55,6 +60,10 @@ router.get('/admin/projects', authenticateToken, requireAdmin, getProjects);
 router.post('/admin/projects', authenticateToken, requireAdmin, createProject);
 router.put('/admin/projects/:id', authenticateToken, requireAdmin, updateProject);
 router.delete('/admin/projects/:id', authenticateToken, requireAdmin, deleteProject);
+router.get('/admin/posts', authenticateToken, requireAdmin, getPosts);
+router.post('/admin/posts', authenticateToken, requireAdmin, createPost);
+router.put('/admin/posts/:id', authenticateToken, requireAdmin, updatePost);
+router.delete('/admin/posts/:id', authenticateToken, requireAdmin, deletePost);
 router.get('/admin/sightings', authenticateToken, requireAdmin, getSightings);
 router.patch('/admin/sightings/:id', authenticateToken, requireAdmin, updateSightingStatus);
 router.get('/admin/newsletter', authenticateToken, requireAdmin, getNewsletterSubscribers);

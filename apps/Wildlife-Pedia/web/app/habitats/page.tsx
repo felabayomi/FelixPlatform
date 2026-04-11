@@ -1,10 +1,15 @@
 import { Compass, ShieldAlert, Trees, Waves } from "lucide-react";
-import { getWildlifeHabitats } from "@/lib/wildlife-api";
+import WildlifePageSections from "@/components/wildlife-page-sections";
+import { getWildlifeHabitats, getWildlifePageContent, getWildlifePediaSiteContent } from "@/lib/wildlife-api";
 
 export const dynamic = "force-dynamic";
 
 export default async function HabitatsPage() {
-    const habitats = await getWildlifeHabitats();
+    const [habitats, content] = await Promise.all([
+        getWildlifeHabitats(),
+        getWildlifePediaSiteContent(),
+    ]);
+    const page = getWildlifePageContent(content, "habitats");
     const featuredHabitats = habitats.filter((item) => item.featured).slice(0, 3);
     const regionCount = new Set(habitats.map((item) => item.region).filter(Boolean)).size;
 
@@ -13,10 +18,10 @@ export default async function HabitatsPage() {
             <section className="section-shell overflow-hidden p-6 sm:p-8">
                 <div className="grid gap-8 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
                     <div>
-                        <p className="soft-label">Habitats & Ecosystems</p>
-                        <h1 className="mt-3 text-4xl font-semibold text-white">Understand the spaces wildlife depends on.</h1>
+                        <p className="soft-label">{page?.title || "Habitats & Ecosystems"}</p>
+                        <h1 className="mt-3 text-4xl font-semibold text-white">{page?.heroTitle || "Understand the spaces wildlife depends on."}</h1>
                         <p className="mt-4 max-w-3xl text-slate-300">
-                            Wildlife-Pedia treats habitats as living systems where biodiversity, livelihoods, and safety often overlap. The more people understand the landscape, the easier it becomes to protect species and reduce avoidable conflict.
+                            {page?.heroText || "Wildlife-Pedia treats habitats as living systems where biodiversity, livelihoods, and safety often overlap. The more people understand the landscape, the easier it becomes to protect species and reduce avoidable conflict."}
                         </p>
 
                         <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -53,6 +58,8 @@ export default async function HabitatsPage() {
                     </div>
                 </div>
             </section>
+
+            <WildlifePageSections sections={page?.sections} />
 
             <section className="mt-8 grid gap-4 md:grid-cols-3">
                 <div className="glass-panel rounded-[1.4rem] p-5">

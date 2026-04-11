@@ -1,4 +1,6 @@
 import WildlifeActionForm from "@/components/wildlife-action-form";
+import WildlifePageSections from "@/components/wildlife-page-sections";
+import { getWildlifePageContent, getWildlifePediaSiteContent } from "@/lib/wildlife-api";
 
 const actions = [
     {
@@ -19,14 +21,19 @@ const actions = [
     },
 ];
 
-export default function GetInvolvedPage() {
+export const dynamic = "force-dynamic";
+
+export default async function GetInvolvedPage() {
+    const content = await getWildlifePediaSiteContent();
+    const page = getWildlifePageContent(content, "get-involved");
+
     return (
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
             <div className="section-shell p-6 sm:p-8">
-                <p className="soft-label">Get involved</p>
-                <h1 className="mt-3 text-4xl font-semibold text-white">Turn wildlife curiosity into practical contribution.</h1>
+                <p className="soft-label">{page?.title || "Get involved"}</p>
+                <h1 className="mt-3 text-4xl font-semibold text-white">{page?.heroTitle || "Turn wildlife curiosity into practical contribution."}</h1>
                 <p className="mt-4 max-w-3xl text-slate-300">
-                    Wildlife-Pedia is designed to move people from admiration to participation — through volunteering, donations, partnerships, species support, and public education.
+                    {page?.heroText || "Wildlife-Pedia is designed to move people from admiration to participation — through volunteering, donations, partnerships, species support, and public education."}
                 </p>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -37,6 +44,8 @@ export default function GetInvolvedPage() {
                         </article>
                     ))}
                 </div>
+
+                <WildlifePageSections sections={page?.sections} />
 
                 <div className="mt-8">
                     <WildlifeActionForm />

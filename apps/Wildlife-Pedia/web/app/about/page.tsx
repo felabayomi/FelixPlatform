@@ -1,4 +1,11 @@
-export default function AboutPage() {
+import WildlifePageSections from "@/components/wildlife-page-sections";
+import { getWildlifePageContent, getWildlifePediaSiteContent } from "@/lib/wildlife-api";
+
+export const dynamic = "force-dynamic";
+
+export default async function AboutPage() {
+    const content = await getWildlifePediaSiteContent();
+    const page = getWildlifePageContent(content, "about");
     const pillars = [
         {
             title: "Encyclopedia clarity",
@@ -27,14 +34,13 @@ export default function AboutPage() {
     return (
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
             <div className="section-shell p-6 sm:p-8">
-                <p className="soft-label">About Wildlife-Pedia</p>
-                <h1 className="mt-3 text-4xl font-semibold text-white">A modern wildlife knowledge hub for Africa.</h1>
+                <p className="soft-label">{page?.title || "About Wildlife-Pedia"}</p>
+                <h1 className="mt-3 text-4xl font-semibold text-white">{page?.heroTitle || "A modern wildlife knowledge hub for Africa."}</h1>
                 <p className="mt-4 max-w-3xl text-slate-300">
-                    Wildlife-Pedia is built to make wildlife information useful in the real world — for students, families, travelers, communities, and supporters.
-                    It combines the clarity of an encyclopedia, the practicality of a field guide, and the momentum of an action platform.
+                    {page?.heroText || "Wildlife-Pedia is built to make wildlife information useful in the real world — for students, families, travelers, communities, and supporters. It combines the clarity of an encyclopedia, the practicality of a field guide, and the momentum of an action platform."}
                 </p>
                 <p className="mt-3 max-w-3xl text-slate-300">
-                    The goal is simple: help more people understand the animals around them, reduce avoidable conflict, and support stronger conservation outcomes through informed action.
+                    {page?.intro || "The goal is simple: help more people understand the animals around them, reduce avoidable conflict, and support stronger conservation outcomes through informed action."}
                 </p>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -59,6 +65,8 @@ export default function AboutPage() {
                         At launch, Wildlife-Pedia is already structured to support discovery, safer coexistence, public education, and real conservation participation — all from one experience.
                     </p>
                 </div>
+
+                <WildlifePageSections sections={page?.sections} />
             </div>
         </div>
     );

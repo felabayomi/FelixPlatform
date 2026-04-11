@@ -1,18 +1,25 @@
-import { getWildlifeBlogPosts } from "@/lib/wildlife-api";
+import WildlifePageSections from "@/components/wildlife-page-sections";
+import { getWildlifeBlogPosts, getWildlifePageContent, getWildlifePediaSiteContent } from "@/lib/wildlife-api";
 
 export const dynamic = "force-dynamic";
 
 export default async function BlogPage() {
-    const posts = await getWildlifeBlogPosts();
+    const [posts, content] = await Promise.all([
+        getWildlifeBlogPosts(),
+        getWildlifePediaSiteContent(),
+    ]);
+    const page = getWildlifePageContent(content, "blog");
 
     return (
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
             <div className="section-shell p-6 sm:p-8">
-                <p className="soft-label">Blog / Insights</p>
-                <h1 className="mt-3 text-4xl font-semibold text-white">Wildlife stories, research summaries, and practical insights.</h1>
+                <p className="soft-label">{page?.title || "Blog / Insights"}</p>
+                <h1 className="mt-3 text-4xl font-semibold text-white">{page?.heroTitle || "Wildlife stories, research summaries, and practical insights."}</h1>
                 <p className="mt-4 max-w-3xl text-slate-300">
-                    Use this space to translate conservation complexity into everyday understanding and actionable awareness.
+                    {page?.heroText || "Use this space to translate conservation complexity into everyday understanding and actionable awareness."}
                 </p>
+
+                <WildlifePageSections sections={page?.sections} />
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                     {posts.map((post) => (

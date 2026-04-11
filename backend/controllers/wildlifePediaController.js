@@ -9,6 +9,184 @@ let ensurePlatformContentTablePromise = null;
 let ensureSupportRequestsTablePromise = null;
 let ensureWildlifePediaTablesPromise = null;
 
+const DEFAULT_PAGES = [
+    {
+        id: 'about',
+        slug: 'about',
+        title: 'About Wildlife-Pedia',
+        navigationLabel: 'About',
+        heroTitle: 'A modern wildlife knowledge hub for Africa.',
+        heroText:
+            'Wildlife-Pedia combines the clarity of an encyclopedia, the usefulness of a field guide, and the momentum of a public action platform.',
+        intro:
+            'Use this page to explain the mission, audiences, and long-term value of Wildlife-Pedia in one place.',
+        showInNav: true,
+        sections: [
+            {
+                id: 'about-mission',
+                eyebrow: 'Mission',
+                title: 'Why Wildlife-Pedia exists',
+                body: 'To help more people understand wildlife, reduce avoidable conflict, and take practical action for conservation through the A & F Wildlife Foundation.',
+                items: ['Education-first', 'Conflict-aware', 'Community-powered'],
+            },
+            {
+                id: 'about-audience',
+                eyebrow: 'Who it serves',
+                title: 'Built for students, families, communities, and supporters',
+                body: 'The platform is designed to be useful for everyday learning, safer decisions, and stronger conservation participation.',
+                items: ['Students and educators', 'Families and travelers', 'Communities near wildlife corridors', 'Conservation partners and donors'],
+            },
+        ],
+    },
+    {
+        id: 'habitats',
+        slug: 'habitats',
+        title: 'Habitats & Ecosystems',
+        navigationLabel: 'Habitats',
+        heroTitle: 'Understand the spaces wildlife depends on.',
+        heroText:
+            'Habitats are where biodiversity, livelihoods, movement, and risk often overlap. Understanding them makes conservation more practical.',
+        intro:
+            'Use habitats to explain how landscapes shape species behavior, ecosystem health, and human–wildlife interactions.',
+        showInNav: true,
+        sections: [
+            {
+                id: 'habitats-stewardship',
+                eyebrow: 'Stewardship',
+                title: 'Healthy habitats support both wildlife and people',
+                body: 'Protecting habitats means protecting water access, migration routes, breeding areas, and the stability of shared landscapes.',
+                items: ['Migration routes', 'Water sources', 'Breeding grounds', 'Safer shared access'],
+            },
+        ],
+    },
+    {
+        id: 'safety',
+        slug: 'safety',
+        title: 'Conflict & Safety',
+        navigationLabel: 'Safety',
+        heroTitle: 'Safety starts with understanding.',
+        heroText:
+            'Know the signs, respond calmly, and reduce repeated conflict with practical awareness and prevention habits.',
+        intro:
+            'Wildlife-Pedia uses this page to turn wildlife knowledge into safer public decisions.',
+        showInNav: true,
+        sections: [
+            {
+                id: 'safety-core',
+                eyebrow: 'Safety essentials',
+                title: 'Three habits that reduce avoidable risk',
+                body: 'Stay calm, give wildlife an escape path, and report recurring hotspots through the right local channels.',
+                items: ['Observe before reacting', 'Keep distance', 'Use reporting systems'],
+            },
+        ],
+    },
+    {
+        id: 'projects',
+        slug: 'projects',
+        title: 'Conservation Projects',
+        navigationLabel: 'Projects',
+        heroTitle: 'Support field-linked wildlife action.',
+        heroText:
+            'These projects connect public awareness to coexistence work, education, and long-term conservation participation.',
+        intro:
+            'Use this page to show current campaigns, project updates, and public participation routes.',
+        showInNav: true,
+        sections: [
+            {
+                id: 'projects-why',
+                eyebrow: 'Why projects matter',
+                title: 'Action creates momentum beyond awareness',
+                body: 'Projects help turn interest into measurable support for education, coexistence, and field-linked wildlife protection.',
+                items: ['Education campaigns', 'Reporting culture', 'Habitat stewardship', 'Species support'],
+            },
+        ],
+    },
+    {
+        id: 'blog',
+        slug: 'blog',
+        title: 'Blog / Insights',
+        navigationLabel: 'Blog',
+        heroTitle: 'Stories, research summaries, and practical field insights.',
+        heroText:
+            'Use this page to translate conservation complexity into everyday understanding and actionable awareness.',
+        intro:
+            'The blog helps Wildlife-Pedia stay current, responsive, and useful beyond static reference pages.',
+        showInNav: true,
+        sections: [
+            {
+                id: 'blog-editorial',
+                eyebrow: 'Editorial lens',
+                title: 'Focus on clarity, usefulness, and grounded conservation storytelling',
+                body: 'Great Wildlife-Pedia posts should help people understand the issue, the context, and the practical next step.',
+                items: ['Clear context', 'Practical advice', 'Species relevance', 'Action value'],
+            },
+        ],
+    },
+    {
+        id: 'report',
+        slug: 'report',
+        title: 'Report a Sighting',
+        navigationLabel: 'Report',
+        heroTitle: 'Help build practical wildlife awareness.',
+        heroText:
+            'Calm, useful sightings reports strengthen public awareness and help reveal where patterns may be forming.',
+        intro:
+            'This page should guide visitors to report what they saw without putting themselves at risk.',
+        showInNav: true,
+        sections: [
+            {
+                id: 'report-good-report',
+                eyebrow: 'Helpful reporting',
+                title: 'What makes a good report?',
+                body: 'Time, location, behavior, and any immediate public-safety concern are the most valuable details to include.',
+                items: ['Approximate location', 'Observed behavior', 'Safety concern if any'],
+            },
+        ],
+    },
+    {
+        id: 'get-involved',
+        slug: 'get-involved',
+        title: 'Get Involved',
+        navigationLabel: 'Get Involved',
+        heroTitle: 'Turn wildlife curiosity into practical contribution.',
+        heroText:
+            'Volunteer, donate, partner, or support awareness efforts that make coexistence and conservation more visible.',
+        intro:
+            'Use this page to turn interest into action and support through the A & F Wildlife Foundation.',
+        showInNav: true,
+        sections: [
+            {
+                id: 'involved-pathways',
+                eyebrow: 'Action pathways',
+                title: 'Multiple ways to contribute',
+                body: 'People can support Wildlife-Pedia through volunteering, donations, partnerships, sponsorship, and public education work.',
+                items: ['Volunteer skills', 'Species support', 'School partnerships', 'Campaign sponsorship'],
+            },
+        ],
+    },
+    {
+        id: 'contact',
+        slug: 'contact',
+        title: 'Contact',
+        navigationLabel: 'Contact',
+        heroTitle: 'Talk to the Wildlife-Pedia team.',
+        heroText:
+            'Reach out for partnerships, education opportunities, campaign support, volunteering, or media collaboration.',
+        intro:
+            'Use this page to route visitors into the fastest next step for the kind of help or partnership they need.',
+        showInNav: false,
+        sections: [
+            {
+                id: 'contact-uses',
+                eyebrow: 'Best for',
+                title: 'Ways to collaborate',
+                body: 'Wildlife-Pedia can support school outreach, community awareness, storytelling, and species-support visibility.',
+                items: ['School outreach', 'Community campaigns', 'Media collaboration', 'Supporter enquiries'],
+            },
+        ],
+    },
+];
+
 const DEFAULT_SITE_CONTENT = {
     heroEyebrow: 'Nature intelligence for everyday people',
     heroTitle: 'Wildlife-Pedia turns curiosity into coexistence.',
@@ -24,6 +202,7 @@ const DEFAULT_SITE_CONTENT = {
         'A modern public knowledge hub for species discovery, safer human–wildlife coexistence, and conservation participation.',
     footerSubtext:
         'Built on the Felix Platform and connected to A & F Wildlife Foundation action.',
+    pages: DEFAULT_PAGES,
 };
 
 const DEFAULT_SPECIES = [
@@ -606,6 +785,38 @@ const normalizePost = (item = {}, index = 0) => ({
     sortOrder: toSortOrder(item.sort_order || item.sortOrder, index),
 });
 
+const normalizePageSection = (section = {}, index = 0) => ({
+    id: toText(section.id, `section-${index + 1}`),
+    eyebrow: toText(section.eyebrow, ''),
+    title: toText(section.title, `Section ${index + 1}`),
+    body: toText(section.body || section.text, ''),
+    items: Array.isArray(section.items) ? section.items.map((item) => toText(item, '')).filter(Boolean) : [],
+    ctaLabel: toText(section.ctaLabel || section.cta_label, ''),
+    ctaLink: toText(section.ctaLink || section.cta_link, ''),
+    image: toText(section.image, ''),
+});
+
+const normalizeCustomPage = (page = {}, index = 0) => ({
+    id: toText(page.id, `page-${index + 1}`),
+    slug: toSlug(page.slug || page.title, `page-${index + 1}`),
+    title: toText(page.title, `Page ${index + 1}`),
+    navigationLabel: toText(page.navigationLabel || page.navigation_label || page.title, ''),
+    heroTitle: toText(page.heroTitle || page.hero_title || page.title, ''),
+    heroText: toText(page.heroText || page.hero_text, ''),
+    intro: toText(page.intro, ''),
+    image: toText(page.image, ''),
+    showInNav: toBoolean(page.showInNav ?? page.show_in_nav, true),
+    sections: Array.isArray(page.sections) ? page.sections.map((section, sectionIndex) => normalizePageSection(section, sectionIndex)) : [],
+});
+
+const normalizeSiteContent = (content = {}) => ({
+    ...DEFAULT_SITE_CONTENT,
+    ...content,
+    pages: Array.isArray(content.pages) && content.pages.length
+        ? content.pages.map((page, index) => normalizeCustomPage(page, index))
+        : DEFAULT_PAGES.map((page, index) => normalizeCustomPage(page, index)),
+});
+
 const seedRecordsBySlug = async (tableName, columns, rows) => {
     for (const row of rows) {
         const placeholders = row.map((_value, index) => `$${index + 1}`).join(', ');
@@ -909,13 +1120,34 @@ const readSiteContent = async () => {
             [SITE_CONTENT_KEY],
         );
 
-        return {
-            ...DEFAULT_SITE_CONTENT,
-            ...(result.rows[0]?.content || {}),
-        };
+        return normalizeSiteContent(result.rows[0]?.content || {});
     } catch (error) {
         console.warn('Unable to load Wildlife-Pedia site content, falling back to defaults.', error.message || error);
-        return { ...DEFAULT_SITE_CONTENT };
+        return normalizeSiteContent({});
+    }
+};
+
+const readSiteContentWithMeta = async () => {
+    await ensurePlatformContentTable();
+
+    try {
+        const result = await pool.query(
+            'SELECT content, updated_by_email, updated_at FROM platform_content WHERE content_key = $1 LIMIT 1',
+            [SITE_CONTENT_KEY],
+        );
+
+        return {
+            content: normalizeSiteContent(result.rows[0]?.content || {}),
+            updatedByEmail: result.rows[0]?.updated_by_email || null,
+            updatedAt: result.rows[0]?.updated_at || null,
+        };
+    } catch (error) {
+        console.warn('Unable to load Wildlife-Pedia site content metadata, falling back to defaults.', error.message || error);
+        return {
+            content: normalizeSiteContent({}),
+            updatedByEmail: null,
+            updatedAt: null,
+        };
     }
 };
 
@@ -1299,6 +1531,11 @@ exports.submitSightingReport = async (req, res) => {
     }
 };
 
+exports.getAdminSiteContent = async (_req, res) => {
+    const payload = await readSiteContentWithMeta();
+    return res.json(payload);
+};
+
 exports.getAdminOverview = async (_req, res) => {
     try {
         await ensureWildlifePediaTables();
@@ -1561,12 +1798,73 @@ const saveProjectRecord = async (req, res, isUpdate = false) => {
     }
 };
 
+const savePostRecord = async (req, res, isUpdate = false) => {
+    const id = toNullableText(req.params.id || req.body.id);
+    const title = toNullableText(req.body.title);
+
+    if (!title) {
+        return res.status(400).json({ message: 'Post title is required.' });
+    }
+
+    try {
+        await ensureWildlifePediaTables();
+
+        const payload = [
+            toSlug(req.body.slug || title, 'post'),
+            title,
+            toNullableText(req.body.excerpt),
+            toNullableText(req.body.body),
+            toNullableText(req.body.category),
+            toNullableText(req.body.image),
+            toBoolean(req.body.featured, false),
+            toNullableText(req.body.publishedAt || req.body.published_at),
+            toSortOrder(req.body.sortOrder || req.body.sort_order, 0),
+        ];
+
+        const query = isUpdate
+            ? `UPDATE wildlife_pedia_posts
+               SET slug = $1,
+                   title = $2,
+                   excerpt = $3,
+                   body = $4,
+                   category = $5,
+                   image = $6,
+                   featured = $7,
+                   published_at = $8,
+                   sort_order = $9,
+                   updated_at = NOW()
+               WHERE id = $10
+               RETURNING *`
+            : `INSERT INTO wildlife_pedia_posts (
+                   slug,
+                   title,
+                   excerpt,
+                   body,
+                   category,
+                   image,
+                   featured,
+                   published_at,
+                   sort_order
+               ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+               RETURNING *`;
+
+        const values = isUpdate ? [...payload, id] : payload;
+        const result = await pool.query(query, values);
+        return res.status(isUpdate ? 200 : 201).json({ item: normalizePost(result.rows[0]) });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: `Unable to ${isUpdate ? 'update' : 'create'} post.` });
+    }
+};
+
 exports.createSpecies = async (req, res) => saveSpeciesRecord(req, res, false);
 exports.updateSpecies = async (req, res) => saveSpeciesRecord(req, res, true);
 exports.createHabitat = async (req, res) => saveHabitatRecord(req, res, false);
 exports.updateHabitat = async (req, res) => saveHabitatRecord(req, res, true);
 exports.createProject = async (req, res) => saveProjectRecord(req, res, false);
 exports.updateProject = async (req, res) => saveProjectRecord(req, res, true);
+exports.createPost = async (req, res) => savePostRecord(req, res, false);
+exports.updatePost = async (req, res) => savePostRecord(req, res, true);
 
 exports.deleteSpecies = async (req, res) => {
     try {
@@ -1601,6 +1899,17 @@ exports.deleteProject = async (req, res) => {
     }
 };
 
+exports.deletePost = async (req, res) => {
+    try {
+        await ensureWildlifePediaTables();
+        await pool.query('DELETE FROM wildlife_pedia_posts WHERE id = $1', [req.params.id]);
+        return res.status(204).send();
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Unable to delete post.' });
+    }
+};
+
 exports.updateSightingStatus = async (req, res) => {
     const status = toNullableText(req.body.status) || 'reviewed';
 
@@ -1625,10 +1934,7 @@ exports.updateSightingStatus = async (req, res) => {
 exports.updateSiteContent = async (req, res) => {
     try {
         await ensurePlatformContentTable();
-        const mergedContent = {
-            ...DEFAULT_SITE_CONTENT,
-            ...(req.body || {}),
-        };
+        const mergedContent = normalizeSiteContent(req.body || {});
 
         const result = await pool.query(
             `INSERT INTO platform_content (content_key, content, updated_by_email, updated_at)
@@ -1644,7 +1950,7 @@ exports.updateSiteContent = async (req, res) => {
 
         return res.json({
             message: 'Wildlife-Pedia content saved successfully.',
-            content: result.rows[0]?.content || mergedContent,
+            content: normalizeSiteContent(result.rows[0]?.content || mergedContent),
             updatedByEmail: result.rows[0]?.updated_by_email || null,
             updatedAt: result.rows[0]?.updated_at || null,
         });

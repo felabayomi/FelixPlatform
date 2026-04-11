@@ -43,10 +43,19 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+    const content = await getWildlifePediaSiteContent();
+    const reservedSlugs = new Set(["about", "species", "habitats", "safety", "projects", "blog", "report", "get-involved", "contact"]);
+    const customLinks = Array.isArray(content.pages)
+        ? content.pages
+            .filter((page) => page?.slug && page.showInNav !== false && !reservedSlugs.has(String(page.slug).toLowerCase()))
+            .slice(0, 4)
+            .map((page) => ({ href: `/${page.slug}`, label: page.navigationLabel || page.title }))
+        : [];
+
     return (
         <html lang="en">
             <body>
-                <WildlifeSiteHeader />
+                <WildlifeSiteHeader customLinks={customLinks} />
                 <main>{children}</main>
                 <WildlifeSiteFooter />
             </body>
