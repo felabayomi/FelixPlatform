@@ -179,6 +179,8 @@ exports.getProducts = async (req, res) => {
     try {
         const appName = normalizeOptionalText(req.query?.app_name);
         const storefrontKey = normalizeOptionalText(req.query?.storefront_key);
+        const view = normalizeOptionalText(req.query?.view);
+        const adminView = view === 'admin';
 
         // Admin products page requests the unfiltered catalog; serve warm cache instantly.
         if (!appName && !storefrontKey && hasFreshProductsCache()) {
@@ -202,9 +204,33 @@ exports.getProducts = async (req, res) => {
 
         const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
+        const selectColumns = adminView
+            ? `
+                p.id,
+                p.name,
+                p.description,
+                p.price,
+                p.category_id,
+                p.type,
+                p.price_type,
+                p.unit,
+                p.subscription_interval,
+                p.action_label,
+                p.image_url,
+                p.created_at,
+                p.updated_at,
+                p.app_name,
+                p.storefront_key,
+                p.active,
+                p.featured,
+                p.inventory_count,
+                p.stock
+            `
+            : 'p.*';
+
         const result = await pool.query(`
             SELECT
-                p.*,
+                ${selectColumns},
                 COALESCE(
                     category_map.category_ids,
                     CASE

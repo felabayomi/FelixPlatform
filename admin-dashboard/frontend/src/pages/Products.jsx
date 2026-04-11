@@ -67,7 +67,11 @@ function Products() {
     };
 
     const loadProducts = () => {
-        API.get('/products')
+        API.get('/products', {
+            params: {
+                view: 'admin',
+            },
+        })
             .then((res) => {
                 setProducts(Array.isArray(res.data) ? res.data : []);
                 setError('');
