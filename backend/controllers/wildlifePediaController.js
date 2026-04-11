@@ -48,6 +48,26 @@ const DEFAULT_SPECIES = [
         sortOrder: 1,
     },
     {
+        id: 'black-rhinoceros',
+        slug: 'black-rhinoceros',
+        name: 'Black Rhinoceros',
+        scientificName: 'Diceros bicornis',
+        summary:
+            'A browsing giant whose survival depends on anti-poaching protection, habitat security, and long-term recovery work.',
+        body:
+            'Black rhinos once ranged widely across much of sub-Saharan Africa, but poaching and habitat pressure caused devastating declines. Recovery efforts now depend on close monitoring, well-protected reserves, translocation programs, and sustained public support for conservation teams on the ground.\n\nWildlife-Pedia uses the black rhino to show that conservation is often quiet, difficult, and long-term. Protecting iconic species requires patience, resources, and a public that understands why that work matters.',
+        habitat: 'Dry bushland, savanna, and thorn scrub',
+        rangeText: 'Eastern and Southern Africa',
+        diet: 'Herbivore',
+        conservationStatus: 'Critically Endangered',
+        riskLevel: 'Moderate in protected landscapes',
+        coexistenceTips:
+            'Stay inside designated routes in rhino areas, never approach on foot, and report suspicious activity near protected zones.',
+        image: 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?auto=format&fit=crop&w=1200&q=80',
+        featured: true,
+        sortOrder: 2,
+    },
+    {
         id: 'african-lion',
         slug: 'african-lion',
         name: 'African Lion',
@@ -65,7 +85,7 @@ const DEFAULT_SPECIES = [
             'Avoid night movement in active predator areas, secure livestock, and report repeated sightings through local wildlife channels.',
         image: 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?auto=format&fit=crop&w=1200&q=80',
         featured: true,
-        sortOrder: 2,
+        sortOrder: 3,
     },
     {
         id: 'pangolin',
@@ -85,7 +105,47 @@ const DEFAULT_SPECIES = [
             'Do not handle or relocate pangolins yourself. Report sightings or suspected trafficking to trained wildlife authorities immediately.',
         image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
         featured: true,
-        sortOrder: 3,
+        sortOrder: 4,
+    },
+    {
+        id: 'african-wild-dog',
+        slug: 'african-wild-dog',
+        name: 'African Wild Dog',
+        scientificName: 'Lycaon pictus',
+        summary:
+            'One of Africa’s most effective hunters, dependent on wide connected ranges and tolerance in shared landscapes.',
+        body:
+            'African wild dogs are highly social, intelligent hunters that need large territories and healthy prey systems to survive. Their packs can cover huge distances, which makes habitat fragmentation and road pressure especially damaging.\n\nBecause they often move through mixed-use land, their future also depends on public understanding. Wildlife-Pedia highlights wild dogs as an example of how conservation is tied to land planning, coexistence, and community awareness.',
+        habitat: 'Savannas, open woodland, and mixed rangelands',
+        rangeText: 'Eastern and Southern Africa',
+        diet: 'Carnivore',
+        conservationStatus: 'Endangered',
+        riskLevel: 'Moderate near livestock zones',
+        coexistenceTips:
+            'Never bait or follow packs closely, report den areas responsibly, and support predator-aware livestock practices.',
+        image: 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        sortOrder: 5,
+    },
+    {
+        id: 'cheetah',
+        slug: 'cheetah',
+        name: 'Cheetah',
+        scientificName: 'Acinonyx jubatus',
+        summary:
+            'A fast-moving predator whose future relies on open habitat, prey access, and lower conflict pressure.',
+        body:
+            'Cheetahs need room to move, hunt, and avoid stronger competitors. They are especially vulnerable to habitat fragmentation, fencing, and conflict in farming landscapes where prey patterns have changed.\n\nWildlife-Pedia uses the cheetah to illustrate why speed and beauty alone do not secure a species. Long-term survival depends on connected landscapes, tolerant communities, and informed coexistence strategies.',
+        habitat: 'Open savannas, grasslands, and semi-arid plains',
+        rangeText: 'Southern and Eastern Africa',
+        diet: 'Carnivore',
+        conservationStatus: 'Vulnerable',
+        riskLevel: 'Moderate',
+        coexistenceTips:
+            'Observe from a distance, avoid crowding with vehicles, and support efforts that reduce conflict in shared rangelands.',
+        image: 'https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        sortOrder: 6,
     },
     {
         id: 'hippopotamus',
@@ -105,7 +165,47 @@ const DEFAULT_SPECIES = [
             'Keep distance from riverbanks at dawn and dusk, avoid getting between hippos and water, and never approach pods by boat.',
         image: 'https://images.unsplash.com/photo-1516934024742-b461fba47600?auto=format&fit=crop&w=1200&q=80',
         featured: false,
-        sortOrder: 4,
+        sortOrder: 7,
+    },
+    {
+        id: 'nile-crocodile',
+        slug: 'nile-crocodile',
+        name: 'Nile Crocodile',
+        scientificName: 'Crocodylus niloticus',
+        summary:
+            'A formidable river predator that demands careful public awareness anywhere people regularly use shared water access points.',
+        body:
+            'Nile crocodiles are one of Africa’s most recognizable aquatic predators, but they are also involved in some of the continent’s most serious wildlife-safety incidents. Risk often increases where water access, fishing, livestock, and poor visibility come together.\n\nWildlife-Pedia includes crocodile profiles to make one point clear: coexistence begins with behavior change. Safer water routines, local reporting, and respect for known hotspots can prevent avoidable harm.',
+        habitat: 'Rivers, lakes, marshes, and estuaries',
+        rangeText: 'Across much of sub-Saharan Africa',
+        diet: 'Carnivore',
+        conservationStatus: 'Least Concern',
+        riskLevel: 'High at shared water access points',
+        coexistenceTips:
+            'Avoid water edges at dawn or dusk, use known safe access points, and never clean fish or livestock remains at busy riverbanks.',
+        image: 'https://images.unsplash.com/photo-1501706362039-c06b2d715385?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        sortOrder: 8,
+    },
+    {
+        id: 'mountain-gorilla',
+        slug: 'mountain-gorilla',
+        name: 'Mountain Gorilla',
+        scientificName: 'Gorilla beringei beringei',
+        summary:
+            'A conservation success story that still depends on strict protection, careful tourism, and disease prevention.',
+        body:
+            'Mountain gorillas show that recovery is possible when protection, habitat stewardship, veterinary support, and community partnership come together. But they remain highly vulnerable to habitat pressure and disease transmission from people.\n\nFor Wildlife-Pedia, gorillas represent the hopeful side of conservation: evidence that long-term commitment can work. They also remind us that responsible tourism and respectful distance are part of conservation too.',
+        habitat: 'Montane forests and volcanic highlands',
+        rangeText: 'Rwanda, Uganda, and the DRC',
+        diet: 'Herbivore',
+        conservationStatus: 'Endangered',
+        riskLevel: 'Low with guided access, sensitive to disease',
+        coexistenceTips:
+            'Follow guide instructions closely, keep health precautions in place, and never approach gorillas without authorized supervision.',
+        image: 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        sortOrder: 9,
     },
     {
         id: 'grey-crowned-crane',
@@ -125,7 +225,7 @@ const DEFAULT_SPECIES = [
             'Protect nesting areas, reduce disturbance in wetlands, and report illegal capture or egg collection.',
         image: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=1200&q=80',
         featured: false,
-        sortOrder: 5,
+        sortOrder: 10,
     },
 ];
 
@@ -206,6 +306,21 @@ const DEFAULT_PROJECTS = [
         sortOrder: 2,
     },
     {
+        id: 'predator-safe-livestock',
+        slug: 'predator-safe-livestock',
+        title: 'Predator-safe livestock enclosures',
+        summary:
+            'Reducing retaliatory killing by helping communities protect livestock more effectively at night.',
+        body:
+            'One of the most practical ways to reduce conflict with lions, hyenas, and other predators is to make livestock protection stronger, cheaper, and easier to maintain. This project focuses on awareness, local design solutions, and public support for prevention-first coexistence tools.',
+        status: 'Active',
+        ctaLabel: 'Back coexistence tools',
+        ctaLink: '/get-involved',
+        image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+        featured: true,
+        sortOrder: 3,
+    },
+    {
         id: 'species-adoption-drive',
         slug: 'species-adoption-drive',
         title: 'Species adoption support',
@@ -218,7 +333,37 @@ const DEFAULT_PROJECTS = [
         ctaLink: '/get-involved',
         image: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?auto=format&fit=crop&w=1200&q=80',
         featured: false,
-        sortOrder: 3,
+        sortOrder: 4,
+    },
+    {
+        id: 'youth-ranger-clubs',
+        slug: 'youth-ranger-clubs',
+        title: 'Youth ranger clubs',
+        summary:
+            'Helping schools and young leaders turn wildlife interest into stewardship, reporting, and local conservation pride.',
+        body:
+            'Wildlife literacy grows faster when students can connect classroom learning to real animals, real habitats, and real community responsibility. Youth ranger clubs are designed to support that bridge through projects, storytelling, and public-awareness activities.',
+        status: 'Launching',
+        ctaLabel: 'Partner with a school',
+        ctaLink: '/get-involved',
+        image: 'https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        sortOrder: 5,
+    },
+    {
+        id: 'wetland-guardians',
+        slug: 'wetland-guardians',
+        title: 'Wetland guardians initiative',
+        summary:
+            'Protecting high-value wetland spaces through awareness, safer access habits, and habitat advocacy.',
+        body:
+            'Wetlands are biodiversity engines and community lifelines at the same time. This project focuses on helping people understand why wetland protection supports birds, fisheries, water safety, and broader ecosystem health all at once.',
+        status: 'Growing',
+        ctaLabel: 'Support wetland protection',
+        ctaLink: '/projects',
+        image: 'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        sortOrder: 6,
     },
 ];
 
@@ -238,6 +383,34 @@ const DEFAULT_POSTS = [
         sortOrder: 1,
     },
     {
+        id: 'read-warning-signs-before-conflict-escalates',
+        slug: 'read-warning-signs-before-conflict-escalates',
+        title: 'How to read warning signs before conflict escalates',
+        excerpt:
+            'Many dangerous encounters begin with missed cues — movement changes, defensive posture, noise, or blocked routes.',
+        body:
+            'Wildlife does not usually become dangerous without context. Stress, surprise, crowding, and blocked movement all matter. Learning to notice warning behavior early gives people more time to step back, stay calm, and avoid escalating an encounter unnecessarily.',
+        category: 'Safety',
+        image: 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=1200&q=80',
+        featured: true,
+        publishedAt: '2026-04-09',
+        sortOrder: 2,
+    },
+    {
+        id: 'why-vultures-still-matter',
+        slug: 'why-vultures-still-matter',
+        title: 'Why vultures still matter more than most people realize',
+        excerpt:
+            'These overlooked birds are public-health allies, ecosystem cleaners, and a critical part of wildlife resilience.',
+        body:
+            'Vultures are often misunderstood, but they perform one of the most important cleanup roles in nature. When vulture populations drop, the effects reach far beyond the birds themselves. Wildlife-Pedia uses stories like this to show that conservation is about systems, not only the most famous animals.',
+        category: 'Biodiversity',
+        image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+        featured: true,
+        publishedAt: '2026-04-08',
+        sortOrder: 3,
+    },
+    {
         id: 'what-makes-a-good-sighting-report',
         slug: 'what-makes-a-good-sighting-report',
         title: 'What makes a good wildlife sighting report?',
@@ -248,8 +421,22 @@ const DEFAULT_POSTS = [
         category: 'Reporting',
         image: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1200&q=80',
         featured: false,
-        publishedAt: '2026-04-08',
-        sortOrder: 2,
+        publishedAt: '2026-04-07',
+        sortOrder: 4,
+    },
+    {
+        id: 'how-schools-can-teach-coexistence',
+        slug: 'how-schools-can-teach-coexistence',
+        title: 'How schools can teach wildlife coexistence early',
+        excerpt:
+            'Conservation literacy works best when young people can connect local wildlife to everyday responsibility.',
+        body:
+            'Schools are one of the most effective places to build long-term wildlife awareness. When students learn how animals behave, why habitats matter, and how reporting works, that knowledge often travels home into families and communities too.',
+        category: 'Education',
+        image: 'https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        publishedAt: '2026-04-06',
+        sortOrder: 5,
     },
     {
         id: 'wetlands-are-safety-zones-too',
@@ -263,7 +450,21 @@ const DEFAULT_POSTS = [
         image: 'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?auto=format&fit=crop&w=1200&q=80',
         featured: false,
         publishedAt: '2026-04-05',
-        sortOrder: 3,
+        sortOrder: 6,
+    },
+    {
+        id: 'crocodile-sightings-are-public-safety-signals',
+        slug: 'crocodile-sightings-are-public-safety-signals',
+        title: 'When a crocodile sighting is a public safety signal',
+        excerpt:
+            'Some sightings are not just interesting — they are early warnings that a shared water edge may be becoming more risky.',
+        body:
+            'Wildlife sightings help communities notice patterns. Repeated crocodile reports near the same access point, school route, or fishing area can indicate a growing safety issue. That is why calm, accurate reporting is one of the most practical conservation and safety tools available.',
+        category: 'Safety',
+        image: 'https://images.unsplash.com/photo-1501706362039-c06b2d715385?auto=format&fit=crop&w=1200&q=80',
+        featured: false,
+        publishedAt: '2026-04-04',
+        sortOrder: 7,
     },
 ];
 
@@ -362,6 +563,18 @@ const normalizePost = (item = {}, index = 0) => ({
     publishedAt: toText(item.published_at || item.publishedAt, ''),
     sortOrder: toSortOrder(item.sort_order || item.sortOrder, index),
 });
+
+const seedRecordsBySlug = async (tableName, columns, rows) => {
+    for (const row of rows) {
+        const placeholders = row.map((_value, index) => `$${index + 1}`).join(', ');
+        await pool.query(
+            `INSERT INTO ${tableName} (${columns.join(', ')})
+             VALUES (${placeholders})
+             ON CONFLICT (slug) DO NOTHING`,
+            row,
+        );
+    }
+};
 
 const ensurePlatformContentTable = async () => {
     if (!ensurePlatformContentTablePromise) {
@@ -546,6 +759,76 @@ const ensureWildlifePediaTables = async () => {
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
             `);
+
+            await seedRecordsBySlug(
+                'wildlife_pedia_species',
+                ['slug', 'name', 'scientific_name', 'summary', 'body', 'habitat', 'range_text', 'diet', 'conservation_status', 'risk_level', 'coexistence_tips', 'image', 'featured', 'sort_order'],
+                DEFAULT_SPECIES.map((item) => [
+                    item.slug,
+                    item.name,
+                    item.scientificName,
+                    item.summary,
+                    item.body,
+                    item.habitat,
+                    item.rangeText,
+                    item.diet,
+                    item.conservationStatus,
+                    item.riskLevel,
+                    item.coexistenceTips,
+                    item.image,
+                    item.featured,
+                    item.sortOrder,
+                ]),
+            );
+
+            await seedRecordsBySlug(
+                'wildlife_pedia_habitats',
+                ['slug', 'title', 'summary', 'body', 'human_interaction', 'region', 'image', 'featured', 'sort_order'],
+                DEFAULT_HABITATS.map((item) => [
+                    item.slug,
+                    item.title,
+                    item.summary,
+                    item.body,
+                    item.humanInteraction,
+                    item.region,
+                    item.image,
+                    item.featured,
+                    item.sortOrder,
+                ]),
+            );
+
+            await seedRecordsBySlug(
+                'wildlife_pedia_projects',
+                ['slug', 'title', 'summary', 'body', 'status', 'cta_label', 'cta_link', 'image', 'featured', 'sort_order'],
+                DEFAULT_PROJECTS.map((item) => [
+                    item.slug,
+                    item.title,
+                    item.summary,
+                    item.body,
+                    item.status,
+                    item.ctaLabel,
+                    item.ctaLink,
+                    item.image,
+                    item.featured,
+                    item.sortOrder,
+                ]),
+            );
+
+            await seedRecordsBySlug(
+                'wildlife_pedia_posts',
+                ['slug', 'title', 'excerpt', 'body', 'category', 'image', 'featured', 'published_at', 'sort_order'],
+                DEFAULT_POSTS.map((item) => [
+                    item.slug,
+                    item.title,
+                    item.excerpt,
+                    item.body,
+                    item.category,
+                    item.image,
+                    item.featured,
+                    item.publishedAt,
+                    item.sortOrder,
+                ]),
+            );
         })().catch((error) => {
             ensureWildlifePediaTablesPromise = null;
             throw error;
