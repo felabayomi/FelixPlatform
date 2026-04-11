@@ -16,6 +16,7 @@ const platformContentRoutes = require('./routes/platformContent');
 const adrianStoreRoutes = require('./routes/adrianStore');
 const storefrontRoutes = require('./routes/storefront');
 const waciRoutes = require('./routes/waci');
+const wildlifePediaRoutes = require('./routes/wildlifePedia');
 const storefrontController = require('./controllers/storefrontController');
 const waciController = require('./controllers/waciController');
 
@@ -113,6 +114,7 @@ app.use('/categories', categoriesRoutes);
 app.use('/api', documentFormatterRoutes);
 app.use('/api/storefront', storefrontRoutes);
 app.use('/api/waci', waciRoutes);
+app.use('/api/wildlife-pedia', wildlifePediaRoutes);
 app.use('/api/admin/aflaundry/appointments', afLaundryAppointmentsRoutes);
 app.use(platformContentRoutes);
 app.use(adrianStoreRoutes);

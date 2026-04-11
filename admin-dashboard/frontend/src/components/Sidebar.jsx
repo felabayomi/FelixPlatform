@@ -4,6 +4,18 @@ import { NavLink, useLocation } from 'react-router-dom';
 const links = [
     { to: '/dashboard', label: 'Dashboard' },
     {
+        to: '/wildlife-pedia',
+        label: 'Wildlife-Pedia',
+        children: [
+            { hash: '#species', label: 'Species' },
+            { hash: '#habitats', label: 'Habitats' },
+            { hash: '#projects', label: 'Projects' },
+            { hash: '#reports', label: 'Sightings' },
+            { hash: '#volunteers', label: 'Volunteers' },
+            { hash: '#donors', label: 'Donors' },
+        ],
+    },
+    {
         to: '/waci',
         label: 'WACI',
         children: [
@@ -31,6 +43,7 @@ const links = [
 function Sidebar() {
     const location = useLocation();
     const [expandedGroups, setExpandedGroups] = useState(() => ({
+        '/wildlife-pedia': location.pathname === '/wildlife-pedia',
         '/waci': location.pathname === '/waci',
     }));
 

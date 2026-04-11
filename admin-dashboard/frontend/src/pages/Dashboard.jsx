@@ -4,6 +4,11 @@ import API from '../services/api';
 
 const managementLinks = [
     {
+        to: '/wildlife-pedia',
+        label: 'Wildlife-Pedia workspace',
+        description: 'Review species, habitats, projects, and community sighting reports.',
+    },
+    {
         to: '/waci',
         label: 'WACI workspace',
         description: 'Manage WACI homepage content, programs, stories, and supporter records.',
@@ -55,6 +60,11 @@ function Dashboard() {
         orders: 0,
         support: 0,
     });
+    const [wildlifePediaSummary, setWildlifePediaSummary] = useState({
+        species: 0,
+        sightings: 0,
+        donors: 0,
+    });
     const [waciSummary, setWaciSummary] = useState({
         programs: 0,
         stories: 0,
@@ -74,14 +84,20 @@ function Dashboard() {
             API.get('/support-requests', {
                 params: { app_name: 'Adrian Store', storefront_key: 'adrian-store' },
             }).catch(() => ({ data: [] })),
+            API.get('/api/wildlife-pedia/admin/overview').catch(() => ({ data: { overview: {} } })),
             API.get('/api/waci/admin/overview').catch(() => ({ data: { overview: {} } })),
         ])
-            .then(([overviewRes, productsRes, ordersRes, supportRes, waciRes]) => {
+            .then(([overviewRes, productsRes, ordersRes, supportRes, wildlifePediaRes, waciRes]) => {
                 setFormatterSummary(overviewRes.data?.summary || null);
                 setAdrianSummary({
                     products: Array.isArray(productsRes.data) ? productsRes.data.length : 0,
                     orders: Array.isArray(ordersRes.data) ? ordersRes.data.length : 0,
                     support: Array.isArray(supportRes.data) ? supportRes.data.length : 0,
+                });
+                setWildlifePediaSummary({
+                    species: Number(wildlifePediaRes.data?.overview?.species || 0),
+                    sightings: Number(wildlifePediaRes.data?.overview?.sightings || 0),
+                    donors: Number(wildlifePediaRes.data?.overview?.donors || 0),
                 });
                 setWaciSummary({
                     programs: Number(waciRes.data?.overview?.programs || 0),
@@ -122,6 +138,10 @@ function Dashboard() {
                     <span>{adrianSummary.support} support requests to manage</span>
                 </div>
                 <div className="stat-card">
+                    <strong>Wildlife-Pedia</strong>
+                    <span>{wildlifePediaSummary.species} species profiles and {wildlifePediaSummary.sightings} sighting reports</span>
+                </div>
+                <div className="stat-card">
                     <strong>WACI programs</strong>
                     <span>{waciSummary.programs} live or draft conservation programs</span>
                 </div>
@@ -139,10 +159,10 @@ function Dashboard() {
                 <div className="record-header">
                     <div>
                         <h3>Quick access</h3>
-                        <p className="muted">Use these shortcuts to jump directly into the WACI and Adrian workspaces from the main admin dashboard.</p>
+                        <p className="muted">Use these shortcuts to jump directly into the Wildlife-Pedia, WACI, and Adrian workspaces from the main admin dashboard.</p>
                     </div>
-                    <Link to="/waci" className="edit-button preview-link">
-                        Open WACI Workspace
+                    <Link to="/wildlife-pedia" className="edit-button preview-link">
+                        Open Wildlife-Pedia
                     </Link>
                 </div>
 

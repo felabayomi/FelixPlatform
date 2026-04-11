@@ -1,0 +1,64 @@
+<svg width="700" height="700" viewBox="0 0 700 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="skyWater" x1="160" y1="70" x2="520" y2="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2FA3FF"/>
+      <stop offset="0.3" stop-color="#7EDBFF"/>
+      <stop offset="0.55" stop-color="#2D8C6B"/>
+      <stop offset="1" stop-color="#163F30"/>
+    </linearGradient>
+    <linearGradient id="forest" x1="150" y1="120" x2="580" y2="600" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7ED957" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#0F3D2E" stop-opacity="0.85"/>
+    </linearGradient>
+    <filter id="shadow" x="40" y="40" width="620" height="620" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feOffset dy="8"/>
+      <feGaussianBlur stdDeviation="10"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.28 0"/>
+      <feBlend mode="normal" in2="SourceGraphic" result="shape"/>
+    </filter>
+    <clipPath id="africaClip">
+      <path d="M130 168C165 116 223 90 295 91H416C486 91 549 130 579 190C599 231 610 266 612 311C615 370 593 420 607 472C621 527 590 577 531 602C496 616 473 636 449 664C422 697 378 699 354 658L312 585C295 555 267 536 240 514C208 488 183 452 172 412L153 345C142 306 120 272 108 235C100 212 112 191 130 168Z"/>
+    </clipPath>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <path d="M130 168C165 116 223 90 295 91H416C486 91 549 130 579 190C599 231 610 266 612 311C615 370 593 420 607 472C621 527 590 577 531 602C496 616 473 636 449 664C422 697 378 699 354 658L312 585C295 555 267 536 240 514C208 488 183 452 172 412L153 345C142 306 120 272 108 235C100 212 112 191 130 168Z" fill="url(#skyWater)" stroke="#4A4A4A" stroke-width="10"/>
+
+    <g clip-path="url(#africaClip)">
+      <rect x="80" y="60" width="560" height="620" fill="url(#forest)"/>
+      <path d="M70 205C160 150 235 155 350 178C438 195 532 187 628 153V270C527 291 447 287 360 265C262 240 169 239 82 280L70 205Z" fill="#9DE0FF" fill-opacity="0.55"/>
+      <path d="M115 328C185 294 261 304 341 333C408 357 476 367 553 362C575 360 596 356 620 348V452C576 459 542 462 500 460C412 454 342 418 265 408C203 401 146 407 100 432L115 328Z" fill="#D4F2FF" fill-opacity="0.18"/>
+      <path d="M80 468C154 438 245 446 315 469C388 493 446 530 510 542C545 549 579 548 621 534V655H81L80 468Z" fill="#0D6C63" fill-opacity="0.48"/>
+
+      <ellipse cx="328" cy="362" rx="102" ry="38" fill="#E8E6D5" fill-opacity="0.85"/>
+      <ellipse cx="340" cy="395" rx="82" ry="18" fill="#B9DDE9" fill-opacity="0.55"/>
+
+      <g transform="translate(210 265)">
+        <path d="M84 44C102 30 125 19 148 17C180 14 203 29 211 57C216 74 214 91 206 105C194 126 172 138 149 143C123 149 96 147 73 137C51 128 40 110 40 88C40 70 54 56 84 44Z" fill="#D4A24C"/>
+        <circle cx="193" cy="53" r="7" fill="#1F1F1F"/>
+        <path d="M181 143L207 205" stroke="#1F1F1F" stroke-width="8" stroke-linecap="round"/>
+        <path d="M125 146L119 210" stroke="#1F1F1F" stroke-width="8" stroke-linecap="round"/>
+        <path d="M84 142L65 197" stroke="#1F1F1F" stroke-width="8" stroke-linecap="round"/>
+        <path d="M148 39C165 39 180 49 190 67" stroke="#1F1F1F" stroke-width="6" stroke-linecap="round"/>
+        <path d="M33 103C0 110 -8 126 8 140C25 153 52 148 69 133" stroke="#1F1F1F" stroke-width="10" stroke-linecap="round"/>
+        <path d="M65 61L90 73M95 52L118 67M121 47L144 60" stroke="#2E1C10" stroke-width="5" stroke-linecap="round"/>
+      </g>
+
+      <g transform="translate(100 112)">
+        <path d="M0 48C54 13 86 9 140 22C118 31 101 43 88 58C69 80 45 90 0 89C13 77 24 64 31 50C18 51 10 50 0 48Z" fill="#2C1E1B"/>
+      </g>
+
+      <g transform="translate(390 510)">
+        <ellipse cx="56" cy="28" rx="43" ry="28" fill="#8F5E2F"/>
+        <ellipse cx="56" cy="28" rx="26" ry="18" fill="#BC854A"/>
+        <path d="M91 28C111 30 120 42 120 56C103 54 90 47 82 39L91 28Z" fill="#5D3C1F"/>
+        <path d="M15 30L-7 17M24 44L6 63M41 53L34 77M69 54L77 80" stroke="#5D3C1F" stroke-width="6" stroke-linecap="round"/>
+      </g>
+    </g>
+  </g>
+
+  <g>
+    <text x="258" y="150" fill="#F15A24" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="700" style="paint-order:stroke;stroke:#2B160D;stroke-width:5;">Wildlife Africa</text>
+    <text x="467" y="644" fill="#F15A24" font-family="Arial, Helvetica, sans-serif" font-size="74" font-weight="800" style="paint-order:stroke;stroke:#2B160D;stroke-width:6;">CREW</text>
+  </g>
+</svg>
