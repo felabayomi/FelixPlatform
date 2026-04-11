@@ -175,29 +175,91 @@ const sendProductsResponse = (res, products, source) => {
     return res.json(products);
 };
 
-const toAdminProductView = (product) => ({
-    id: product.id,
-    name: product.name,
-    description: product.description,
-    price: product.price,
-    category_id: product.category_id,
-    category_ids: Array.isArray(product.category_ids) ? product.category_ids : [],
-    category_names: Array.isArray(product.category_names) ? product.category_names : [],
-    type: product.type,
-    price_type: product.price_type,
-    unit: product.unit,
-    subscription_interval: product.subscription_interval,
-    action_label: product.action_label,
-    image_url: product.image_url,
-    created_at: product.created_at,
-    updated_at: product.updated_at,
-    app_name: product.app_name,
-    storefront_key: product.storefront_key,
-    active: product.active,
-    featured: product.featured,
-    inventory_count: product.inventory_count ?? product.stock ?? null,
-    stock: product.stock ?? product.inventory_count ?? null,
-});
+const toAdminProductView = (product) => {
+    const fullDescription = typeof product.description === 'string' ? product.description : '';
+    const descriptionPreview = fullDescription.length > 320
+        ? `${fullDescription.slice(0, 320)}...`
+        : fullDescription;
+
+    return {
+        id: product.id,
+        name: product.name,
+        description: descriptionPreview,
+        price: product.price,
+        category_id: product.category_id,
+        category_ids: Array.isArray(product.category_ids) ? product.category_ids : [],
+        category_names: Array.isArray(product.category_names) ? product.category_names : [],
+        type: product.type,
+        price_type: product.price_type,
+        unit: product.unit,
+        subscription_interval: product.subscription_interval,
+        action_label: product.action_label,
+        image_url: product.image_url,
+        created_at: product.created_at,
+        updated_at: product.updated_at,
+        app_name: product.app_name,
+        storefront_key: product.storefront_key,
+        active: product.active,
+        featured: product.featured,
+        inventory_count: product.inventory_count ?? product.stock ?? null,
+        stock: product.stock ?? product.inventory_count ?? null,
+    };
+};
+
+exports.getProductById = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        await ensureProductCategoriesTable();
+
+        const result = await pool.query(`
+            SELECT
+                p.*,
+                COALESCE(
+                    category_map.category_ids,
+                    CASE
+                        WHEN p.category_id IS NOT NULL THEN ARRAY[p.category_id::text]
+                        ELSE ARRAY[]::text[]
+                    END
+                ) AS category_ids,
+                COALESCE(
+                    category_map.category_names,
+                    CASE
+                        WHEN primary_category.name IS NOT NULL THEN ARRAY[primary_category.name]
+                        ELSE ARRAY[]::text[]
+                    END
+                ) AS category_names
+            FROM products p
+            LEFT JOIN categories primary_category ON primary_category.id = p.category_id
+            LEFT JOIN (
+                SELECT
+                    mapping.product_id,
+                    ARRAY_AGG(mapping.category_id ORDER BY mapping.category_name, mapping.category_id) AS category_ids,
+                    ARRAY_AGG(mapping.category_name ORDER BY mapping.category_name, mapping.category_id) AS category_names
+                FROM (
+                    SELECT DISTINCT
+                        pc.product_id,
+                        pc.category_id::text AS category_id,
+                        COALESCE(c.name, pc.category_id::text) AS category_name
+                    FROM product_categories pc
+                    LEFT JOIN categories c ON c.id = pc.category_id
+                ) AS mapping
+                GROUP BY mapping.product_id
+            ) AS category_map ON category_map.product_id = p.id
+            WHERE p.id = $1
+            LIMIT 1
+        `, [id]);
+
+        if (!result.rows.length) {
+            return res.status(404).send('Product not found');
+        }
+
+        return res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Product detail query failed:', err);
+        return res.status(500).send('Error retrieving product');
+    }
+};
 
 exports.getProducts = async (req, res) => {
     try {

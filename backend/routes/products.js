@@ -25,6 +25,7 @@ router.post('/upload-image', authenticateToken, requireAdmin, (req, res) => {
         }
     });
 });
+router.get('/:id', authenticateToken, requireAdmin, productsController.getProductById);
 router.post('/', authenticateToken, requireAdmin, productsController.addProduct);
 router.put('/:id', authenticateToken, requireAdmin, productsController.updateProduct);
 router.delete('/:id', authenticateToken, requireAdmin, productsController.deleteProduct);

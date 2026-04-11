@@ -27,6 +27,7 @@ function Products() {
     const [editImageUrl, setEditImageUrl] = useState('');
     const [editImageUploading, setEditImageUploading] = useState(false);
     const [editType, setEditType] = useState('service');
+    const [loadingEditDetails, setLoadingEditDetails] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
@@ -257,7 +258,7 @@ function Products() {
         }
     };
 
-    const startEditProduct = (product) => {
+    const startEditProduct = async (product) => {
         setEditingProductId(product.id);
         setEditName(product.name || '');
         setEditDescription(product.description || '');
@@ -275,6 +276,32 @@ function Products() {
         setEditType(product.type || 'service');
         setError('');
         setMessage('');
+
+        try {
+            setLoadingEditDetails(true);
+            const detailRes = await API.get(`/products/${product.id}`);
+            const detail = detailRes.data || {};
+
+            setEditName(detail.name || product.name || '');
+            setEditDescription(detail.description || '');
+            setEditPrice(detail.price ?? '');
+            setEditCategoryIds(
+                Array.isArray(detail.category_ids) && detail.category_ids.length
+                    ? detail.category_ids
+                    : (detail.category_id ? [detail.category_id] : [])
+            );
+            setEditPriceType(detail.price_type || product.price_type || 'fixed');
+            setEditUnit(detail.unit || '');
+            setEditSubscriptionInterval(detail.subscription_interval || '');
+            setEditActionLabel(detail.action_label || '');
+            setEditImageUrl(detail.image_url || '');
+            setEditType(detail.type || 'service');
+        } catch (err) {
+            console.error(err);
+            setError(formatApiError(err, 'Unable to load full product details for editing.'));
+        } finally {
+            setLoadingEditDetails(false);
+        }
     };
 
     const saveProductEdit = async (id) => {
@@ -463,6 +490,7 @@ function Products() {
                                 <input value={editName} onChange={(e) => setEditName(e.target.value)} />
                                 <input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
                                 <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
+                                {loadingEditDetails ? <p className="muted">Loading full product details...</p> : null}
                                 <label className="muted">Categories</label>
                                 <select
                                     multiple
