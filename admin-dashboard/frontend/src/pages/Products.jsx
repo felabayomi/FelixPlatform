@@ -224,7 +224,7 @@ function Products() {
             const cleanedPrice = price.replace(/[^0-9.-]/g, '');
             const normalizedPriceType = priceType || 'fixed';
 
-            await API.post('/products', {
+            const addRes = await API.post('/products', {
                 name,
                 description,
                 price: cleanedPrice === '' ? null : Number(cleanedPrice),
@@ -238,6 +238,7 @@ function Products() {
                 image_url: imageUrl || null
             });
 
+            setProducts(prev => [addRes.data, ...prev]);
             setName('');
             setDescription('');
             setPrice('');
@@ -248,7 +249,6 @@ function Products() {
             setActionLabel('');
             setImageUrl('');
             setMessage('Product added successfully.');
-            loadProducts();
         } catch (err) {
             console.error(err);
             setError(err.response?.data || 'Error adding product.');
@@ -296,7 +296,7 @@ function Products() {
                     ? 'service'
                     : (editType || 'service');
 
-            await API.put(`/products/${id}`, {
+            const updateRes = await API.put(`/products/${id}`, {
                 name: editName,
                 description: editDescription,
                 price: editPrice,
@@ -310,9 +310,9 @@ function Products() {
                 image_url: editImageUrl || null
             });
 
+            setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updateRes.data } : p));
             setEditingProductId(null);
             setMessage('Product updated successfully.');
-            loadProducts();
         } catch (err) {
             console.error(err);
             setError(err.response?.data || 'Error updating product.');
@@ -325,8 +325,8 @@ function Products() {
 
         try {
             await API.delete(`/products/${id}`);
+            setProducts(prev => prev.filter(p => p.id !== id));
             setMessage(`${productName} deleted successfully.`);
-            loadProducts();
         } catch (err) {
             console.error(err);
             setError(err.response?.data || 'Error deleting product.');
