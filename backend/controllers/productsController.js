@@ -266,7 +266,10 @@ exports.getProducts = async (req, res) => {
             ORDER BY p.created_at DESC, p.name ASC
         `, values);
 
-        const products = updateProductsCache(result.rows);
+        // Only cache the unfiltered full catalog — filtered queries must not overwrite it.
+        const products = (!appName && !storefrontKey)
+            ? updateProductsCache(result.rows)
+            : result.rows;
         return sendProductsResponse(res, products, 'database');
     } catch (err) {
         console.error('Product catalog query failed:', err);
