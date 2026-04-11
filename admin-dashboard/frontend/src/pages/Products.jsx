@@ -67,20 +67,29 @@ function Products() {
         return fallbackMessage;
     };
 
-    const loadProducts = () => {
-        API.get('/products', {
-            params: {
-                view: 'admin',
-            },
-        })
-            .then((res) => {
-                setProducts(Array.isArray(res.data) ? res.data : []);
-                setError('');
-            })
-            .catch((err) => {
-                console.error(err);
-                setError(formatApiError(err, 'Product catalog temporarily unavailable while the database connection recovers. Your products are not deleted. Please try again shortly.'));
+    const loadProducts = async () => {
+        try {
+            const res = await API.get('/products', {
+                params: {
+                    view: 'admin',
+                },
             });
+
+            setProducts(Array.isArray(res.data) ? res.data : []);
+            setError('');
+            return;
+        } catch (err) {
+            console.error(err);
+        }
+
+        try {
+            const fallbackRes = await API.get('/products');
+            setProducts(Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
+            setError('Admin optimized catalog is temporarily unavailable. Loaded full catalog fallback.');
+        } catch (fallbackErr) {
+            console.error(fallbackErr);
+            setError(formatApiError(fallbackErr, 'Product catalog temporarily unavailable while the database connection recovers. Your products are not deleted. Please try again shortly.'));
+        }
     };
 
     const loadCategories = () => {
