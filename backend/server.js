@@ -18,6 +18,7 @@ const storefrontRoutes = require('./routes/storefront');
 const waciRoutes = require('./routes/waci');
 const wildlifePediaRoutes = require('./routes/wildlifePedia');
 const expeditionAmericaRoutes = require('./routes/expeditionAmerica');
+const expeditionAmericaStandaloneRoutes = require('./routes/expeditionAmericaStandalone');
 const expeditionAmericaController = require('./controllers/expeditionAmericaController');
 const cityTourHubRoutes = require('./routes/cityTourHub');
 const storefrontController = require('./controllers/storefrontController');
@@ -51,6 +52,7 @@ const defaultAllowedOrigins = [
     'https://www.wildlifeafrica.org',
     'https://expeditionamerica.online',
     'https://www.expeditionamerica.online',
+    'https://expedition-america-kj011p40q-felabayomis-projects.vercel.app',
     'https://citytourhub.vercel.app',
     'https://tours.citydiscoverer.guide',
 ];
@@ -125,6 +127,7 @@ app.use('/api/storefront', storefrontRoutes);
 app.use('/api/waci', waciRoutes);
 app.use('/api/wildlife-pedia', wildlifePediaRoutes);
 app.use('/api/expedition-america', expeditionAmericaRoutes);
+app.use('/api/expedition-america-standalone', expeditionAmericaStandaloneRoutes);
 app.use('/api/city-tour-hub', cityTourHubRoutes);
 app.use('/api/admin/aflaundry/appointments', afLaundryAppointmentsRoutes);
 app.use(platformContentRoutes);
