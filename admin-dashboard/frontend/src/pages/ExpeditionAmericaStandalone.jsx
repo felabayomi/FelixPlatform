@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../services/api';
 
 const DEFAULT_MAPPER = {
@@ -103,11 +103,14 @@ function ExpeditionAmericaStandalone() {
     const [isSaving, setIsSaving] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isSavingPage, setIsSavingPage] = useState(false);
+    const [uploadingTarget, setUploadingTarget] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [contentExport, setContentExport] = useState({ generatedAt: '', pages: {} });
     const [exportPageKey, setExportPageKey] = useState('home');
     const [pageDrafts, setPageDrafts] = useState({});
+    const singleImageInputRef = useRef(null);
+    const pageImageInputRefs = useRef({});
 
     const pageGroups = useMemo(() => {
         const grouped = new Map();
@@ -413,6 +416,59 @@ function ExpeditionAmericaStandalone() {
         }
     };
 
+    const uploadImageToCloudinary = async (file, target) => {
+        if (!file) {
+            return;
+        }
+
+        setUploadingTarget(target);
+        setError('');
+        setMessage('');
+
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const { data } = await api.post('/api/expedition-america-standalone/admin/upload-image', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            if (!data?.url) {
+                throw new Error('Upload completed but no URL was returned');
+            }
+
+            if (target === 'single') {
+                setForm((current) => ({ ...current, imageUrl: data.url }));
+            } else if (target.startsWith('page:')) {
+                const sectionKey = target.slice(5);
+                updatePageDraftField(sectionKey, 'imageUrl', data.url);
+            }
+
+            setMessage('Image uploaded successfully and Image URL updated.');
+        } catch (err) {
+            console.error(err);
+            setError(err?.response?.data?.error || err?.message || 'Image upload failed');
+        } finally {
+            setUploadingTarget('');
+            if (singleImageInputRef.current) {
+                singleImageInputRef.current.value = '';
+            }
+            Object.values(pageImageInputRefs.current).forEach((input) => {
+                if (input) {
+                    input.value = '';
+                }
+            });
+        }
+    };
+
+    const triggerSingleUpload = () => {
+        singleImageInputRef.current?.click();
+    };
+
+    const triggerPageUpload = (sectionKey) => {
+        pageImageInputRefs.current[sectionKey]?.click();
+    };
+
     const updatePageDraftField = (sectionKey, field, value) => {
         setPageDrafts((current) => ({
             ...current,
@@ -613,6 +669,27 @@ function ExpeditionAmericaStandalone() {
                             value={form.imageUrl}
                             onChange={(event) => setForm((current) => ({ ...current, imageUrl: event.target.value }))}
                         />
+                        <input
+                            ref={singleImageInputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(event) => {
+                                const selected = event.target.files?.[0];
+                                if (selected) {
+                                    uploadImageToCloudinary(selected, 'single');
+                                }
+                            }}
+                        />
+                        <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={triggerSingleUpload}
+                            disabled={uploadingTarget === 'single'}
+                            style={{ marginTop: 8, width: 'fit-content' }}
+                        >
+                            {uploadingTarget === 'single' ? 'Uploading...' : 'Upload Image to Cloudinary'}
+                        </button>
                     </label>
                 </div>
 
@@ -761,6 +838,29 @@ function ExpeditionAmericaStandalone() {
                                                 value={draft.imageUrl ?? ''}
                                                 onChange={(event) => updatePageDraftField(section.sectionKey, 'imageUrl', event.target.value)}
                                             />
+                                            <input
+                                                ref={(node) => {
+                                                    pageImageInputRefs.current[section.sectionKey] = node;
+                                                }}
+                                                type="file"
+                                                accept="image/*"
+                                                style={{ display: 'none' }}
+                                                onChange={(event) => {
+                                                    const selected = event.target.files?.[0];
+                                                    if (selected) {
+                                                        uploadImageToCloudinary(selected, `page:${section.sectionKey}`);
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="secondary-button"
+                                                onClick={() => triggerPageUpload(section.sectionKey)}
+                                                disabled={uploadingTarget === `page:${section.sectionKey}`}
+                                                style={{ marginTop: 8, width: 'fit-content' }}
+                                            >
+                                                {uploadingTarget === `page:${section.sectionKey}` ? 'Uploading...' : 'Upload Image to Cloudinary'}
+                                            </button>
                                         </label>
                                     </div>
 
