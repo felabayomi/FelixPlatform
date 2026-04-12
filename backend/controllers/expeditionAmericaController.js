@@ -316,6 +316,28 @@ const buildSearchResults = async (query) => {
     }
 };
 
+const getUpcomingMonths = () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const second = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+    const formatMonth = (date) => date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    return [formatMonth(first), formatMonth(second)];
+};
+
+const stripDateFromTitle = (value) => {
+    const title = normalizeText(value, '') || '';
+    if (!title) {
+        return title;
+    }
+
+    return title
+        .replace(/\s*\((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},\s+\d{4}\)\s*/gi, ' ')
+        .replace(/\s*\((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{4}\)\s*/gi, ' ')
+        .replace(/\s*[-:|]\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},\s+\d{4}\s*$/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+};
+
 const selectEditorialTargetForDate = async (targetDate) => {
     const normalizedTargetDate = normalizeText(targetDate, getTomorrowDate());
     const historyStart = getDateDaysAgo(HISTORY_LOOKBACK_DAYS, normalizedTargetDate);
@@ -436,12 +458,32 @@ const generateArticleForState = async (stateCode, options = {}) => {
     const publishDate = normalizeText(options.targetDate, getTodayDate());
 
     const openai = getOpenAiClient();
-    const searchResults = await buildSearchResults(`${state.name} travel tourism events things to do this week`);
+    const [nextMonth, followingMonth] = getUpcomingMonths();
+    const searchQueries = [
+        `${state.name} travel tourism events next 30 days`,
+        `${state.name} festivals and tourism events ${nextMonth}`,
+        `${state.name} travel planning guide next 60 days`,
+        `${state.name} hidden gems and food scene ${followingMonth}`,
+    ];
+
+    const searchBuckets = await Promise.all(searchQueries.map((query) => buildSearchResults(query)));
+    const mergedResults = searchBuckets.flat();
+    const seenUrls = new Set();
+    const searchResults = mergedResults
+        .filter((item) => {
+            const key = String(item.url || '').trim();
+            if (!key || seenUrls.has(key)) {
+                return false;
+            }
+            seenUrls.add(key);
+            return true;
+        })
+        .slice(0, 10);
     const searchText = searchResults.length
         ? searchResults.map((item, index) => `[${index + 1}] ${item.title}\nURL: ${item.url}\nExcerpt: ${item.snippet}`).join('\n\n')
-        : 'No live search results were available. Write a strong destination story using current seasonal context.';
+        : 'No live search results were available. Write a strong destination story using 30-90 day forward-looking seasonal context.';
 
-    const prompt = `You are writing for Expedition America, a daily travel publication focused on the United States.\n\nEditorial mission: Rediscover America one state at a time with practical, inspiring travel dispatches.\nState: ${state.name} (${state.code})\nPublish Date: ${publishDate}\n${preferredCategory ? `Editorial Priority Category: ${preferredCategory}\n` : ''}\nResearch:\n${searchText}\n\nReturn valid JSON only with keys: city, title, summary, category, content, highlights, sources.\nRules:\n- category must be one of: ${Array.from(ARTICLE_CATEGORIES).join(', ')}\n- if Editorial Priority Category is provided, align to it unless evidence strongly supports another category\n- summary must be 2-3 sentences\n- content must be markdown, at least 600 words\n- include at least one specific hidden gem (named neighborhood, trail, small-town attraction, or lesser-known site)\n- include at least one concrete local culinary or cultural detail tied to community identity\n- keep practical traveler takeaways (what to do, timing, local context)\n- highlights must be 5 concise bullets\n- sources must be 4-6 short source names\n- Do not mention AI or limitations.`;
+    const prompt = `You are writing for Expedition America, a daily travel publication focused on the United States.\n\nEditorial mission: Rediscover America one state at a time with practical, inspiring travel dispatches.\nState: ${state.name} (${state.code})\nPublish Date: ${publishDate}\nPlanning horizon: prioritize information travelers can use 30-90 days ahead (not just this week).\n${preferredCategory ? `Editorial Priority Category: ${preferredCategory}\n` : ''}\nResearch:\n${searchText}\n\nReturn valid JSON only with keys: city, title, summary, category, content, highlights, sources.\nRules:\n- category must be one of: ${Array.from(ARTICLE_CATEGORIES).join(', ')}\n- if Editorial Priority Category is provided, align to it unless evidence strongly supports another category\n- title must NOT contain explicit dates (no month/day/year in title)\n- summary must be 2-3 sentences\n- content must be markdown, at least 600 words\n- include at least one specific hidden gem (named neighborhood, trail, small-town attraction, or lesser-known site)\n- include at least one concrete local culinary or cultural detail tied to community identity\n- include practical planning tips with advance timing windows (tickets, booking windows, best weeks)\n- highlights must be 5 concise bullets\n- sources must be 4-6 short source names\n- Do not mention AI or limitations.`;
 
     const completion = await openai.chat.completions.create({
         model: process.env.EXPEDITION_AMERICA_OPENAI_MODEL || 'gpt-5.2',
@@ -464,7 +506,7 @@ const generateArticleForState = async (stateCode, options = {}) => {
         stateCode: state.code,
         stateName: state.name,
         city: normalizeText(parsed.city, state.name),
-        title: normalizeText(parsed.title, `Explore ${state.name} Today`),
+        title: stripDateFromTitle(normalizeText(parsed.title, `Explore ${state.name}`)) || `Explore ${state.name}`,
         summary: normalizeText(parsed.summary, ''),
         content: normalizeText(parsed.content, ''),
         category: ARTICLE_CATEGORIES.has(parsed.category)
