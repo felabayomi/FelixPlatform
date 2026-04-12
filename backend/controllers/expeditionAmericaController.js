@@ -338,6 +338,15 @@ const stripDateFromTitle = (value) => {
         .trim();
 };
 
+const titleHasDatePattern = (value) => {
+    const title = normalizeText(value, '') || '';
+    if (!title) {
+        return false;
+    }
+
+    return /(?:\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b\s+\d{1,2}(?:,\s*\d{4})?)|(?:\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b\s+\d{4})/i.test(title);
+};
+
 const selectEditorialTargetForDate = async (targetDate) => {
     const normalizedTargetDate = normalizeText(targetDate, getTomorrowDate());
     const historyStart = getDateDaysAgo(HISTORY_LOOKBACK_DAYS, normalizedTargetDate);
@@ -485,23 +494,40 @@ const generateArticleForState = async (stateCode, options = {}) => {
 
     const prompt = `You are writing for Expedition America, a daily travel publication focused on the United States.\n\nEditorial mission: Rediscover America one state at a time with practical, inspiring travel dispatches.\nState: ${state.name} (${state.code})\nPublish Date: ${publishDate}\nPlanning horizon: prioritize information travelers can use 30-90 days ahead (not just this week).\n${preferredCategory ? `Editorial Priority Category: ${preferredCategory}\n` : ''}\nResearch:\n${searchText}\n\nReturn valid JSON only with keys: city, title, summary, category, content, highlights, sources.\nRules:\n- category must be one of: ${Array.from(ARTICLE_CATEGORIES).join(', ')}\n- if Editorial Priority Category is provided, align to it unless evidence strongly supports another category\n- title must NOT contain explicit dates (no month/day/year in title)\n- summary must be 2-3 sentences\n- content must be markdown, at least 600 words\n- include at least one specific hidden gem (named neighborhood, trail, small-town attraction, or lesser-known site)\n- include at least one concrete local culinary or cultural detail tied to community identity\n- include practical planning tips with advance timing windows (tickets, booking windows, best weeks)\n- highlights must be 5 concise bullets\n- sources must be 4-6 short source names\n- Do not mention AI or limitations.`;
 
-    const completion = await openai.chat.completions.create({
-        model: process.env.EXPEDITION_AMERICA_OPENAI_MODEL || 'gpt-5.2',
-        messages: [
-            {
-                role: 'system',
-                content: 'You are a senior travel editor. Return only JSON with no markdown fences.',
-            },
-            {
-                role: 'user',
-                content: prompt,
-            },
-        ],
-        response_format: { type: 'json_object' },
-        max_completion_tokens: 3500,
-    });
+    let parsed = null;
+    const maxAttempts = 2;
 
-    const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const completion = await openai.chat.completions.create({
+            model: process.env.EXPEDITION_AMERICA_OPENAI_MODEL || 'gpt-5.2',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are a senior travel editor. Return only JSON with no markdown fences.',
+                },
+                {
+                    role: 'user',
+                    content: prompt,
+                },
+            ],
+            response_format: { type: 'json_object' },
+            max_completion_tokens: 3500,
+        });
+
+        const candidate = JSON.parse(completion.choices[0]?.message?.content || '{}');
+        const sanitizedTitle = stripDateFromTitle(normalizeText(candidate.title, `Explore ${state.name}`)) || `Explore ${state.name}`;
+        candidate.title = sanitizedTitle;
+
+        if (!titleHasDatePattern(sanitizedTitle) || attempt === maxAttempts) {
+            parsed = candidate;
+            break;
+        }
+    }
+
+    if (!parsed) {
+        throw new Error('Failed to generate Expedition America article content');
+    }
+
     return {
         stateCode: state.code,
         stateName: state.name,
