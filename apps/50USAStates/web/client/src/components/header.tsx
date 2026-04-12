@@ -20,11 +20,10 @@ export function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
-        isScrolled
-          ? "bg-background/95 backdrop-blur-sm border-b shadow-sm"
-          : "bg-background/90 backdrop-blur-sm border-b"
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${isScrolled
+        ? "bg-background/95 backdrop-blur-sm border-b shadow-sm"
+        : "bg-background/90 backdrop-blur-sm border-b"
+        }`}
     >
       <div className="max-w-6xl mx-auto px-6">
         <div className="flex items-center justify-between h-14 gap-4">
@@ -61,10 +60,22 @@ export function Header() {
                 Archive
               </Button>
             </Link>
-            <a href="https://web.live-loop.live/" target="_blank" rel="noopener noreferrer" data-testid="link-nav-liveloop">
+            <a href="https://apps.apple.com/us/app/live-loop/id6760877693" target="_blank" rel="noopener noreferrer" data-testid="link-nav-liveloop">
               <Button variant="ghost" size="sm" className="gap-1.5">
                 <ExternalLink className="h-3.5 w-3.5" />
                 LiveLoop
+              </Button>
+            </a>
+            <a href="https://web.live-loop.live/" target="_blank" rel="noopener noreferrer" data-testid="link-nav-eventloop">
+              <Button variant="ghost" size="sm" className="gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5" />
+                EventLoop
+              </Button>
+            </a>
+            <a href="https://apps.apple.com/us/app/fanlore/id6760257973" target="_blank" rel="noopener noreferrer" data-testid="link-nav-fanlore">
+              <Button variant="ghost" size="sm" className="gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5" />
+                FanLore
               </Button>
             </a>
             <ThemeToggle />
@@ -103,10 +114,22 @@ export function Header() {
                   Archive
                 </Button>
               </Link>
-              <a href="https://web.live-loop.live/" target="_blank" rel="noopener noreferrer" className="w-full" data-testid="link-mobile-liveloop">
+              <a href="https://apps.apple.com/us/app/live-loop/id6760877693" target="_blank" rel="noopener noreferrer" className="w-full" data-testid="link-mobile-liveloop">
                 <Button variant="ghost" size="sm" className="justify-start w-full gap-1.5" onClick={() => setMobileOpen(false)}>
                   <ExternalLink className="h-3.5 w-3.5" />
                   LiveLoop
+                </Button>
+              </a>
+              <a href="https://web.live-loop.live/" target="_blank" rel="noopener noreferrer" className="w-full" data-testid="link-mobile-eventloop">
+                <Button variant="ghost" size="sm" className="justify-start w-full gap-1.5" onClick={() => setMobileOpen(false)}>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  EventLoop
+                </Button>
+              </a>
+              <a href="https://apps.apple.com/us/app/fanlore/id6760257973" target="_blank" rel="noopener noreferrer" className="w-full" data-testid="link-mobile-fanlore">
+                <Button variant="ghost" size="sm" className="justify-start w-full gap-1.5" onClick={() => setMobileOpen(false)}>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  FanLore
                 </Button>
               </a>
             </nav>

@@ -350,7 +350,9 @@ ${userSignup.website ? `<p><strong>Website:</strong> ${userSignup.website}</p>` 
 exports.getTours = async (req, res) => {
     try {
         await ensureTables();
-        const { rows } = await pool.query('SELECT * FROM cth_tours ORDER BY created_at DESC');
+        const { rows } = await pool.query(
+            "SELECT * FROM cth_tours ORDER BY TO_DATE(start_date, 'FMMonth FMDD, YYYY') ASC, created_at ASC"
+        );
         res.json(rows);
     } catch (err) {
         console.error('[CityTourHub] getTours:', err);
@@ -429,6 +431,14 @@ exports.deleteTour = async (req, res) => {
         console.error('[CityTourHub] deleteTour:', err);
         res.status(500).json({ error: 'Failed to delete tour' });
     }
+};
+
+exports.handleUploadedImage = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    return res.json({ url: req.storedImage?.imageUrl || null, storage: req.storedImage?.storage || 'local' });
 };
 
 // ─── Signups ──────────────────────────────────────────────────────────────────

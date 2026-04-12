@@ -18,3 +18,5 @@ admin-dashboard/frontend/node_modules/
 admin-dashboard/frontend/dist/
 database/backups/*.json
 !database/backups/.gitkeep
+.vercel
+.env*.local

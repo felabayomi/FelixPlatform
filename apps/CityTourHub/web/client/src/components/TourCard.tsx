@@ -31,57 +31,71 @@ export default function TourCard({
   const isAlmostFull = spotsLeft <= 5;
 
   return (
-    <Card className="overflow-hidden hover-elevate group" data-testid={`card-tour-${id}`}>
-      <div className="relative aspect-video overflow-hidden">
+    <Card
+      className="group flex h-full flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+      data-testid={`card-tour-${id}`}
+    >
+      <div className="relative aspect-[1.72/1] overflow-hidden bg-slate-100">
         <img 
           src={imageUrl} 
           alt={`${city}, ${state}`}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
         <div className="absolute top-3 right-3">
-          <Badge className="bg-background/90 backdrop-blur-sm text-foreground border-border">
-            <Calendar className="w-3 h-3 mr-1" />
+          <Badge className="rounded-md border border-slate-200 bg-white/95 px-3 py-1.5 text-[0.95rem] font-medium text-slate-700 shadow-sm backdrop-blur-sm">
+            <Calendar className="mr-1.5 h-3.5 w-3.5" />
             {startDate}
           </Badge>
         </div>
       </div>
       
-      <CardContent className="p-6 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="text-2xl font-semibold" data-testid={`text-city-${id}`}>
+      <CardContent className="flex flex-1 flex-col gap-4 p-6">
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <h3
+              className="line-clamp-2 text-[1.05rem] font-semibold leading-[1.3] text-slate-900 sm:text-[1.1rem]"
+              data-testid={`text-city-${id}`}
+            >
               {city}
             </h3>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-              <MapPin className="w-4 h-4" />
-              <span>{state}</span>
-            </div>
+            {isAlmostFull && (
+              <Badge variant="secondary" className="shrink-0 rounded-full px-2.5 py-1 text-[0.7rem] font-semibold">
+                {spotsLeft} spots left
+              </Badge>
+            )}
           </div>
-          {isAlmostFull && (
-            <Badge variant="secondary" className="text-xs">
-              {spotsLeft} spots left
-            </Badge>
-          )}
+
+          <div className="flex items-center gap-1.5 text-[0.95rem] text-slate-500">
+            <MapPin className="h-4 w-4" />
+            <span>{state}</span>
+          </div>
         </div>
-        
-        <p className="text-muted-foreground line-clamp-3" data-testid={`text-description-${id}`}>
+
+        <p
+          className="line-clamp-3 text-[0.98rem] leading-8 text-slate-600"
+          data-testid={`text-description-${id}`}
+        >
           {description}
         </p>
-        
-        <div className="flex items-center gap-4 text-sm text-muted-foreground pt-2">
-          <div className="flex items-center gap-1">
-            <Calendar className="w-4 h-4" />
+
+        <div className="mt-auto flex items-center gap-5 border-t border-slate-100 pt-4 text-[0.95rem] text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-4 w-4" />
             <span>{endDate}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <Users className="w-4 h-4" />
+          <div className="flex items-center gap-1.5">
+            <Users className="h-4 w-4" />
             <span>{currentParticipants}/{maxParticipants}</span>
           </div>
         </div>
       </CardContent>
       
       <CardFooter className="p-6 pt-0">
-        <Button asChild className="w-full" data-testid={`button-signup-${id}`}>
+        <Button
+          asChild
+          className="min-h-11 w-full rounded-md border-0 bg-[#0f5db8] text-[1rem] font-semibold text-white shadow-none transition-colors hover:bg-[#0b4f9f]"
+          data-testid={`button-signup-${id}`}
+        >
           <Link href={`/tour/${id}`}>Sign Up for Tour</Link>
         </Button>
       </CardFooter>

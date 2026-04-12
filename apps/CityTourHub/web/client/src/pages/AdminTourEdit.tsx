@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
+import { useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { adminTourSchema, type AdminTour, type Tour } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -12,10 +13,42 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
 
+function displayDateToIso(value: string): string {
+  if (!value) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isoDateToDisplay(value: string): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const [year, month, day] = value.split("-").map(Number);
+  const d = new Date(year, month - 1, day);
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function AdminTourEdit() {
   const [, params] = useRoute("/admin/tours/:id/edit");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const API_HOST = (import.meta.env.VITE_API_URL || "https://felix-platform-backend.onrender.com").replace(/\/$/, "");
 
   const { data: tour, isLoading } = useQuery<Tour>({
     queryKey: ["/api/tours", params?.id],
@@ -61,6 +94,50 @@ export default function AdminTourEdit() {
 
   const onSubmit = (data: AdminTour) => {
     updateMutation.mutate(data);
+  };
+
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await fetch(`${API_HOST}/api/city-tour-hub/upload-image`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || "Image upload failed");
+      }
+
+      const payload = await response.json();
+      if (!payload?.url) {
+        throw new Error("Upload completed but no image URL was returned");
+      }
+
+      form.setValue("imageUrl", payload.url, { shouldDirty: true, shouldValidate: true });
+      toast({
+        title: "Image uploaded",
+        description: payload.storage === "cloudinary"
+          ? "Uploaded to Cloudinary and image URL updated."
+          : "Uploaded successfully and image URL updated.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error?.message || "Could not upload image.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   if (isLoading) {
@@ -193,8 +270,9 @@ export default function AdminTourEdit() {
                       <FormLabel>Start Date</FormLabel>
                       <FormControl>
                         <Input
-                          {...field}
-                          placeholder="e.g., April 27, 2026"
+                          type="date"
+                          value={displayDateToIso(field.value || "")}
+                          onChange={(e) => field.onChange(isoDateToDisplay(e.target.value))}
                           data-testid="input-start-date"
                         />
                       </FormControl>
@@ -211,8 +289,9 @@ export default function AdminTourEdit() {
                       <FormLabel>End Date</FormLabel>
                       <FormControl>
                         <Input
-                          {...field}
-                          placeholder="e.g., May 3, 2026"
+                          type="date"
+                          value={displayDateToIso(field.value || "")}
+                          onChange={(e) => field.onChange(isoDateToDisplay(e.target.value))}
                           data-testid="input-end-date"
                         />
                       </FormControl>
@@ -269,14 +348,37 @@ export default function AdminTourEdit() {
                   <FormItem>
                     <FormLabel>Image URL</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="/api/images/state.png"
-                        data-testid="input-image-url"
-                      />
+                      <div className="space-y-3">
+                        <Input
+                          {...field}
+                          placeholder="/images/state.png or https://res.cloudinary.com/..."
+                          data-testid="input-image-url"
+                        />
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const selected = e.target.files?.[0];
+                            if (selected) {
+                              handleUpload(selected);
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={isUploading}
+                          onClick={() => fileInputRef.current?.click()}
+                          data-testid="button-upload-image"
+                        >
+                          {isUploading ? "Uploading..." : "Upload to Cloudinary"}
+                        </Button>
+                      </div>
                     </FormControl>
                     <FormDescription>
-                      Use format: /api/images/statename.png
+                      Paste an image URL or upload from your computer. If Cloudinary keys are configured, uploads go to Cloudinary automatically.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

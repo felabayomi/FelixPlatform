@@ -52,8 +52,6 @@ const defaultAllowedOrigins = [
     'https://expeditionamerica.online',
     'https://www.expeditionamerica.online',
     'https://citytourhub.vercel.app',
-    'https://www.citytourhub.com',
-    'https://citytourhub.com',
 ];
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
