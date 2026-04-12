@@ -57,6 +57,7 @@ const defaultAllowedOrigins = [
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 const isVercelPreviewOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
+const isCityDiscovererOrigin = (origin = '') => /^https:\/\/(?:[a-z0-9-]+\.)?citydiscoverer\.guide$/i.test(origin);
 
 const app = express();
 app.use(
@@ -68,6 +69,7 @@ app.use(
                 || allowedOrigins.includes(origin)
                 || isLocalDevOrigin(origin)
                 || isVercelPreviewOrigin(origin)
+                || isCityDiscovererOrigin(origin)
             ) {
                 return callback(null, true);
             }
