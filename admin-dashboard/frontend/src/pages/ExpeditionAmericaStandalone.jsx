@@ -94,10 +94,12 @@ function ExpeditionAmericaStandalone() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isSavingPage, setIsSavingPage] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [contentExport, setContentExport] = useState({ generatedAt: '', pages: {} });
     const [exportPageKey, setExportPageKey] = useState('home');
+    const [pageDrafts, setPageDrafts] = useState({});
 
     const pageGroups = useMemo(() => {
         const grouped = new Map();
@@ -135,6 +137,13 @@ function ExpeditionAmericaStandalone() {
         return JSON.stringify(exportPage, null, 2);
     }, [exportPage]);
 
+    const editableSections = useMemo(() => {
+        if (!exportPage?.ordered) {
+            return [];
+        }
+        return exportPage.ordered;
+    }, [exportPage]);
+
     const currentSectionOptions = useMemo(() => {
         const options = Array.isArray(activePage?.sections) ? [...activePage.sections] : [];
         if (form.sectionKey && !options.some((section) => section.key === form.sectionKey)) {
@@ -154,6 +163,27 @@ function ExpeditionAmericaStandalone() {
         } catch (err) {
             console.error(err);
         }
+    };
+
+    const setDraftFromExportPage = (pageData) => {
+        if (!pageData?.ordered) {
+            setPageDrafts({});
+            return;
+        }
+
+        const nextDrafts = {};
+        pageData.ordered.forEach((section) => {
+            nextDrafts[section.sectionKey] = {
+                title: section.title || '',
+                subtitle: section.subtitle || '',
+                body: section.body || '',
+                ctaLabel: section.ctaLabel || '',
+                ctaUrl: section.ctaUrl || '',
+                imageUrl: section.imageUrl || '',
+                sortOrder: Number(section.sortOrder || 0),
+            };
+        });
+        setPageDrafts(nextDrafts);
     };
 
     const loadSectionIntoForm = (pageKey, sectionKey, fallbackSortOrder = 0) => {
@@ -246,6 +276,10 @@ function ExpeditionAmericaStandalone() {
             setForm(buildFormFromSection(existing));
         }
     }, [sectionMap, form.pageKey, form.sectionKey, editingId]);
+
+    useEffect(() => {
+        setDraftFromExportPage(exportPage);
+    }, [exportPageKey, exportPage]);
 
     const startEdit = (section) => {
         setEditingId(section.id);
@@ -368,6 +402,61 @@ function ExpeditionAmericaStandalone() {
             setError('Failed to sync starter content. Ensure backend is redeployed and admin auth is valid.');
         } finally {
             setIsSyncing(false);
+        }
+    };
+
+    const updatePageDraftField = (sectionKey, field, value) => {
+        setPageDrafts((current) => ({
+            ...current,
+            [sectionKey]: {
+                ...(current[sectionKey] || {}),
+                [field]: field === 'sortOrder' ? Number(value || 0) : value,
+            },
+        }));
+    };
+
+    const savePageSection = async (section) => {
+        const draft = pageDrafts[section.sectionKey] || {};
+        const payload = {
+            pageKey: section.pageKey,
+            sectionKey: section.sectionKey,
+            title: draft.title || section.title || '',
+            subtitle: draft.subtitle || '',
+            body: draft.body || '',
+            ctaLabel: draft.ctaLabel || '',
+            ctaUrl: draft.ctaUrl || '',
+            imageUrl: draft.imageUrl || '',
+            sortOrder: Number(draft.sortOrder ?? section.sortOrder ?? 0),
+        };
+
+        const existingId = section.id;
+        if (existingId) {
+            await api.patch(`/api/expedition-america-standalone/admin/content/${existingId}`, payload);
+        } else {
+            await api.post('/api/expedition-america-standalone/admin/content', payload);
+        }
+    };
+
+    const saveCurrentPage = async () => {
+        if (!editableSections.length) {
+            return;
+        }
+
+        setIsSavingPage(true);
+        setError('');
+        setMessage('');
+        try {
+            for (const section of editableSections) {
+                await savePageSection(section);
+            }
+            setMessage(`Saved ${editableSections.length} section(s) for page: ${exportPageKey}.`);
+            await loadContent();
+            await loadExport();
+        } catch (err) {
+            console.error(err);
+            setError('Failed to save one or more page sections.');
+        } finally {
+            setIsSavingPage(false);
         }
     };
 
@@ -563,6 +652,114 @@ function ExpeditionAmericaStandalone() {
                     value={exportJson}
                     style={{ width: '100%', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}
                 />
+            </div>
+
+            <div className="record-card" style={{ background: '#f8fafc' }}>
+                <div className="record-header" style={{ marginBottom: 8 }}>
+                    <div>
+                        <h3 style={{ margin: 0 }}>Page Content Editor (No Code)</h3>
+                        <p className="muted" style={{ margin: '6px 0 0' }}>
+                            Edit all sections for a page directly here. This is the fastest way to update pages like Events without touching GitHub code.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="toolbar-actions" style={{ marginBottom: 12 }}>
+                    <label>
+                        <span className="muted" style={{ display: 'block', marginBottom: 6 }}>Editor Page</span>
+                        <select value={exportPageKey} onChange={(event) => setExportPageKey(event.target.value)}>
+                            {Object.keys(contentExport.pages || {}).map((key) => (
+                                <option key={key} value={key}>{key}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <button type="button" className="edit-button" onClick={saveCurrentPage} disabled={isSavingPage || !editableSections.length}>
+                        {isSavingPage ? 'Saving Page...' : `Save ${exportPageKey} Page`}
+                    </button>
+                </div>
+
+                {!editableSections.length ? (
+                    <p className="empty-state">No sections found for this page yet.</p>
+                ) : (
+                    <div className="record-list" style={{ gap: 12 }}>
+                        {editableSections.map((section) => {
+                            const draft = pageDrafts[section.sectionKey] || {};
+                            return (
+                                <div key={section.sectionKey} className="record-card" style={{ background: '#fff' }}>
+                                    <div className="record-header" style={{ marginBottom: 8 }}>
+                                        <div>
+                                            <h3 style={{ margin: 0 }}>{section.sectionKey}</h3>
+                                            <p className="muted" style={{ margin: '4px 0 0' }}>Updated: {new Date(section.updatedAt).toLocaleString()}</p>
+                                        </div>
+                                        <div className="toolbar-actions">
+                                            <button type="button" className="secondary-button" onClick={() => startEdit(section)}>
+                                                Open In Single Editor
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="details-grid">
+                                        <label>
+                                            <span>Title</span>
+                                            <input
+                                                value={draft.title ?? ''}
+                                                onChange={(event) => updatePageDraftField(section.sectionKey, 'title', event.target.value)}
+                                            />
+                                        </label>
+                                        <label>
+                                            <span>Subtitle</span>
+                                            <input
+                                                value={draft.subtitle ?? ''}
+                                                onChange={(event) => updatePageDraftField(section.sectionKey, 'subtitle', event.target.value)}
+                                            />
+                                        </label>
+                                        <label>
+                                            <span>Sort Order</span>
+                                            <input
+                                                type="number"
+                                                value={draft.sortOrder ?? 0}
+                                                onChange={(event) => updatePageDraftField(section.sectionKey, 'sortOrder', event.target.value)}
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <label>
+                                        <span>Body</span>
+                                        <textarea
+                                            rows={4}
+                                            value={draft.body ?? ''}
+                                            onChange={(event) => updatePageDraftField(section.sectionKey, 'body', event.target.value)}
+                                        />
+                                    </label>
+
+                                    <div className="details-grid">
+                                        <label>
+                                            <span>CTA Label</span>
+                                            <input
+                                                value={draft.ctaLabel ?? ''}
+                                                onChange={(event) => updatePageDraftField(section.sectionKey, 'ctaLabel', event.target.value)}
+                                            />
+                                        </label>
+                                        <label>
+                                            <span>CTA URL</span>
+                                            <input
+                                                value={draft.ctaUrl ?? ''}
+                                                onChange={(event) => updatePageDraftField(section.sectionKey, 'ctaUrl', event.target.value)}
+                                            />
+                                        </label>
+                                        <label>
+                                            <span>Image URL</span>
+                                            <input
+                                                value={draft.imageUrl ?? ''}
+                                                onChange={(event) => updatePageDraftField(section.sectionKey, 'imageUrl', event.target.value)}
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             <div className="record-list">
