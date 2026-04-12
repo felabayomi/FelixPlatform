@@ -91,8 +91,8 @@ export default function AdminTourNew() {
       toast({
         title: "Image uploaded",
         description: payload.storage === "cloudinary"
-          ? "Uploaded to Cloudinary and image URL updated."
-          : "Uploaded successfully and image URL updated.",
+          ? "Uploaded to Cloudinary and image URL updated. Click Create Tour to save this entry."
+          : "Uploaded successfully and image URL updated. Click Create Tour to save this entry.",
       });
     } catch (error: any) {
       toast({
@@ -287,7 +287,10 @@ export default function AdminTourNew() {
                         <Input
                           {...field}
                           type="number"
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          onChange={(e) => {
+                            const value = e.target.value.trim();
+                            field.onChange(value === "" ? 24 : Number(value));
+                          }}
                           data-testid="input-max-participants"
                         />
                       </FormControl>
@@ -306,7 +309,10 @@ export default function AdminTourNew() {
                         <Input
                           {...field}
                           type="number"
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          onChange={(e) => {
+                            const value = e.target.value.trim();
+                            field.onChange(value === "" ? 0 : Number(value));
+                          }}
                           data-testid="input-current-participants"
                         />
                       </FormControl>

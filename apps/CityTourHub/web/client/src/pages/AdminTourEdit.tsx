@@ -312,7 +312,10 @@ export default function AdminTourEdit() {
                         <Input
                           {...field}
                           type="number"
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          onChange={(e) => {
+                            const value = e.target.value.trim();
+                            field.onChange(value === "" ? 24 : Number(value));
+                          }}
                           data-testid="input-max-participants"
                         />
                       </FormControl>
@@ -331,7 +334,10 @@ export default function AdminTourEdit() {
                         <Input
                           {...field}
                           type="number"
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          onChange={(e) => {
+                            const value = e.target.value.trim();
+                            field.onChange(value === "" ? 0 : Number(value));
+                          }}
                           data-testid="input-current-participants"
                         />
                       </FormControl>

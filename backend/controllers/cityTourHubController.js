@@ -3,6 +3,23 @@
 const pool = require('../db');
 const { v4: uuidv4 } = require('uuid');
 
+/** Map a raw cth_tours DB row to the camelCase shape the frontend expects */
+function formatTour(row) {
+    return {
+        id: row.id,
+        city: row.city,
+        state: row.state,
+        description: row.description,
+        highlights: row.highlights,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        maxParticipants: row.max_participants,
+        currentParticipants: row.current_participants,
+        imageUrl: row.image_url,
+        createdAt: row.created_at,
+    };
+}
+
 // ─── Table Bootstrap ─────────────────────────────────────────────────────────
 
 let _tablesReady = null;
@@ -353,7 +370,7 @@ exports.getTours = async (req, res) => {
         const { rows } = await pool.query(
             "SELECT * FROM cth_tours ORDER BY TO_DATE(start_date, 'FMMonth FMDD, YYYY') ASC, created_at ASC"
         );
-        res.json(rows);
+        res.json(rows.map(formatTour));
     } catch (err) {
         console.error('[CityTourHub] getTours:', err);
         res.status(500).json({ error: 'Failed to fetch tours' });
@@ -365,7 +382,7 @@ exports.getTour = async (req, res) => {
         await ensureTables();
         const { rows } = await pool.query('SELECT * FROM cth_tours WHERE id = $1', [req.params.id]);
         if (!rows.length) return res.status(404).json({ error: 'Tour not found' });
-        res.json(rows[0]);
+        res.json(formatTour(rows[0]));
     } catch (err) {
         console.error('[CityTourHub] getTour:', err);
         res.status(500).json({ error: 'Failed to fetch tour' });
@@ -384,7 +401,7 @@ exports.createTour = async (req, res) => {
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
             [city, state, description, highlights, startDate, endDate, Number(maxParticipants), Number(currentParticipants), imageUrl]
         );
-        res.status(201).json(rows[0]);
+        res.status(201).json(formatTour(rows[0]));
     } catch (err) {
         console.error('[CityTourHub] createTour:', err);
         res.status(500).json({ error: 'Failed to create tour' });
@@ -414,7 +431,7 @@ exports.updateTour = async (req, res) => {
              max_participants=$7, current_participants=$8, image_url=$9 WHERE id=$10 RETURNING *`,
             [city, state, description, highlights, startDate, endDate, maxParticipants, currentParticipants, imageUrl, req.params.id]
         );
-        res.json(rows[0]);
+        res.json(formatTour(rows[0]));
     } catch (err) {
         console.error('[CityTourHub] updateTour:', err);
         res.status(500).json({ error: 'Failed to update tour' });
