@@ -17,6 +17,7 @@ import WildlifePedia from './pages/WildlifePedia';
 import Categories from './pages/Categories';
 import Users from './pages/Users';
 import ExpeditionAmerica from './pages/ExpeditionAmerica';
+import ExpeditionAmericaStandalone from './pages/ExpeditionAmericaStandalone';
 import CityTourHub from './pages/CityTourHub';
 import { clearAuthSession, getStoredUser, hasAdminAccess } from './services/api';
 
@@ -75,6 +76,7 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/categories" element={<ProtectedRoute user={user}><Categories /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute user={user}><Users /></ProtectedRoute>} />
             <Route path="/expedition-america" element={<ProtectedRoute user={user}><ExpeditionAmerica /></ProtectedRoute>} />
+            <Route path="/expedition-america-app" element={<ProtectedRoute user={user}><ExpeditionAmericaStandalone /></ProtectedRoute>} />
             <Route path="/city-tour-hub" element={<ProtectedRoute user={user}><CityTourHub /></ProtectedRoute>} />
           </Routes>
         </main>

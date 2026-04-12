@@ -1,28 +1,25 @@
-function ExpeditionAmerica() {
-    const siteUrl = (
-        import.meta.env.VITE_EXPEDITION_AMERICA_50USA_SITE_URL
-        || import.meta.env.VITE_EXPEDITION_AMERICA_SITE_URL
-        || 'https://expeditionamerica.online'
-    ).trim();
+function ExpeditionAmericaStandalone() {
+    const baseUrl = (
+        import.meta.env.VITE_EXPEDITION_AMERICA_APP_SITE_URL
+        || 'https://expedition-america-kj011p40q-felabayomis-projects.vercel.app'
+    ).trim().replace(/\/$/, '');
     const adminUrl = (
-        import.meta.env.VITE_EXPEDITION_AMERICA_50USA_ADMIN_URL
-        || import.meta.env.VITE_EXPEDITION_AMERICA_ADMIN_URL
-        || 'https://expeditionamerica.online/admin'
+        import.meta.env.VITE_EXPEDITION_AMERICA_APP_ADMIN_URL
+        || `${baseUrl}/admin`
     ).trim();
 
     return (
         <div className="page-section" style={{ gap: 16 }}>
-            <h1>Expedition America (50USAStates Project)</h1>
+            <h1>Expedition America (Standalone Project)</h1>
             <p className="muted">
-                This module hosts the dedicated Expedition America controls inside Felix Admin while keeping shared platform services
-                (database, auth, media upload) centralized.
+                This module is isolated from the 50USAStates integration and points to the standalone Expedition America deployment.
             </p>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <a href={adminUrl} target="_blank" rel="noreferrer" className="edit-button" style={{ textDecoration: 'none' }}>
                     Open Dedicated Admin
                 </a>
-                <a href={siteUrl} target="_blank" rel="noreferrer" className="cancel-button" style={{ textDecoration: 'none' }}>
+                <a href={baseUrl} target="_blank" rel="noreferrer" className="cancel-button" style={{ textDecoration: 'none' }}>
                     Open Frontend Site
                 </a>
             </div>
@@ -37,7 +34,7 @@ function ExpeditionAmerica() {
                 }}
             >
                 <iframe
-                    title="Expedition America Admin"
+                    title="Expedition America Standalone Admin"
                     src={adminUrl}
                     style={{ width: '100%', height: '70vh', border: 0 }}
                     loading="lazy"
@@ -47,4 +44,4 @@ function ExpeditionAmerica() {
     );
 }
 
-export default ExpeditionAmerica;
+export default ExpeditionAmericaStandalone;
