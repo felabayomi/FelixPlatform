@@ -19,6 +19,7 @@ const waciRoutes = require('./routes/waci');
 const wildlifePediaRoutes = require('./routes/wildlifePedia');
 const expeditionAmericaRoutes = require('./routes/expeditionAmerica');
 const expeditionAmericaController = require('./controllers/expeditionAmericaController');
+const cityTourHubRoutes = require('./routes/cityTourHub');
 const storefrontController = require('./controllers/storefrontController');
 const waciController = require('./controllers/waciController');
 
@@ -50,6 +51,9 @@ const defaultAllowedOrigins = [
     'https://www.wildlifeafrica.org',
     'https://expeditionamerica.online',
     'https://www.expeditionamerica.online',
+    'https://citytourhub.vercel.app',
+    'https://www.citytourhub.com',
+    'https://citytourhub.com',
 ];
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
@@ -120,6 +124,7 @@ app.use('/api/storefront', storefrontRoutes);
 app.use('/api/waci', waciRoutes);
 app.use('/api/wildlife-pedia', wildlifePediaRoutes);
 app.use('/api/expedition-america', expeditionAmericaRoutes);
+app.use('/api/city-tour-hub', cityTourHubRoutes);
 app.use('/api/admin/aflaundry/appointments', afLaundryAppointmentsRoutes);
 app.use(platformContentRoutes);
 app.use(adrianStoreRoutes);
