@@ -5,31 +5,232 @@ const pool = require('../db');
 
 const TABLE_NAME = 'expedition_america_standalone_sections';
 
+const PAGE_MAPPER = {
+    pages: [
+        {
+            key: 'home',
+            label: 'Home',
+            sections: [
+                { key: 'hero', label: 'Hero Banner', sortOrder: 0 },
+                { key: 'featured-cities-heading', label: 'Featured Cities Heading', sortOrder: 10 },
+                { key: 'city-new-york', label: 'City Card - New York', sortOrder: 20 },
+                { key: 'city-chicago', label: 'City Card - Chicago', sortOrder: 30 },
+            ],
+        },
+        {
+            key: 'about',
+            label: 'About',
+            sections: [
+                { key: 'about-hero', label: 'About Hero', sortOrder: 0 },
+                { key: 'mission', label: 'Mission Section', sortOrder: 10 },
+            ],
+        },
+        {
+            key: 'cities',
+            label: 'Cities',
+            sections: [
+                { key: 'cities-hero', label: 'Cities Hero', sortOrder: 0 },
+                { key: 'city-grid-intro', label: 'City Grid Intro', sortOrder: 10 },
+            ],
+        },
+        {
+            key: 'experiences',
+            label: 'Experiences',
+            sections: [
+                { key: 'experiences-hero', label: 'Experiences Hero', sortOrder: 0 },
+                { key: 'experience-list-intro', label: 'Experience List Intro', sortOrder: 10 },
+            ],
+        },
+        {
+            key: 'events',
+            label: 'Events',
+            sections: [
+                { key: 'events-hero', label: 'Events Hero', sortOrder: 0 },
+                { key: 'events-calendar-intro', label: 'Events Calendar Intro', sortOrder: 10 },
+            ],
+        },
+        {
+            key: 'deals',
+            label: 'Deals',
+            sections: [
+                { key: 'deals-hero', label: 'Deals Hero', sortOrder: 0 },
+                { key: 'deals-grid-intro', label: 'Deals Grid Intro', sortOrder: 10 },
+            ],
+        },
+        {
+            key: 'contact',
+            label: 'Contact',
+            sections: [
+                { key: 'contact-hero', label: 'Contact Hero', sortOrder: 0 },
+                { key: 'contact-details', label: 'Contact Details', sortOrder: 10 },
+            ],
+        },
+    ],
+};
+
+const STARTER_SECTIONS = [
+    {
+        pageKey: 'home',
+        sectionKey: 'hero',
+        title: 'Explore America One Great City At A Time',
+        subtitle: 'Plan city-first trips with practical guidance and fresh weekly inspiration.',
+        body: 'Use this hero section for your main campaign message. Keep it short, clear, and specific to current city offers.',
+        ctaLabel: 'Explore Deals',
+        ctaUrl: '/deals',
+        imageUrl: '',
+        sortOrder: 0,
+    },
+    {
+        pageKey: 'home',
+        sectionKey: 'featured-cities-heading',
+        title: 'Featured Cities',
+        subtitle: 'Start with these high-interest city guides.',
+        body: '',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 10,
+    },
+    {
+        pageKey: 'home',
+        sectionKey: 'city-new-york',
+        title: 'New York',
+        subtitle: 'Discover skyline energy, borough culture, food, nightlife.',
+        body: 'Use this card to highlight current deal windows, key neighborhoods, and seasonal event hooks.',
+        ctaLabel: 'View New York',
+        ctaUrl: '/cities/new-york',
+        imageUrl: '',
+        sortOrder: 20,
+    },
+    {
+        pageKey: 'home',
+        sectionKey: 'city-chicago',
+        title: 'Chicago',
+        subtitle: 'Experience lakefront neighborhoods, architecture, deep flavor, music.',
+        body: 'Use this card for route ideas, neighborhood picks, and upcoming city highlights.',
+        ctaLabel: 'View Chicago',
+        ctaUrl: '/cities/chicago',
+        imageUrl: '',
+        sortOrder: 30,
+    },
+    {
+        pageKey: 'about',
+        sectionKey: 'about-hero',
+        title: 'About Expedition America',
+        subtitle: 'A city travel platform built for modern explorers.',
+        body: 'Share your mission, editorial voice, and what makes this standalone project distinct from the 50USAStates publication.',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 0,
+    },
+    {
+        pageKey: 'cities',
+        sectionKey: 'cities-hero',
+        title: 'City Guides',
+        subtitle: 'Browse destination coverage by city, theme, and season.',
+        body: '',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 0,
+    },
+    {
+        pageKey: 'experiences',
+        sectionKey: 'experiences-hero',
+        title: 'Experiences',
+        subtitle: 'From food and music to design and nature, curate memorable moments.',
+        body: '',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 0,
+    },
+    {
+        pageKey: 'events',
+        sectionKey: 'events-hero',
+        title: 'Events',
+        subtitle: 'Promote upcoming events with clear dates and city context.',
+        body: '',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 0,
+    },
+    {
+        pageKey: 'deals',
+        sectionKey: 'deals-hero',
+        title: 'Travel Deals',
+        subtitle: 'Highlight current offers, booking windows, and savings.',
+        body: '',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 0,
+    },
+    {
+        pageKey: 'contact',
+        sectionKey: 'contact-hero',
+        title: 'Contact Expedition America',
+        subtitle: 'Reach our team for partnerships, city submissions, and support.',
+        body: '',
+        ctaLabel: 'Contact Team',
+        ctaUrl: '/contact',
+        imageUrl: '',
+        sortOrder: 0,
+    },
+];
+
 let _tableReady = null;
 async function ensureTable() {
     if (_tableReady) {
         return _tableReady;
     }
 
-    _tableReady = pool.query(`
-        CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
-            id VARCHAR PRIMARY KEY,
-            page_key TEXT NOT NULL,
-            section_key TEXT NOT NULL,
-            title TEXT NOT NULL,
-            subtitle TEXT,
-            body TEXT,
-            cta_label TEXT,
-            cta_url TEXT,
-            image_url TEXT,
-            sort_order INTEGER NOT NULL DEFAULT 0,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            UNIQUE(page_key, section_key)
-        );
+    _tableReady = (async () => {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+                id VARCHAR PRIMARY KEY,
+                page_key TEXT NOT NULL,
+                section_key TEXT NOT NULL,
+                title TEXT NOT NULL,
+                subtitle TEXT,
+                body TEXT,
+                cta_label TEXT,
+                cta_url TEXT,
+                image_url TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(page_key, section_key)
+            );
 
-        CREATE INDEX IF NOT EXISTS expedition_america_standalone_sections_page_idx
-            ON ${TABLE_NAME} (page_key, sort_order, updated_at DESC);
-    `);
+            CREATE INDEX IF NOT EXISTS expedition_america_standalone_sections_page_idx
+                ON ${TABLE_NAME} (page_key, sort_order, updated_at DESC);
+        `);
+
+        for (const starter of STARTER_SECTIONS) {
+            await pool.query(
+                `INSERT INTO ${TABLE_NAME} (
+                    id, page_key, section_key, title, subtitle, body, cta_label, cta_url, image_url, sort_order
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                )
+                ON CONFLICT (page_key, section_key) DO NOTHING`,
+                [
+                    crypto.randomUUID(),
+                    starter.pageKey,
+                    starter.sectionKey,
+                    starter.title,
+                    starter.subtitle,
+                    starter.body,
+                    starter.ctaLabel,
+                    starter.ctaUrl,
+                    starter.imageUrl,
+                    starter.sortOrder,
+                ]
+            );
+        }
+    })();
 
     return _tableReady;
 }
@@ -63,6 +264,10 @@ const mapRow = (row) => ({
     sortOrder: Number(row.sort_order || 0),
     updatedAt: row.updated_at,
 });
+
+exports.getMapperContract = async (_req, res) => {
+    return res.json(PAGE_MAPPER);
+};
 
 exports.getPublicContent = async (_req, res) => {
     try {

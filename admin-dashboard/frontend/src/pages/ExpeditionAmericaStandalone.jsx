@@ -1,16 +1,72 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 
-const EMPTY_FORM = {
-    pageKey: 'home',
-    sectionKey: '',
+const DEFAULT_MAPPER = {
+    pages: [
+        { key: 'home', label: 'Home', sections: [{ key: 'hero', label: 'Hero Banner', sortOrder: 0 }] },
+        { key: 'about', label: 'About', sections: [{ key: 'about-hero', label: 'About Hero', sortOrder: 0 }] },
+        { key: 'cities', label: 'Cities', sections: [{ key: 'cities-hero', label: 'Cities Hero', sortOrder: 0 }] },
+        { key: 'experiences', label: 'Experiences', sections: [{ key: 'experiences-hero', label: 'Experiences Hero', sortOrder: 0 }] },
+        { key: 'events', label: 'Events', sections: [{ key: 'events-hero', label: 'Events Hero', sortOrder: 0 }] },
+        { key: 'deals', label: 'Deals', sections: [{ key: 'deals-hero', label: 'Deals Hero', sortOrder: 0 }] },
+        { key: 'contact', label: 'Contact', sections: [{ key: 'contact-hero', label: 'Contact Hero', sortOrder: 0 }] },
+    ],
+};
+
+const TEMPLATE_DEFAULTS = {
+    'home:hero': {
+        title: 'Explore America One Great City At A Time',
+        subtitle: 'Plan city-first trips with practical guidance and fresh weekly inspiration.',
+        body: 'Use this hero section for your main campaign message. Keep it short, clear, and specific to current city offers.',
+        ctaLabel: 'Explore Deals',
+        ctaUrl: '/deals',
+    },
+    'home:featured-cities-heading': {
+        title: 'Featured Cities',
+        subtitle: 'Start with these high-interest city guides.',
+    },
+    'home:city-new-york': {
+        title: 'New York',
+        subtitle: 'Discover skyline energy, borough culture, food, nightlife.',
+        body: 'Use this card to highlight current deal windows, key neighborhoods, and seasonal event hooks.',
+        ctaLabel: 'View New York',
+        ctaUrl: '/cities/new-york',
+    },
+    'home:city-chicago': {
+        title: 'Chicago',
+        subtitle: 'Experience lakefront neighborhoods, architecture, deep flavor, music.',
+        body: 'Use this card for route ideas, neighborhood picks, and upcoming city highlights.',
+        ctaLabel: 'View Chicago',
+        ctaUrl: '/cities/chicago',
+    },
+};
+
+const buildEmptyForm = (pageKey = 'home', sectionKey = 'hero', sortOrder = 0) => ({
+    pageKey,
+    sectionKey,
     title: '',
     subtitle: '',
     body: '',
     ctaLabel: '',
     ctaUrl: '',
     imageUrl: '',
-    sortOrder: 0,
+    sortOrder,
+});
+
+const applyTemplateDefaults = (form, pageKey, sectionKey, fallbackSortOrder = 0) => {
+    const defaults = TEMPLATE_DEFAULTS[`${pageKey}:${sectionKey}`] || {};
+    return {
+        ...form,
+        pageKey,
+        sectionKey,
+        title: defaults.title ?? form.title ?? '',
+        subtitle: defaults.subtitle ?? form.subtitle ?? '',
+        body: defaults.body ?? form.body ?? '',
+        ctaLabel: defaults.ctaLabel ?? form.ctaLabel ?? '',
+        ctaUrl: defaults.ctaUrl ?? form.ctaUrl ?? '',
+        imageUrl: defaults.imageUrl ?? form.imageUrl ?? '',
+        sortOrder: Number(form.sortOrder ?? fallbackSortOrder ?? 0),
+    };
 };
 
 function ExpeditionAmericaStandalone() {
@@ -19,8 +75,9 @@ function ExpeditionAmericaStandalone() {
         || 'https://expedition-america-kj011p40q-felabayomis-projects.vercel.app'
     ).trim().replace(/\/$/, '');
 
+    const [mapper, setMapper] = useState(DEFAULT_MAPPER);
     const [sections, setSections] = useState([]);
-    const [form, setForm] = useState(EMPTY_FORM);
+    const [form, setForm] = useState(buildEmptyForm());
     const [editingId, setEditingId] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -39,9 +96,58 @@ function ExpeditionAmericaStandalone() {
         return Array.from(grouped.entries());
     }, [sections]);
 
+    const activePage = useMemo(
+        () => mapper.pages.find((page) => page.key === form.pageKey) || mapper.pages[0],
+        [mapper.pages, form.pageKey]
+    );
+
+    const currentSectionOptions = useMemo(() => {
+        const options = Array.isArray(activePage?.sections) ? [...activePage.sections] : [];
+        if (form.sectionKey && !options.some((section) => section.key === form.sectionKey)) {
+            options.push({ key: form.sectionKey, label: `Current: ${form.sectionKey}`, sortOrder: Number(form.sortOrder || 0) });
+        }
+        return options;
+    }, [activePage?.sections, form.sectionKey, form.sortOrder]);
+
     const resetForm = () => {
-        setForm(EMPTY_FORM);
+        const firstPage = mapper.pages[0] || DEFAULT_MAPPER.pages[0];
+        const firstSection = firstPage.sections?.[0];
+        setForm(
+            applyTemplateDefaults(
+                buildEmptyForm(firstPage.key, firstSection?.key || 'hero', Number(firstSection?.sortOrder || 0)),
+                firstPage.key,
+                firstSection?.key || 'hero',
+                Number(firstSection?.sortOrder || 0)
+            )
+        );
         setEditingId('');
+    };
+
+    const loadMapper = async () => {
+        try {
+            const { data } = await api.get('/api/expedition-america-standalone/contract');
+            const nextMapper = Array.isArray(data?.pages) && data.pages.length ? data : DEFAULT_MAPPER;
+            setMapper(nextMapper);
+
+            if (!editingId) {
+                const firstPage = nextMapper.pages[0] || DEFAULT_MAPPER.pages[0];
+                const firstSection = firstPage.sections?.[0];
+                setForm((current) => {
+                    if (current.pageKey && current.sectionKey) {
+                        return current;
+                    }
+                    return applyTemplateDefaults(
+                        buildEmptyForm(firstPage.key, firstSection?.key || 'hero', Number(firstSection?.sortOrder || 0)),
+                        firstPage.key,
+                        firstSection?.key || 'hero',
+                        Number(firstSection?.sortOrder || 0)
+                    );
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            setMapper(DEFAULT_MAPPER);
+        }
     };
 
     const loadContent = async () => {
@@ -52,13 +158,21 @@ function ExpeditionAmericaStandalone() {
             setSections(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error(err);
-            setError('Failed to load standalone content. Ensure you are logged in as admin.');
+            const status = err?.response?.status;
+            if (status === 401 || status === 403) {
+                setError('Failed to load standalone content. Ensure you are logged in as admin.');
+            } else if (status === 404) {
+                setError('Standalone API route not found yet. Redeploy backend to publish /api/expedition-america-standalone.');
+            } else {
+                setError('Failed to load standalone content. Check backend deployment and try refresh.');
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
     useEffect(() => {
+        loadMapper();
         loadContent();
     }, []);
 
@@ -77,6 +191,38 @@ function ExpeditionAmericaStandalone() {
         });
         setMessage('');
         setError('');
+    };
+
+    const handlePageChange = (nextPageKey) => {
+        const nextPage = mapper.pages.find((page) => page.key === nextPageKey) || mapper.pages[0] || DEFAULT_MAPPER.pages[0];
+        const firstSection = nextPage.sections?.[0];
+        const nextSectionKey = firstSection?.key || form.sectionKey || 'hero';
+
+        setForm((current) => applyTemplateDefaults(
+            {
+                ...current,
+                pageKey: nextPage.key,
+                sectionKey: nextSectionKey,
+                sortOrder: Number(firstSection?.sortOrder ?? current.sortOrder ?? 0),
+            },
+            nextPage.key,
+            nextSectionKey,
+            Number(firstSection?.sortOrder || 0)
+        ));
+    };
+
+    const handleSectionChange = (nextSectionKey) => {
+        const nextTemplate = currentSectionOptions.find((entry) => entry.key === nextSectionKey);
+        setForm((current) => applyTemplateDefaults(
+            {
+                ...current,
+                sectionKey: nextSectionKey,
+                sortOrder: Number(nextTemplate?.sortOrder ?? current.sortOrder ?? 0),
+            },
+            current.pageKey,
+            nextSectionKey,
+            Number(nextTemplate?.sortOrder || 0)
+        ));
     };
 
     const saveSection = async (event) => {
@@ -156,6 +302,22 @@ function ExpeditionAmericaStandalone() {
                 </button>
             </div>
 
+            <div className="record-card" style={{ background: '#f8fafc' }}>
+                <strong>Structured Page Mapper</strong>
+                <p className="muted" style={{ margin: '6px 0 10px' }}>
+                    Editors should choose the page and mapped section template below. This keeps standalone content consistent with the live site nav.
+                </p>
+                <div className="details-grid">
+                    {mapper.pages.map((page) => (
+                        <div key={page.key}>
+                            <strong>{page.label}</strong>
+                            <span className="muted">Key: {page.key}</span>
+                            <span className="muted">Sections: {(page.sections || []).map((item) => item.key).join(', ')}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             <p className="muted" style={{ marginTop: -6 }}>
                 Note: the standalone deployment currently blocks iframe/admin embedding (`401 + X-Frame-Options: DENY`), so this native Felix admin
                 editor is used instead.
@@ -167,21 +329,27 @@ function ExpeditionAmericaStandalone() {
             <form className="edit-form" onSubmit={saveSection}>
                 <div className="details-grid">
                     <label>
-                        <span>Page Key</span>
-                        <input
+                        <span>Page</span>
+                        <select
                             value={form.pageKey}
-                            onChange={(event) => setForm((current) => ({ ...current, pageKey: event.target.value }))}
-                            placeholder="home"
-                        />
+                            onChange={(event) => handlePageChange(event.target.value)}
+                        >
+                            {mapper.pages.map((page) => (
+                                <option key={page.key} value={page.key}>{page.label} ({page.key})</option>
+                            ))}
+                        </select>
                     </label>
 
                     <label>
-                        <span>Section Key</span>
-                        <input
+                        <span>Section Template</span>
+                        <select
                             value={form.sectionKey}
-                            onChange={(event) => setForm((current) => ({ ...current, sectionKey: event.target.value }))}
-                            placeholder="hero"
-                        />
+                            onChange={(event) => handleSectionChange(event.target.value)}
+                        >
+                            {currentSectionOptions.map((section) => (
+                                <option key={section.key} value={section.key}>{section.label} ({section.key})</option>
+                            ))}
+                        </select>
                     </label>
 
                     <label>
@@ -193,6 +361,10 @@ function ExpeditionAmericaStandalone() {
                         />
                     </label>
                 </div>
+
+                <p className="muted" style={{ marginTop: -6 }}>
+                    Data key: <strong>{form.pageKey}:{form.sectionKey}</strong>
+                </p>
 
                 <label>
                     <span>Title</span>
