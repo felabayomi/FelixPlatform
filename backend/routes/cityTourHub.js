@@ -1,4 +1,4 @@
-gitr 'use strict';
+'use strict';
 
 const express = require('express');
 const upload = require('../middleware/uploadMiddleware');
