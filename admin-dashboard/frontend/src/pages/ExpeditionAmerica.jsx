@@ -1,5 +1,7 @@
 function ExpeditionAmerica() {
-    const adminUrl = (import.meta.env.VITE_EXPEDITION_AMERICA_ADMIN_URL || 'https://expeditionamerica.online/admin').trim();
+    const defaultSiteUrl = 'https://expedition-america-kj011p40q-felabayomis-projects.vercel.app';
+    const siteUrl = (import.meta.env.VITE_EXPEDITION_AMERICA_SITE_URL || defaultSiteUrl).trim();
+    const adminUrl = (import.meta.env.VITE_EXPEDITION_AMERICA_ADMIN_URL || `${defaultSiteUrl}/admin`).trim();
 
     return (
         <div className="page-section" style={{ gap: 16 }}>
@@ -13,7 +15,7 @@ function ExpeditionAmerica() {
                 <a href={adminUrl} target="_blank" rel="noreferrer" className="edit-button" style={{ textDecoration: 'none' }}>
                     Open Dedicated Admin
                 </a>
-                <a href="https://expeditionamerica.online" target="_blank" rel="noreferrer" className="cancel-button" style={{ textDecoration: 'none' }}>
+                <a href={siteUrl} target="_blank" rel="noreferrer" className="cancel-button" style={{ textDecoration: 'none' }}>
                     Open Frontend Site
                 </a>
             </div>
