@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "p306XoTsEjj03EuZus80Z"
+uri = "file://docs/play-for-livestream-feature.md"
+type = "text"
+title = "Play for Livestream — Full Feature Documentation"

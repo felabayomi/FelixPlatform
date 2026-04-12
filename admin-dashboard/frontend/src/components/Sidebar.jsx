@@ -30,6 +30,7 @@ const links = [
         ],
     },
     { to: '/adrian-store', label: 'Adrian Store' },
+    { to: '/expedition-america', label: 'Expedition America' },
     { to: '/document-formatter', label: 'Document Formatter' },
     { to: '/quote-requests', label: 'Quote Requests' },
     { to: '/platform-content', label: 'Platform Content' },

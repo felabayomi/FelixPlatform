@@ -16,6 +16,7 @@ import WACI from './pages/WACI';
 import WildlifePedia from './pages/WildlifePedia';
 import Categories from './pages/Categories';
 import Users from './pages/Users';
+import ExpeditionAmerica from './pages/ExpeditionAmerica';
 import { clearAuthSession, getStoredUser, hasAdminAccess } from './services/api';
 
 function ProtectedRoute({ user, children }) {
@@ -72,6 +73,7 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/bookings" element={<ProtectedRoute user={user}><Bookings /></ProtectedRoute>} />
             <Route path="/categories" element={<ProtectedRoute user={user}><Categories /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute user={user}><Users /></ProtectedRoute>} />
+            <Route path="/expedition-america" element={<ProtectedRoute user={user}><ExpeditionAmerica /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>
