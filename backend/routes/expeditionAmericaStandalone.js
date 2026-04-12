@@ -8,7 +8,9 @@ const router = express.Router();
 
 router.get('/contract', controller.getMapperContract);
 router.get('/content', controller.getPublicContent);
+router.get('/content/export', controller.getContentExport);
 router.get('/admin/content', authenticateToken, requireAdmin, controller.getAdminContent);
+router.post('/admin/content/sync-starter', authenticateToken, requireAdmin, controller.syncStarterSections);
 router.post('/admin/content', authenticateToken, requireAdmin, controller.createSection);
 router.patch('/admin/content/:id', authenticateToken, requireAdmin, controller.updateSection);
 router.delete('/admin/content/:id', authenticateToken, requireAdmin, controller.deleteSection);

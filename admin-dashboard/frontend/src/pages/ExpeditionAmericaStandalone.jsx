@@ -69,6 +69,18 @@ const applyTemplateDefaults = (form, pageKey, sectionKey, fallbackSortOrder = 0)
     };
 };
 
+const buildFormFromSection = (section) => ({
+    pageKey: section.pageKey || 'home',
+    sectionKey: section.sectionKey || 'hero',
+    title: section.title || '',
+    subtitle: section.subtitle || '',
+    body: section.body || '',
+    ctaLabel: section.ctaLabel || '',
+    ctaUrl: section.ctaUrl || '',
+    imageUrl: section.imageUrl || '',
+    sortOrder: Number(section.sortOrder || 0),
+});
+
 function ExpeditionAmericaStandalone() {
     const baseUrl = (
         import.meta.env.VITE_EXPEDITION_AMERICA_APP_SITE_URL
@@ -81,8 +93,11 @@ function ExpeditionAmericaStandalone() {
     const [editingId, setEditingId] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [contentExport, setContentExport] = useState({ generatedAt: '', pages: {} });
+    const [exportPageKey, setExportPageKey] = useState('home');
 
     const pageGroups = useMemo(() => {
         const grouped = new Map();
@@ -96,10 +111,29 @@ function ExpeditionAmericaStandalone() {
         return Array.from(grouped.entries());
     }, [sections]);
 
+    const sectionMap = useMemo(() => {
+        const map = new Map();
+        sections.forEach((section) => {
+            map.set(`${section.pageKey}:${section.sectionKey}`, section);
+        });
+        return map;
+    }, [sections]);
+
     const activePage = useMemo(
         () => mapper.pages.find((page) => page.key === form.pageKey) || mapper.pages[0],
         [mapper.pages, form.pageKey]
     );
+
+    const exportPage = useMemo(() => {
+        return contentExport.pages?.[exportPageKey] || null;
+    }, [contentExport.pages, exportPageKey]);
+
+    const exportJson = useMemo(() => {
+        if (!exportPage) {
+            return '';
+        }
+        return JSON.stringify(exportPage, null, 2);
+    }, [exportPage]);
 
     const currentSectionOptions = useMemo(() => {
         const options = Array.isArray(activePage?.sections) ? [...activePage.sections] : [];
@@ -109,18 +143,45 @@ function ExpeditionAmericaStandalone() {
         return options;
     }, [activePage?.sections, form.sectionKey, form.sortOrder]);
 
+    const loadExport = async () => {
+        try {
+            const { data } = await api.get('/api/expedition-america-standalone/content/export');
+            setContentExport(data || { generatedAt: '', pages: {} });
+            const keys = Object.keys(data?.pages || {});
+            if (keys.length && !keys.includes(exportPageKey)) {
+                setExportPageKey(keys[0]);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const loadSectionIntoForm = (pageKey, sectionKey, fallbackSortOrder = 0) => {
+        const existing = sectionMap.get(`${pageKey}:${sectionKey}`);
+        if (existing) {
+            setEditingId(existing.id);
+            setForm(buildFormFromSection(existing));
+            return;
+        }
+
+        setEditingId('');
+        setForm((current) => applyTemplateDefaults(
+            {
+                ...current,
+                pageKey,
+                sectionKey,
+                sortOrder: Number(fallbackSortOrder || current.sortOrder || 0),
+            },
+            pageKey,
+            sectionKey,
+            Number(fallbackSortOrder || 0)
+        ));
+    };
+
     const resetForm = () => {
         const firstPage = mapper.pages[0] || DEFAULT_MAPPER.pages[0];
         const firstSection = firstPage.sections?.[0];
-        setForm(
-            applyTemplateDefaults(
-                buildEmptyForm(firstPage.key, firstSection?.key || 'hero', Number(firstSection?.sortOrder || 0)),
-                firstPage.key,
-                firstSection?.key || 'hero',
-                Number(firstSection?.sortOrder || 0)
-            )
-        );
-        setEditingId('');
+        loadSectionIntoForm(firstPage.key, firstSection?.key || 'hero', Number(firstSection?.sortOrder || 0));
     };
 
     const loadMapper = async () => {
@@ -132,17 +193,14 @@ function ExpeditionAmericaStandalone() {
             if (!editingId) {
                 const firstPage = nextMapper.pages[0] || DEFAULT_MAPPER.pages[0];
                 const firstSection = firstPage.sections?.[0];
-                setForm((current) => {
-                    if (current.pageKey && current.sectionKey) {
-                        return current;
-                    }
-                    return applyTemplateDefaults(
+                setForm((current) => (current.pageKey && current.sectionKey)
+                    ? current
+                    : applyTemplateDefaults(
                         buildEmptyForm(firstPage.key, firstSection?.key || 'hero', Number(firstSection?.sortOrder || 0)),
                         firstPage.key,
                         firstSection?.key || 'hero',
                         Number(firstSection?.sortOrder || 0)
-                    );
-                });
+                    ));
             }
         } catch (err) {
             console.error(err);
@@ -174,7 +232,20 @@ function ExpeditionAmericaStandalone() {
     useEffect(() => {
         loadMapper();
         loadContent();
+        loadExport();
     }, []);
+
+    useEffect(() => {
+        if (!form.pageKey || !form.sectionKey || editingId) {
+            return;
+        }
+
+        const existing = sectionMap.get(`${form.pageKey}:${form.sectionKey}`);
+        if (existing) {
+            setEditingId(existing.id);
+            setForm(buildFormFromSection(existing));
+        }
+    }, [sectionMap, form.pageKey, form.sectionKey, editingId]);
 
     const startEdit = (section) => {
         setEditingId(section.id);
@@ -250,6 +321,7 @@ function ExpeditionAmericaStandalone() {
             }
 
             await loadContent();
+            await loadExport();
             resetForm();
         } catch (err) {
             console.error(err);
@@ -274,9 +346,28 @@ function ExpeditionAmericaStandalone() {
                 resetForm();
             }
             await loadContent();
+            await loadExport();
         } catch (err) {
             console.error(err);
             setError('Failed to delete section.');
+        }
+    };
+
+    const syncStarterContent = async () => {
+        setIsSyncing(true);
+        setError('');
+        setMessage('');
+        try {
+            await api.post('/api/expedition-america-standalone/admin/content/sync-starter', { overwrite: false });
+            setMessage('Starter content synced. Existing edited sections were preserved.');
+            await loadContent();
+            await loadExport();
+            resetForm();
+        } catch (err) {
+            console.error(err);
+            setError('Failed to sync starter content. Ensure backend is redeployed and admin auth is valid.');
+        } finally {
+            setIsSyncing(false);
         }
     };
 
@@ -296,6 +387,9 @@ function ExpeditionAmericaStandalone() {
                 </a>
                 <button type="button" className="secondary-button" onClick={loadContent}>
                     Refresh Content
+                </button>
+                <button type="button" className="secondary-button" onClick={syncStarterContent} disabled={isSyncing}>
+                    {isSyncing ? 'Syncing...' : 'Sync Starter Content'}
                 </button>
                 <button type="button" className="secondary-button" onClick={resetForm}>
                     New Section
@@ -366,6 +460,16 @@ function ExpeditionAmericaStandalone() {
                     Data key: <strong>{form.pageKey}:{form.sectionKey}</strong>
                 </p>
 
+                {editingId ? (
+                    <p className="muted" style={{ marginTop: -8 }}>
+                        Loaded existing content record for this mapped section. Save to update live values.
+                    </p>
+                ) : (
+                    <p className="muted" style={{ marginTop: -8 }}>
+                        No existing section record found for this mapper key yet. Saving will create it.
+                    </p>
+                )}
+
                 <label>
                     <span>Title</span>
                     <input
@@ -426,6 +530,40 @@ function ExpeditionAmericaStandalone() {
                     ) : null}
                 </div>
             </form>
+
+            <div className="record-card" style={{ background: '#f8fafc' }}>
+                <div className="record-header" style={{ marginBottom: 8 }}>
+                    <div>
+                        <h3 style={{ margin: 0 }}>Frontend JSON Export Preview</h3>
+                        <p className="muted" style={{ margin: '6px 0 0' }}>
+                            This is the structured payload your standalone frontend can read directly from
+                            {' '}/api/expedition-america-standalone/content/export.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="details-grid" style={{ marginBottom: 8 }}>
+                    <label>
+                        <span>Preview Page</span>
+                        <select value={exportPageKey} onChange={(event) => setExportPageKey(event.target.value)}>
+                            {Object.keys(contentExport.pages || {}).map((key) => (
+                                <option key={key} value={key}>{key}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <div>
+                        <strong>Generated</strong>
+                        <span className="muted">{contentExport.generatedAt ? new Date(contentExport.generatedAt).toLocaleString() : 'n/a'}</span>
+                    </div>
+                </div>
+
+                <textarea
+                    readOnly
+                    rows={14}
+                    value={exportJson}
+                    style={{ width: '100%', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}
+                />
+            </div>
 
             <div className="record-list">
                 {isLoading ? <p className="empty-state">Loading content...</p> : null}

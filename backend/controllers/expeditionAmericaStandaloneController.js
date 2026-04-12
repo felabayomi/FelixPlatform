@@ -125,6 +125,17 @@ const STARTER_SECTIONS = [
         sortOrder: 0,
     },
     {
+        pageKey: 'about',
+        sectionKey: 'mission',
+        title: 'Our Mission',
+        subtitle: 'Make city exploration practical, exciting, and easy to plan.',
+        body: 'Use this section to explain the project story, editorial standards, and travel philosophy.',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 10,
+    },
+    {
         pageKey: 'cities',
         sectionKey: 'cities-hero',
         title: 'City Guides',
@@ -134,6 +145,17 @@ const STARTER_SECTIONS = [
         ctaUrl: '',
         imageUrl: '',
         sortOrder: 0,
+    },
+    {
+        pageKey: 'cities',
+        sectionKey: 'city-grid-intro',
+        title: 'Browse Featured Cities',
+        subtitle: 'Find destination highlights, neighborhood picks, and travel timing notes.',
+        body: '',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 10,
     },
     {
         pageKey: 'experiences',
@@ -147,6 +169,17 @@ const STARTER_SECTIONS = [
         sortOrder: 0,
     },
     {
+        pageKey: 'experiences',
+        sectionKey: 'experience-list-intro',
+        title: 'Top Experiences',
+        subtitle: 'Map food, culture, nightlife, and local adventures for each city.',
+        body: '',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 10,
+    },
+    {
         pageKey: 'events',
         sectionKey: 'events-hero',
         title: 'Events',
@@ -156,6 +189,17 @@ const STARTER_SECTIONS = [
         ctaUrl: '',
         imageUrl: '',
         sortOrder: 0,
+    },
+    {
+        pageKey: 'events',
+        sectionKey: 'events-calendar-intro',
+        title: 'Upcoming Events',
+        subtitle: 'Spotlight city events with clear dates, venue details, and ticket links.',
+        body: '',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 10,
     },
     {
         pageKey: 'deals',
@@ -169,6 +213,17 @@ const STARTER_SECTIONS = [
         sortOrder: 0,
     },
     {
+        pageKey: 'deals',
+        sectionKey: 'deals-grid-intro',
+        title: 'Current Deal Picks',
+        subtitle: 'Present live offers with booking windows and expected savings.',
+        body: '',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 10,
+    },
+    {
         pageKey: 'contact',
         sectionKey: 'contact-hero',
         title: 'Contact Expedition America',
@@ -179,7 +234,102 @@ const STARTER_SECTIONS = [
         imageUrl: '',
         sortOrder: 0,
     },
+    {
+        pageKey: 'contact',
+        sectionKey: 'contact-details',
+        title: 'Get In Touch',
+        subtitle: 'Partnerships, media, and traveler support.',
+        body: 'Email: hello@expeditionamerica.online\nUse this section for support channels, response times, and office hours.',
+        ctaLabel: '',
+        ctaUrl: '',
+        imageUrl: '',
+        sortOrder: 10,
+    },
 ];
+
+const ensureStarterSections = async ({ overwrite = false } = {}) => {
+    for (const starter of STARTER_SECTIONS) {
+        if (overwrite) {
+            await pool.query(
+                `INSERT INTO ${TABLE_NAME} (
+                    id, page_key, section_key, title, subtitle, body, cta_label, cta_url, image_url, sort_order
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                )
+                ON CONFLICT (page_key, section_key)
+                DO UPDATE SET
+                    title = EXCLUDED.title,
+                    subtitle = EXCLUDED.subtitle,
+                    body = EXCLUDED.body,
+                    cta_label = EXCLUDED.cta_label,
+                    cta_url = EXCLUDED.cta_url,
+                    image_url = EXCLUDED.image_url,
+                    sort_order = EXCLUDED.sort_order,
+                    updated_at = NOW()`,
+                [
+                    crypto.randomUUID(),
+                    starter.pageKey,
+                    starter.sectionKey,
+                    starter.title,
+                    starter.subtitle,
+                    starter.body,
+                    starter.ctaLabel,
+                    starter.ctaUrl,
+                    starter.imageUrl,
+                    starter.sortOrder,
+                ]
+            );
+        } else {
+            await pool.query(
+                `INSERT INTO ${TABLE_NAME} (
+                    id, page_key, section_key, title, subtitle, body, cta_label, cta_url, image_url, sort_order
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                )
+                ON CONFLICT (page_key, section_key) DO NOTHING`,
+                [
+                    crypto.randomUUID(),
+                    starter.pageKey,
+                    starter.sectionKey,
+                    starter.title,
+                    starter.subtitle,
+                    starter.body,
+                    starter.ctaLabel,
+                    starter.ctaUrl,
+                    starter.imageUrl,
+                    starter.sortOrder,
+                ]
+            );
+        }
+    }
+};
+
+const buildPageExport = (rows) => {
+    const byPage = {};
+
+    rows.forEach((row) => {
+        const key = row.pageKey || 'unassigned';
+        if (!byPage[key]) {
+            byPage[key] = {
+                pageKey: key,
+                sections: {},
+                ordered: [],
+            };
+        }
+
+        byPage[key].sections[row.sectionKey] = row;
+        byPage[key].ordered.push(row);
+    });
+
+    Object.values(byPage).forEach((page) => {
+        page.ordered.sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+    });
+
+    return {
+        generatedAt: new Date().toISOString(),
+        pages: byPage,
+    };
+};
 
 let _tableReady = null;
 async function ensureTable() {
@@ -208,28 +358,7 @@ async function ensureTable() {
                 ON ${TABLE_NAME} (page_key, sort_order, updated_at DESC);
         `);
 
-        for (const starter of STARTER_SECTIONS) {
-            await pool.query(
-                `INSERT INTO ${TABLE_NAME} (
-                    id, page_key, section_key, title, subtitle, body, cta_label, cta_url, image_url, sort_order
-                ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-                )
-                ON CONFLICT (page_key, section_key) DO NOTHING`,
-                [
-                    crypto.randomUUID(),
-                    starter.pageKey,
-                    starter.sectionKey,
-                    starter.title,
-                    starter.subtitle,
-                    starter.body,
-                    starter.ctaLabel,
-                    starter.ctaUrl,
-                    starter.imageUrl,
-                    starter.sortOrder,
-                ]
-            );
-        }
+        await ensureStarterSections();
     })();
 
     return _tableReady;
@@ -267,6 +396,41 @@ const mapRow = (row) => ({
 
 exports.getMapperContract = async (_req, res) => {
     return res.json(PAGE_MAPPER);
+};
+
+exports.syncStarterSections = async (req, res) => {
+    try {
+        await ensureTable();
+        const overwrite = Boolean(req.body?.overwrite);
+        await ensureStarterSections({ overwrite });
+
+        const result = await pool.query(
+            `SELECT * FROM ${TABLE_NAME} ORDER BY page_key ASC, sort_order ASC, updated_at DESC`
+        );
+
+        return res.json({
+            ok: true,
+            overwrite,
+            sections: result.rows.map(mapRow),
+        });
+    } catch (error) {
+        console.error('[ExpeditionAmericaStandalone] syncStarterSections:', error);
+        return res.status(500).json({ error: 'Failed to sync starter sections' });
+    }
+};
+
+exports.getContentExport = async (_req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(
+            `SELECT * FROM ${TABLE_NAME} ORDER BY page_key ASC, sort_order ASC, updated_at DESC`
+        );
+        const mapped = result.rows.map(mapRow);
+        return res.json(buildPageExport(mapped));
+    } catch (error) {
+        console.error('[ExpeditionAmericaStandalone] getContentExport:', error);
+        return res.status(500).json({ error: 'Failed to export standalone content' });
+    }
 };
 
 exports.getPublicContent = async (_req, res) => {
