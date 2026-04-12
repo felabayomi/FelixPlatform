@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="55%" stop-color="#1d4ed8" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <linearGradient id="needle" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#cbd5e1" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#bg)" />
+  <circle cx="32" cy="32" r="18" fill="none" stroke="#e0f2fe" stroke-width="3" />
+  <circle cx="32" cy="32" r="3" fill="#ffffff" />
+  <path d="M32 13 37 27 32 24 27 27Z" fill="#f8fafc" />
+  <path d="M51 32 37 37 40 32 37 27Z" fill="#bae6fd" />
+  <path d="M32 51 27 37 32 40 37 37Z" fill="#67e8f9" />
+  <path d="M13 32 27 27 24 32 27 37Z" fill="#dbeafe" />
+  <path d="M32 19 42 32 32 45 22 32Z" fill="url(#needle)" fill-opacity="0.16" stroke="#ffffff" stroke-width="2" />
+  <path d="M32 21 38 32 32 30Z" fill="#ffffff" />
+  <path d="M32 43 26 32 32 34Z" fill="#93c5fd" />
+</svg>
