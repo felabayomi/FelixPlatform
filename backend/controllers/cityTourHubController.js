@@ -73,8 +73,13 @@ async function ensureTables() {
 // ─── Email helpers ────────────────────────────────────────────────────────────
 
 async function sendEmail({ to, subject, html }) {
-    const resendApiKey = process.env.CITYTOURHUB_RESEND_API_KEY || process.env.RESEND_API_KEY;
-    const fromEmail = process.env.CITYTOURHUB_RESEND_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+    const resendApiKey = process.env.CITY_TOUR_HUB_RESEND_API_KEY
+        || process.env.CITYTOURHUB_RESEND_API_KEY
+        || process.env.RESEND_API_KEY;
+    const fromEmail = process.env.CITY_TOUR_HUB_RESEND_FROM_EMAIL
+        || process.env.CITYTOURHUB_RESEND_FROM_EMAIL
+        || process.env.RESEND_FROM_EMAIL
+        || 'onboarding@resend.dev';
     if (!resendApiKey) {
         console.warn('[CityTourHub] RESEND_API_KEY not configured. Email not sent.');
         return false;
@@ -96,7 +101,10 @@ async function sendEmail({ to, subject, html }) {
     }
 }
 
-const ADMIN_EMAIL = () => process.env.CITYTOURHUB_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'discoverercity@gmail.com';
+const ADMIN_EMAIL = () => process.env.CITY_TOUR_HUB_ADMIN_EMAIL
+    || process.env.CITYTOURHUB_ADMIN_EMAIL
+    || process.env.ADMIN_EMAIL
+    || 'discoverercity@gmail.com';
 
 async function emailSignupConfirmation(signup, tour) {
     await sendEmail({
