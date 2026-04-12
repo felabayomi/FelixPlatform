@@ -81,6 +81,14 @@ const buildFormFromSection = (section) => ({
     sortOrder: Number(section.sortOrder || 0),
 });
 
+const bodyPreview = (text) => {
+    const normalized = String(text || '').trim();
+    if (!normalized) {
+        return 'No body content yet.';
+    }
+    return normalized.length > 240 ? `${normalized.slice(0, 240)}...` : normalized;
+};
+
 function ExpeditionAmericaStandalone() {
     const baseUrl = (
         import.meta.env.VITE_EXPEDITION_AMERICA_APP_SITE_URL
@@ -754,6 +762,34 @@ function ExpeditionAmericaStandalone() {
                                                 onChange={(event) => updatePageDraftField(section.sectionKey, 'imageUrl', event.target.value)}
                                             />
                                         </label>
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            marginTop: 12,
+                                            border: '1px dashed #cbd5e1',
+                                            borderRadius: 10,
+                                            background: '#f8fafc',
+                                            padding: 12,
+                                        }}
+                                    >
+                                        <p className="muted" style={{ margin: 0, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                            Preview
+                                        </p>
+                                        <h4 style={{ margin: '6px 0 4px', color: '#0f172a' }}>
+                                            {draft.title || '(No title)'}
+                                        </h4>
+                                        <p className="muted" style={{ margin: '0 0 8px' }}>
+                                            {draft.subtitle || '(No subtitle)'}
+                                        </p>
+                                        <p style={{ margin: '0 0 8px', color: '#334155', whiteSpace: 'pre-wrap' }}>
+                                            {bodyPreview(draft.body)}
+                                        </p>
+                                        {(draft.ctaLabel || draft.ctaUrl) ? (
+                                            <p style={{ margin: 0, color: '#1d4ed8', fontWeight: 600 }}>
+                                                CTA: {draft.ctaLabel || '(No label)'} {draft.ctaUrl ? `-> ${draft.ctaUrl}` : ''}
+                                            </p>
+                                        ) : null}
                                     </div>
                                 </div>
                             );
