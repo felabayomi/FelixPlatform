@@ -52,6 +52,8 @@ const defaultAllowedOrigins = [
     'https://www.wildlifeafrica.org',
     'https://expeditionamerica.online',
     'https://www.expeditionamerica.online',
+    'https://expeditionamerica.us',
+    'https://www.expeditionamerica.us',
     'https://expedition-america-kj011p40q-felabayomis-projects.vercel.app',
     'https://citytourhub.vercel.app',
     'https://tours.citydiscoverer.guide',
