@@ -17,6 +17,7 @@ const adrianStoreRoutes = require('./routes/adrianStore');
 const storefrontRoutes = require('./routes/storefront');
 const waciRoutes = require('./routes/waci');
 const wildlifePediaRoutes = require('./routes/wildlifePedia');
+const expeditionAmericaRoutes = require('./routes/expeditionAmerica');
 const storefrontController = require('./controllers/storefrontController');
 const waciController = require('./controllers/waciController');
 
@@ -46,6 +47,8 @@ const defaultAllowedOrigins = [
     'https://waci.felixplatforms.com',
     'https://wildlifeafrica.org',
     'https://www.wildlifeafrica.org',
+    'https://expeditionamerica.online',
+    'https://www.expeditionamerica.online',
 ];
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
@@ -115,6 +118,7 @@ app.use('/api', documentFormatterRoutes);
 app.use('/api/storefront', storefrontRoutes);
 app.use('/api/waci', waciRoutes);
 app.use('/api/wildlife-pedia', wildlifePediaRoutes);
+app.use('/api/expedition-america', expeditionAmericaRoutes);
 app.use('/api/admin/aflaundry/appointments', afLaundryAppointmentsRoutes);
 app.use(platformContentRoutes);
 app.use(adrianStoreRoutes);

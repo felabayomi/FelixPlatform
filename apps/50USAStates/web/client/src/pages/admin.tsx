@@ -18,7 +18,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { Article } from "@shared/schema";
 import { US_STATES, ARTICLE_CATEGORIES } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, buildApiUrl } from "@/lib/queryClient";
 import {
   Compass,
   RefreshCw,
@@ -122,9 +122,12 @@ function DraftEditor({
     setGeneratingExcerpt(true);
     try {
       const stateName = US_STATES.find(s => s.code === stateCode)?.name || stateCode;
-      const res = await fetch("/api/articles/generate-excerpt", {
+      const res = await fetch(buildApiUrl("/api/articles/generate-excerpt"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getStoredToken() || ""}`,
+        },
         body: JSON.stringify({ title: title.trim(), content: content.trim(), stateName, city: city.trim() }),
       });
       if (!res.ok) throw new Error("Failed");
@@ -156,7 +159,12 @@ function DraftEditor({
     try {
       const fd = new FormData();
       fd.append("image", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const authToken = getStoredToken();
+      const res = await fetch(buildApiUrl("/api/upload"), {
+        method: "POST",
+        body: fd,
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
       if (!res.ok) throw new Error("Upload failed");
       const { url } = await res.json();
       setImageUrl(url);
@@ -901,7 +909,10 @@ function AdminContent() {
     abortRef.current = false;
     setGenProgress({ phase: "running", message: "Scanning for today's best travel stories...", completed: 0, total: 3, recentStates: [] });
     try {
-      const response = await fetch("/api/articles/generate-daily", { method: "POST" });
+      const response = await fetch(buildApiUrl("/api/articles/generate-daily"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getStoredToken() || ""}` },
+      });
       if (!response.body) throw new Error("No response body");
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -947,8 +958,12 @@ function AdminContent() {
   const generateSingle = async (stateCode: string, stateName: string) => {
     setSingleGen(prev => ({ ...prev, [stateCode]: "working" }));
     try {
-      const response = await fetch("/api/articles/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+      const response = await fetch(buildApiUrl("/api/articles/generate"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getStoredToken() || ""}`,
+        },
         body: JSON.stringify({ stateCode }),
       });
       if (!response.body) throw new Error("No response body");
@@ -1037,17 +1052,15 @@ function AdminContent() {
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
-                    activeTab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${activeTab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
                   data-testid={`tab-${id}`}
                 >
                   <Icon className="h-4 w-4" />
                   {label}
                   {count !== undefined && count > 0 && (
-                    <span className={`inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 min-w-[18px] h-[18px] ${
-                      activeTab === id ? "bg-primary text-primary-foreground" : "bg-amber-500 text-white"
-                    }`}>{count}</span>
+                    <span className={`inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 min-w-[18px] h-[18px] ${activeTab === id ? "bg-primary text-primary-foreground" : "bg-amber-500 text-white"
+                      }`}>{count}</span>
                   )}
                 </button>
               ))}
@@ -1370,7 +1383,7 @@ function AdminContent() {
                 <p className="text-sm text-muted-foreground mt-1">{allArticles.length} total articles</p>
               </div>
               {allLoading ? (
-                <div className="space-y-2">{[1,2,3,4].map(i => <div key={i} className="h-14 rounded-md bg-muted animate-pulse" />)}</div>
+                <div className="space-y-2">{[1, 2, 3, 4].map(i => <div key={i} className="h-14 rounded-md bg-muted animate-pulse" />)}</div>
               ) : allArticles.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                   <Compass className="h-8 w-8 mx-auto mb-2 opacity-25" />
@@ -1425,7 +1438,7 @@ export default function AdminPage() {
   useEffect(() => {
     const token = getStoredToken();
     if (!token) { setAuthed("no"); return; }
-    fetch("/api/admin/verify", {
+    fetch(buildApiUrl("/api/admin/verify"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),

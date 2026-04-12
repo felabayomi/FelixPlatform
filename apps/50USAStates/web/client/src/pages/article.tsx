@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
+import { buildApiUrl } from "@/lib/queryClient";
 import type { Article } from "@shared/schema";
 import {
   ArrowLeft,
@@ -153,100 +154,100 @@ function ReadingPanel({
 
       {/* Centered panel */}
       <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-3xl bg-background border border-border rounded-lg shadow-2xl flex flex-col" style={{ maxHeight: "80vh" }}>
-      {/* Header */}
-      <div className="flex items-start justify-between px-4 py-3">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="shrink-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center mt-0.5">
-            <Mic className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold text-foreground truncate max-w-xs">
-                Daily Reading — {article.title}
-              </span>
-              <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 no-default-active-elevate shrink-0">
-                cached
-              </Badge>
-              {wordsSynced && (
-                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 no-default-active-elevate shrink-0">
-                  synced
-                </Badge>
-              )}
+        {/* Header */}
+        <div className="flex items-start justify-between px-4 py-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="shrink-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center mt-0.5">
+              <Mic className="h-4 w-4 text-primary-foreground" />
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {audioState === "playing" ? "Now playing..." : "Paused"}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1 shrink-0 ml-3">
-          <Button
-            size="icon"
-            onClick={onPlayPause}
-            className="rounded-full bg-primary text-primary-foreground h-9 w-9"
-            data-testid="button-panel-playpause"
-          >
-            {audioState === "playing" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => setMinimized(m => !m)}
-            data-testid="button-panel-minimize"
-          >
-            {minimized ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onStop}
-            data-testid="button-panel-close"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-0.5 bg-muted mx-4 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-primary rounded-full transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* Narration text — scrolls internally */}
-      {!minimized && (
-        <div
-          ref={scrollRef}
-          className="overflow-y-auto border-t border-border mt-2"
-          style={{ maxHeight: "42vh" }}
-        >
-          <div className="px-4 py-4 max-w-3xl">
-            <p className="text-xs font-semibold text-destructive uppercase tracking-wider flex items-center gap-1.5 mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-destructive inline-block" />
-              Live Reading
-            </p>
-
-            {/* Title */}
-            <p className="text-sm font-semibold text-foreground mb-3 leading-relaxed">
-              {renderWords(narration.title, wc, activeWordIdx, spanRefs)}
-            </p>
-
-            {/* Summary */}
-            <p className="text-sm text-foreground mb-4 leading-relaxed">
-              {renderWords(narration.summary, wc, activeWordIdx, spanRefs)}
-            </p>
-
-            {/* Content paragraphs */}
-            {narration.paras.map((para, i) => (
-              <p key={i} className="text-sm text-foreground mb-3 leading-relaxed">
-                {renderWords(para, wc, activeWordIdx, spanRefs)}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold text-foreground truncate max-w-xs">
+                  Daily Reading — {article.title}
+                </span>
+                <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 no-default-active-elevate shrink-0">
+                  cached
+                </Badge>
+                {wordsSynced && (
+                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 no-default-active-elevate shrink-0">
+                    synced
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {audioState === "playing" ? "Now playing..." : "Paused"}
               </p>
-            ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0 ml-3">
+            <Button
+              size="icon"
+              onClick={onPlayPause}
+              className="rounded-full bg-primary text-primary-foreground h-9 w-9"
+              data-testid="button-panel-playpause"
+            >
+              {audioState === "playing" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setMinimized(m => !m)}
+              data-testid="button-panel-minimize"
+            >
+              {minimized ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onStop}
+              data-testid="button-panel-close"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-      )}
+
+        {/* Progress bar */}
+        <div className="h-0.5 bg-muted mx-4 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        {/* Narration text — scrolls internally */}
+        {!minimized && (
+          <div
+            ref={scrollRef}
+            className="overflow-y-auto border-t border-border mt-2"
+            style={{ maxHeight: "42vh" }}
+          >
+            <div className="px-4 py-4 max-w-3xl">
+              <p className="text-xs font-semibold text-destructive uppercase tracking-wider flex items-center gap-1.5 mb-4">
+                <span className="w-1.5 h-1.5 rounded-full bg-destructive inline-block" />
+                Live Reading
+              </p>
+
+              {/* Title */}
+              <p className="text-sm font-semibold text-foreground mb-3 leading-relaxed">
+                {renderWords(narration.title, wc, activeWordIdx, spanRefs)}
+              </p>
+
+              {/* Summary */}
+              <p className="text-sm text-foreground mb-4 leading-relaxed">
+                {renderWords(narration.summary, wc, activeWordIdx, spanRefs)}
+              </p>
+
+              {/* Content paragraphs */}
+              {narration.paras.map((para, i) => (
+                <p key={i} className="text-sm text-foreground mb-3 leading-relaxed">
+                  {renderWords(para, wc, activeWordIdx, spanRefs)}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -381,7 +382,7 @@ export default function ArticlePage() {
     const poll = async () => {
       if (attempts++ > 15) return;
       try {
-        const res = await fetch(`/api/tts/${articleId}/timestamps`, {
+        const res = await fetch(buildApiUrl(`/api/tts/${articleId}/timestamps`), {
           headers: { Authorization: `Bearer ${adminToken}` },
         });
         if (res.ok) {
@@ -392,7 +393,7 @@ export default function ArticlePage() {
             return;
           }
         }
-      } catch {}
+      } catch { }
       timestampPollRef.current = setTimeout(poll, 8000);
     };
     poll();
@@ -425,7 +426,7 @@ export default function ArticlePage() {
     if (!article) return;
     setAudioState("loading");
     try {
-      const res = await fetch(`/api/tts/${article.id}`, {
+      const res = await fetch(buildApiUrl(`/api/tts/${article.id}`), {
         method: "POST",
         headers: { Authorization: `Bearer ${adminToken}` },
       });

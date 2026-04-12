@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
+import { buildApiUrl } from "@/lib/queryClient";
 import type { Article } from "@shared/schema";
 import { US_STATES } from "@shared/schema";
 import {
@@ -37,7 +38,7 @@ export default function StatePage() {
 
   const { data: articles = [], isLoading } = useQuery<Article[]>({
     queryKey: ["/api/articles/state", stateCode],
-    queryFn: () => fetch(`/api/articles/state/${stateCode}`).then(r => r.json()),
+    queryFn: () => fetch(buildApiUrl(`/api/articles/state/${stateCode}`)).then(r => r.json()),
     enabled: !!stateCode,
   });
 

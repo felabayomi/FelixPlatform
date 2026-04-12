@@ -1,0 +1,942 @@
+const crypto = require('crypto');
+const OpenAI = require('openai');
+const pool = require('../db');
+
+const US_STATES = [
+    { code: 'AL', name: 'Alabama' },
+    { code: 'AK', name: 'Alaska' },
+    { code: 'AZ', name: 'Arizona' },
+    { code: 'AR', name: 'Arkansas' },
+    { code: 'CA', name: 'California' },
+    { code: 'CO', name: 'Colorado' },
+    { code: 'CT', name: 'Connecticut' },
+    { code: 'DE', name: 'Delaware' },
+    { code: 'FL', name: 'Florida' },
+    { code: 'GA', name: 'Georgia' },
+    { code: 'HI', name: 'Hawaii' },
+    { code: 'ID', name: 'Idaho' },
+    { code: 'IL', name: 'Illinois' },
+    { code: 'IN', name: 'Indiana' },
+    { code: 'IA', name: 'Iowa' },
+    { code: 'KS', name: 'Kansas' },
+    { code: 'KY', name: 'Kentucky' },
+    { code: 'LA', name: 'Louisiana' },
+    { code: 'ME', name: 'Maine' },
+    { code: 'MD', name: 'Maryland' },
+    { code: 'MA', name: 'Massachusetts' },
+    { code: 'MI', name: 'Michigan' },
+    { code: 'MN', name: 'Minnesota' },
+    { code: 'MS', name: 'Mississippi' },
+    { code: 'MO', name: 'Missouri' },
+    { code: 'MT', name: 'Montana' },
+    { code: 'NE', name: 'Nebraska' },
+    { code: 'NV', name: 'Nevada' },
+    { code: 'NH', name: 'New Hampshire' },
+    { code: 'NJ', name: 'New Jersey' },
+    { code: 'NM', name: 'New Mexico' },
+    { code: 'NY', name: 'New York' },
+    { code: 'NC', name: 'North Carolina' },
+    { code: 'ND', name: 'North Dakota' },
+    { code: 'OH', name: 'Ohio' },
+    { code: 'OK', name: 'Oklahoma' },
+    { code: 'OR', name: 'Oregon' },
+    { code: 'PA', name: 'Pennsylvania' },
+    { code: 'RI', name: 'Rhode Island' },
+    { code: 'SC', name: 'South Carolina' },
+    { code: 'SD', name: 'South Dakota' },
+    { code: 'TN', name: 'Tennessee' },
+    { code: 'TX', name: 'Texas' },
+    { code: 'UT', name: 'Utah' },
+    { code: 'VT', name: 'Vermont' },
+    { code: 'VA', name: 'Virginia' },
+    { code: 'WA', name: 'Washington' },
+    { code: 'WV', name: 'West Virginia' },
+    { code: 'WI', name: 'Wisconsin' },
+    { code: 'WY', name: 'Wyoming' },
+];
+
+const ARTICLE_CATEGORIES = new Set([
+    'Events & Festivals',
+    'Natural Wonders',
+    'Food & Culture',
+    'History & Heritage',
+    'Adventure & Outdoors',
+    'Arts & Entertainment',
+    'Hidden Gems',
+    'Seasonal Highlights',
+]);
+
+const TABLE_NAME = 'expedition_america_articles';
+let ensureTablePromise = null;
+
+const getTodayDate = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+
+const getAdminCode = () =>
+    process.env.EXPEDITION_AMERICA_ADMIN_CODE
+    || process.env.ADMIN_CODE
+    || process.env.ADMIN_SETUP_ACCESS_CODE
+    || '';
+
+const makeAdminToken = () => crypto.createHash('sha256').update(`expedition-america:${getAdminCode()}`).digest('hex');
+
+const getAiApiKey = () => process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+const getAiBaseUrl = () => process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || undefined;
+const hasAiConfigured = () => Boolean(getAiApiKey());
+
+let openAiClient = null;
+
+const getOpenAiClient = () => {
+    if (!hasAiConfigured()) {
+        throw new Error('Expedition America AI integrations are not configured');
+    }
+
+    if (!openAiClient) {
+        openAiClient = new OpenAI({
+            apiKey: getAiApiKey(),
+            baseURL: getAiBaseUrl(),
+        });
+    }
+
+    return openAiClient;
+};
+
+const ensureTable = async () => {
+    if (!ensureTablePromise) {
+        ensureTablePromise = pool.query(`
+            CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+                id UUID PRIMARY KEY,
+                state_code TEXT NOT NULL,
+                state_name TEXT NOT NULL,
+                city TEXT NOT NULL,
+                title TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                content TEXT NOT NULL,
+                category TEXT NOT NULL,
+                highlights TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+                sources TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+                published_date TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'published',
+                image_url TEXT,
+                audio_url TEXT,
+                word_timestamps JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE INDEX IF NOT EXISTS expedition_america_articles_status_idx
+                ON ${TABLE_NAME} (status, created_at DESC);
+            CREATE INDEX IF NOT EXISTS expedition_america_articles_state_idx
+                ON ${TABLE_NAME} (state_code, status, created_at DESC);
+            CREATE INDEX IF NOT EXISTS expedition_america_articles_date_idx
+                ON ${TABLE_NAME} (published_date, status, created_at DESC);
+        `).catch((error) => {
+            ensureTablePromise = null;
+            throw error;
+        });
+    }
+
+    return ensureTablePromise;
+};
+
+const normalizeText = (value, fallback = null) => {
+    if (value === undefined || value === null) {
+        return fallback;
+    }
+
+    const trimmed = String(value).trim();
+    return trimmed || fallback;
+};
+
+const normalizeArray = (value) => {
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item || '').trim()).filter(Boolean);
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+        return value.split(/[\r\n,]+/).map((item) => item.trim()).filter(Boolean);
+    }
+
+    return [];
+};
+
+const isAllowedStatus = (value) => value === 'draft' || value === 'published';
+
+const mapArticleRow = (row) => ({
+    id: row.id,
+    stateCode: row.state_code,
+    stateName: row.state_name,
+    city: row.city,
+    title: row.title,
+    summary: row.summary,
+    content: row.content,
+    category: row.category,
+    highlights: Array.isArray(row.highlights) ? row.highlights : [],
+    sources: Array.isArray(row.sources) ? row.sources : [],
+    publishedDate: row.published_date,
+    status: row.status,
+    imageUrl: row.image_url,
+    audioUrl: row.audio_url,
+    wordTimestamps: row.word_timestamps ? JSON.stringify(row.word_timestamps) : null,
+    createdAt: row.created_at,
+});
+
+const mapListArticleRow = (row) => ({
+    id: row.id,
+    stateCode: row.state_code,
+    stateName: row.state_name,
+    city: row.city,
+    title: row.title,
+    summary: row.summary,
+    content: row.content,
+    category: row.category,
+    highlights: Array.isArray(row.highlights) ? row.highlights : [],
+    sources: Array.isArray(row.sources) ? row.sources : [],
+    publishedDate: row.published_date,
+    status: row.status,
+    imageUrl: row.image_url,
+    createdAt: row.created_at,
+});
+
+const getAdminTokenFromRequest = (req) => {
+    const authHeader = req.headers.authorization || '';
+    return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+};
+
+const isAdminAuthorized = (req) => {
+    const token = getAdminTokenFromRequest(req);
+    return Boolean(token) && token === makeAdminToken();
+};
+
+const requireExpeditionAdmin = (req, res, next) => {
+    if (!isAdminAuthorized(req)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    next();
+};
+
+const getExcerptFallback = ({ title, content, stateName, city }) => {
+    const plain = String(content || '')
+        .replace(/#{1,6}\s+/g, '')
+        .replace(/\*\*(.+?)\*\*/g, '$1')
+        .replace(/\*(.+?)\*/g, '$1')
+        .replace(/\n+/g, ' ')
+        .trim();
+    const sentences = plain.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const location = [city, stateName].filter(Boolean).join(', ');
+    const lead = location
+        ? `${title} puts ${location} at the center of today's travel conversation.`
+        : `${title} is one of today's most compelling American travel stories.`;
+    const body = sentences.slice(0, 2).join(' ').slice(0, 280).trim();
+    return `${lead} ${body}`.trim();
+};
+
+const buildSearchResults = async (query) => {
+    const braveApiKey = process.env.BRAVE_SEARCH_API_KEY || '';
+    if (!braveApiKey) {
+        return [];
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=6&freshness=pw`,
+            {
+                headers: {
+                    Accept: 'application/json',
+                    'Accept-Encoding': 'gzip',
+                    'X-Subscription-Token': braveApiKey,
+                },
+            }
+        );
+
+        if (!response.ok) {
+            return [];
+        }
+
+        const data = await response.json();
+        return (data.web?.results || []).map((item) => ({
+            title: item.title || '',
+            url: item.url || '',
+            snippet: item.description || '',
+        }));
+    } catch (_error) {
+        return [];
+    }
+};
+
+const generateArticleForState = async (stateCode) => {
+    if (!hasAiConfigured()) {
+        throw new Error('Missing OpenAI configuration for Expedition America article generation');
+    }
+
+    const state = US_STATES.find((entry) => entry.code === stateCode);
+    if (!state) {
+        throw new Error('Unknown state code');
+    }
+
+    const openai = getOpenAiClient();
+    const searchResults = await buildSearchResults(`${state.name} travel tourism events things to do this week`);
+    const searchText = searchResults.length
+        ? searchResults.map((item, index) => `[${index + 1}] ${item.title}\nURL: ${item.url}\nExcerpt: ${item.snippet}`).join('\n\n')
+        : 'No live search results were available. Write a strong destination story using current seasonal context.';
+
+    const prompt = `You are writing for Expedition America, a daily travel publication focused on the United States.\n\nState: ${state.name} (${state.code})\nToday: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' })}\n\nResearch:\n${searchText}\n\nReturn valid JSON only with keys: city, title, summary, category, content, highlights, sources.\nRules:\n- category must be one of: ${Array.from(ARTICLE_CATEGORIES).join(', ')}\n- summary must be 2-3 sentences\n- content must be markdown, at least 600 words\n- highlights must be 5 concise bullets\n- sources must be 4-6 short source names\n- Do not mention AI or limitations.`;
+
+    const completion = await openai.chat.completions.create({
+        model: process.env.EXPEDITION_AMERICA_OPENAI_MODEL || 'gpt-5.2',
+        messages: [
+            {
+                role: 'system',
+                content: 'You are a senior travel editor. Return only JSON with no markdown fences.',
+            },
+            {
+                role: 'user',
+                content: prompt,
+            },
+        ],
+        response_format: { type: 'json_object' },
+        max_completion_tokens: 3500,
+    });
+
+    const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
+    return {
+        stateCode: state.code,
+        stateName: state.name,
+        city: normalizeText(parsed.city, state.name),
+        title: normalizeText(parsed.title, `Explore ${state.name} Today`),
+        summary: normalizeText(parsed.summary, ''),
+        content: normalizeText(parsed.content, ''),
+        category: ARTICLE_CATEGORIES.has(parsed.category) ? parsed.category : 'Seasonal Highlights',
+        highlights: normalizeArray(parsed.highlights).slice(0, 6),
+        sources: normalizeArray(parsed.sources).slice(0, 6),
+        publishedDate: getTodayDate(),
+        status: 'draft',
+    };
+};
+
+const createTtsAudio = async (text) => {
+    const openai = getOpenAiClient();
+    const response = await openai.chat.completions.create({
+        model: process.env.EXPEDITION_AMERICA_TTS_MODEL || 'gpt-audio',
+        modalities: ['text', 'audio'],
+        audio: { voice: 'onyx', format: 'mp3' },
+        messages: [
+            { role: 'system', content: 'Read the provided travel article text naturally.' },
+            { role: 'user', content: `Repeat this verbatim: ${text}` },
+        ],
+    });
+
+    const audioData = response.choices[0]?.message?.audio?.data || '';
+    return Buffer.from(audioData, 'base64');
+};
+
+const listSelect = `
+    SELECT
+        id,
+        state_code,
+        state_name,
+        city,
+        title,
+        summary,
+        content,
+        category,
+        highlights,
+        sources,
+        published_date,
+        status,
+        image_url,
+        created_at
+    FROM ${TABLE_NAME}
+`;
+
+const fullSelect = `
+    SELECT
+        id,
+        state_code,
+        state_name,
+        city,
+        title,
+        summary,
+        content,
+        category,
+        highlights,
+        sources,
+        published_date,
+        status,
+        image_url,
+        audio_url,
+        word_timestamps,
+        created_at
+    FROM ${TABLE_NAME}
+`;
+
+exports.requireExpeditionAdmin = requireExpeditionAdmin;
+
+exports.authenticateAdmin = async (req, res) => {
+    const expected = getAdminCode();
+    const { code } = req.body || {};
+
+    if (!expected) {
+        return res.status(503).json({ error: 'Expedition America admin access code is not configured' });
+    }
+
+    if (!code || String(code).trim() !== expected) {
+        return res.status(401).json({ error: 'Incorrect code' });
+    }
+
+    return res.json({ token: makeAdminToken() });
+};
+
+exports.verifyAdmin = async (req, res) => {
+    const { token } = req.body || {};
+    if (!token || token !== makeAdminToken()) {
+        return res.status(401).json({ error: 'Invalid session' });
+    }
+
+    return res.json({ valid: true });
+};
+
+exports.generateExcerpt = async (req, res) => {
+    const { title, content, stateName, city } = req.body || {};
+    if (!normalizeText(title) || !normalizeText(content)) {
+        return res.status(400).json({ error: 'title and content are required' });
+    }
+
+    if (!hasAiConfigured()) {
+        return res.json({ excerpt: getExcerptFallback({ title, content, stateName, city }) });
+    }
+
+    try {
+        const openai = getOpenAiClient();
+        const completion = await openai.chat.completions.create({
+            model: process.env.EXPEDITION_AMERICA_OPENAI_MODEL || 'gpt-5.2',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'Write exactly 2-3 sentences as a vivid travel article opening hook. Return plain text only.',
+                },
+                {
+                    role: 'user',
+                    content: `Title: ${title}\nLocation: ${[city, stateName].filter(Boolean).join(', ')}\n\nContent:\n${String(content).slice(0, 3000)}`,
+                },
+            ],
+            max_completion_tokens: 200,
+        });
+
+        const excerpt = normalizeText(completion.choices[0]?.message?.content, null) || getExcerptFallback({ title, content, stateName, city });
+        return res.json({ excerpt });
+    } catch (error) {
+        console.error('Expedition America excerpt generation error:', error?.message || error);
+        return res.json({ excerpt: getExcerptFallback({ title, content, stateName, city }) });
+    }
+};
+
+exports.getPublishedArticles = async (_req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(`${listSelect} WHERE status = 'published' ORDER BY created_at DESC`);
+        return res.json(result.rows.map(mapListArticleRow));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to fetch articles' });
+    }
+};
+
+exports.getDraftArticles = async (_req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(`${listSelect} WHERE status = 'draft' ORDER BY created_at DESC`);
+        return res.json(result.rows.map(mapListArticleRow));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to fetch drafts' });
+    }
+};
+
+exports.getAllArticles = async (_req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(`${listSelect} ORDER BY created_at DESC`);
+        return res.json(result.rows.map(mapListArticleRow));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to fetch articles' });
+    }
+};
+
+exports.getTodayArticles = async (_req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(
+            `${listSelect} WHERE status = 'published' AND published_date = $1 ORDER BY created_at DESC`,
+            [getTodayDate()]
+        );
+        return res.json(result.rows.map(mapListArticleRow));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: "Failed to fetch today's articles" });
+    }
+};
+
+exports.getStateStatus = async (_req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(`${listSelect} WHERE status = 'published' ORDER BY created_at DESC`);
+        const latestByState = new Map();
+        result.rows.forEach((row) => {
+            if (!latestByState.has(row.state_code)) {
+                latestByState.set(row.state_code, row);
+            }
+        });
+
+        const today = getTodayDate();
+        return res.json(
+            US_STATES.map((state) => {
+                const latest = latestByState.get(state.code);
+                return {
+                    code: state.code,
+                    name: state.name,
+                    hasToday: latest?.published_date === today,
+                    latestArticle: latest
+                        ? {
+                            id: latest.id,
+                            title: latest.title,
+                            category: latest.category,
+                            city: latest.city,
+                        }
+                        : null,
+                };
+            })
+        );
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to fetch state status' });
+    }
+};
+
+exports.getStateArticles = async (req, res) => {
+    try {
+        await ensureTable();
+        const stateCode = String(req.params.code || '').trim().toUpperCase();
+        const result = await pool.query(
+            `${listSelect} WHERE status = 'published' AND state_code = $1 ORDER BY created_at DESC`,
+            [stateCode]
+        );
+        return res.json(result.rows.map(mapListArticleRow));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to fetch state articles' });
+    }
+};
+
+exports.getArticle = async (req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(`${fullSelect} WHERE id = $1 LIMIT 1`, [req.params.id]);
+        const row = result.rows[0];
+
+        if (!row || (row.status !== 'published' && !isAdminAuthorized(req))) {
+            return res.status(404).json({ error: 'Article not found' });
+        }
+
+        return res.json(mapArticleRow(row));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to fetch article' });
+    }
+};
+
+const parseArticlePayload = (payload, { partial = false } = {}) => {
+    const normalized = {
+        stateCode: normalizeText(payload.stateCode),
+        stateName: normalizeText(payload.stateName),
+        city: normalizeText(payload.city),
+        title: normalizeText(payload.title),
+        summary: normalizeText(payload.summary),
+        content: normalizeText(payload.content),
+        category: normalizeText(payload.category),
+        highlights: normalizeArray(payload.highlights),
+        sources: normalizeArray(payload.sources),
+        publishedDate: normalizeText(payload.publishedDate, getTodayDate()),
+        status: normalizeText(payload.status, 'published'),
+        imageUrl: normalizeText(payload.imageUrl),
+        audioUrl: normalizeText(payload.audioUrl),
+        wordTimestamps: payload.wordTimestamps ?? null,
+    };
+
+    if (!partial) {
+        const requiredFields = ['stateCode', 'stateName', 'city', 'title', 'summary', 'content', 'category'];
+        const missing = requiredFields.filter((field) => !normalized[field]);
+        if (missing.length) {
+            return { error: `Missing required fields: ${missing.join(', ')}` };
+        }
+    }
+
+    if (normalized.category && !ARTICLE_CATEGORIES.has(normalized.category)) {
+        normalized.category = 'Seasonal Highlights';
+    }
+
+    if (normalized.status && !isAllowedStatus(normalized.status)) {
+        normalized.status = 'draft';
+    }
+
+    if (normalized.stateCode) {
+        normalized.stateCode = normalized.stateCode.toUpperCase();
+        normalized.stateName = normalized.stateName || US_STATES.find((entry) => entry.code === normalized.stateCode)?.name || normalized.stateCode;
+    }
+
+    return { data: normalized };
+};
+
+exports.createArticle = async (req, res) => {
+    try {
+        await ensureTable();
+        const { error, data } = parseArticlePayload(req.body);
+        if (error) {
+            return res.status(400).json({ error });
+        }
+
+        const result = await pool.query(
+            `INSERT INTO ${TABLE_NAME} (
+                id, state_code, state_name, city, title, summary, content, category,
+                highlights, sources, published_date, status, image_url, audio_url, word_timestamps
+            )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8,
+                $9::text[], $10::text[], $11, $12, $13, $14, $15::jsonb
+            )
+            RETURNING *`,
+            [
+                crypto.randomUUID(),
+                data.stateCode,
+                data.stateName,
+                data.city,
+                data.title,
+                data.summary,
+                data.content,
+                data.category,
+                data.highlights,
+                data.sources,
+                data.publishedDate,
+                data.status,
+                data.imageUrl,
+                data.audioUrl,
+                data.wordTimestamps ? JSON.stringify(data.wordTimestamps) : null,
+            ]
+        );
+
+        return res.status(201).json(mapArticleRow(result.rows[0]));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to save article' });
+    }
+};
+
+exports.updateArticle = async (req, res) => {
+    try {
+        await ensureTable();
+        const { data } = parseArticlePayload(req.body, { partial: true });
+        const updates = [];
+        const values = [];
+
+        const set = (column, value, cast = '') => {
+            if (value === undefined) {
+                return;
+            }
+            values.push(value);
+            updates.push(`${column} = $${values.length}${cast}`);
+        };
+
+        set('state_code', data.stateCode);
+        set('state_name', data.stateName);
+        set('city', data.city);
+        set('title', data.title);
+        set('summary', data.summary);
+        set('content', data.content);
+        set('category', data.category);
+        if (req.body.highlights !== undefined) {
+            set('highlights', data.highlights, '::text[]');
+        }
+        if (req.body.sources !== undefined) {
+            set('sources', data.sources, '::text[]');
+        }
+        set('published_date', data.publishedDate);
+        set('status', data.status);
+        if (req.body.imageUrl !== undefined) {
+            set('image_url', data.imageUrl);
+        }
+        if (req.body.audioUrl !== undefined) {
+            set('audio_url', data.audioUrl);
+        }
+        if (req.body.wordTimestamps !== undefined) {
+            set('word_timestamps', data.wordTimestamps ? JSON.stringify(data.wordTimestamps) : null, '::jsonb');
+        }
+
+        if (!updates.length) {
+            return res.status(400).json({ error: 'No fields provided for update' });
+        }
+
+        values.push(req.params.id);
+        const result = await pool.query(
+            `UPDATE ${TABLE_NAME}
+             SET ${updates.join(', ')}
+             WHERE id = $${values.length}
+             RETURNING *`,
+            values
+        );
+
+        if (!result.rows.length) {
+            return res.status(404).json({ error: 'Article not found' });
+        }
+
+        return res.json(mapArticleRow(result.rows[0]));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to update article' });
+    }
+};
+
+exports.updateArticleStatus = async (req, res) => {
+    const status = normalizeText(req.body?.status);
+    if (!isAllowedStatus(status)) {
+        return res.status(400).json({ error: "status must be 'published' or 'draft'" });
+    }
+
+    try {
+        await ensureTable();
+        const result = await pool.query(
+            `UPDATE ${TABLE_NAME} SET status = $1 WHERE id = $2 RETURNING *`,
+            [status, req.params.id]
+        );
+
+        if (!result.rows.length) {
+            return res.status(404).json({ error: 'Article not found' });
+        }
+
+        return res.json(mapArticleRow(result.rows[0]));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to update article status' });
+    }
+};
+
+exports.deleteArticle = async (req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(`DELETE FROM ${TABLE_NAME} WHERE id = $1 RETURNING id`, [req.params.id]);
+        if (!result.rows.length) {
+            return res.status(404).json({ error: 'Article not found' });
+        }
+        return res.status(204).send();
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to delete article' });
+    }
+};
+
+exports.moveArticlesToToday = async (req, res) => {
+    const fromDate = normalizeText(req.body?.fromDate);
+    if (!fromDate) {
+        return res.status(400).json({ error: 'fromDate is required' });
+    }
+
+    try {
+        await ensureTable();
+        const today = getTodayDate();
+        const result = await pool.query(
+            `UPDATE ${TABLE_NAME}
+             SET published_date = $1, status = 'published'
+             WHERE published_date = $2
+             RETURNING id`,
+            [today, fromDate]
+        );
+
+        return res.json({ updated: result.rows.length, date: today });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to move articles' });
+    }
+};
+
+exports.publishDraftsToday = async (_req, res) => {
+    try {
+        await ensureTable();
+        const today = getTodayDate();
+        const result = await pool.query(
+            `UPDATE ${TABLE_NAME}
+             SET published_date = $1, status = 'published'
+             WHERE status = 'draft'
+             RETURNING id`,
+            [today]
+        );
+
+        return res.json({ updated: result.rows.length, date: today });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to publish drafts for today' });
+    }
+};
+
+exports.handleUploadedImage = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    return res.json({ url: req.storedImage?.imageUrl || null });
+};
+
+exports.generateArticle = async (req, res) => {
+    const stateCode = normalizeText(req.body?.stateCode)?.toUpperCase();
+    if (!stateCode) {
+        return res.status(400).json({ error: 'stateCode is required' });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const send = (payload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
+    try {
+        send({ type: 'status', message: `Researching ${stateCode}...` });
+        const articleData = await generateArticleForState(stateCode);
+        const insertResult = await pool.query(
+            `INSERT INTO ${TABLE_NAME} (
+                id, state_code, state_name, city, title, summary, content, category,
+                highlights, sources, published_date, status, image_url, audio_url, word_timestamps
+            )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8,
+                $9::text[], $10::text[], $11, $12, $13, $14, $15::jsonb
+            ) RETURNING *`,
+            [
+                crypto.randomUUID(),
+                articleData.stateCode,
+                articleData.stateName,
+                articleData.city,
+                articleData.title,
+                articleData.summary,
+                articleData.content,
+                articleData.category,
+                articleData.highlights,
+                articleData.sources,
+                articleData.publishedDate,
+                'draft',
+                null,
+                null,
+                null,
+            ]
+        );
+        send({ type: 'complete', article: mapArticleRow(insertResult.rows[0]) });
+    } catch (error) {
+        console.error('Expedition America generation error:', error);
+        send({ type: 'error', message: error?.message || 'Failed to generate article' });
+    }
+
+    return res.end();
+};
+
+exports.generateDaily = async (_req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const send = (payload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
+    try {
+        await ensureTable();
+        const tomorrow = getTodayDate();
+        const existing = await pool.query(`SELECT state_code FROM ${TABLE_NAME} WHERE published_date = $1`, [tomorrow]);
+        const covered = new Set(existing.rows.map((row) => row.state_code));
+        const candidate = US_STATES.find((state) => !covered.has(state.code)) || US_STATES[Math.floor(Math.random() * US_STATES.length)];
+        send({ type: 'selection', states: [candidate], total: 1, message: `Selected ${candidate.name} for the next draft.` });
+
+        const articleData = await generateArticleForState(candidate.code);
+        const insertResult = await pool.query(
+            `INSERT INTO ${TABLE_NAME} (
+                id, state_code, state_name, city, title, summary, content, category,
+                highlights, sources, published_date, status, image_url, audio_url, word_timestamps
+            )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8,
+                $9::text[], $10::text[], $11, $12, $13, $14, $15::jsonb
+            ) RETURNING *`,
+            [
+                crypto.randomUUID(),
+                articleData.stateCode,
+                articleData.stateName,
+                articleData.city,
+                articleData.title,
+                articleData.summary,
+                articleData.content,
+                articleData.category,
+                articleData.highlights,
+                articleData.sources,
+                articleData.publishedDate,
+                'draft',
+                null,
+                null,
+                null,
+            ]
+        );
+
+        send({
+            type: 'state_complete',
+            stateCode: candidate.code,
+            stateName: candidate.name,
+            completed: 1,
+            total: 1,
+            article: mapArticleRow(insertResult.rows[0]),
+        });
+        send({ type: 'all_complete', completed: 1, failed: 0, message: 'Draft generation complete.' });
+    } catch (error) {
+        console.error('Expedition America daily generation error:', error);
+        send({ type: 'error', message: error?.message || 'Failed to generate daily draft' });
+    }
+
+    return res.end();
+};
+
+exports.getTimestamps = async (req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(`${fullSelect} WHERE id = $1 LIMIT 1`, [req.params.id]);
+        if (!result.rows.length) {
+            return res.status(404).json({ error: 'Not found' });
+        }
+        return res.json({ timestamps: result.rows[0].word_timestamps || [] });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to get timestamps' });
+    }
+};
+
+exports.generateTts = async (req, res) => {
+    try {
+        await ensureTable();
+        const result = await pool.query(`${fullSelect} WHERE id = $1 LIMIT 1`, [req.params.id]);
+        const row = result.rows[0];
+        if (!row) {
+            return res.status(404).json({ error: 'Article not found' });
+        }
+
+        if (row.audio_url) {
+            const audioBuffer = Buffer.from(String(row.audio_url).replace(/^data:audio\/mpeg;base64,/, ''), 'base64');
+            res.set('Content-Type', 'audio/mpeg');
+            return res.send(audioBuffer);
+        }
+
+        if (!hasAiConfigured()) {
+            return res.status(503).json({ error: 'Text-to-speech is not configured for Expedition America' });
+        }
+
+        const fullText = [row.title, row.summary, row.content].filter(Boolean).join('\n\n');
+        const audioBuffer = await createTtsAudio(fullText);
+        const audioUrl = `data:audio/mpeg;base64,${audioBuffer.toString('base64')}`;
+        await pool.query(`UPDATE ${TABLE_NAME} SET audio_url = $1 WHERE id = $2`, [audioUrl, req.params.id]);
+        res.set('Content-Type', 'audio/mpeg');
+        return res.send(audioBuffer);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Failed to generate audio' });
+    }
+};

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { buildApiUrl } from "@/lib/queryClient";
 import { Eye, EyeOff, Shield, Loader2 } from "lucide-react";
 import logoSrc from "/logo.png";
 
@@ -26,7 +27,7 @@ export function AdminLogin({ onAuthenticated }: AdminLoginProps) {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/auth", {
+      const res = await fetch(buildApiUrl("/api/admin/auth"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: code.trim() }),
