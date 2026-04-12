@@ -18,6 +18,7 @@ const storefrontRoutes = require('./routes/storefront');
 const waciRoutes = require('./routes/waci');
 const wildlifePediaRoutes = require('./routes/wildlifePedia');
 const expeditionAmericaRoutes = require('./routes/expeditionAmerica');
+const expeditionAmericaController = require('./controllers/expeditionAmericaController');
 const storefrontController = require('./controllers/storefrontController');
 const waciController = require('./controllers/waciController');
 
@@ -127,5 +128,8 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     if (typeof waciController.startWaciRewardsScheduler === 'function') {
         waciController.startWaciRewardsScheduler();
+    }
+    if (typeof expeditionAmericaController.startExpeditionAmericaScheduler === 'function') {
+        expeditionAmericaController.startExpeditionAmericaScheduler();
     }
 });
