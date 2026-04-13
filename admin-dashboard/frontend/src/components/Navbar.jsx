@@ -9,6 +9,9 @@ const pageTitles = {
     '/bookings': 'Bookings',
     '/categories': 'Categories',
     '/users': 'Users',
+    '/waci-project-hub': 'WACI Project Hub',
+    '/waci': 'WACI',
+    '/wildlife-pedia': 'Wildlife-Pedia',
     '/login': 'Login',
 };
 

@@ -16,6 +16,9 @@ const platformContentRoutes = require('./routes/platformContent');
 const adrianStoreRoutes = require('./routes/adrianStore');
 const storefrontRoutes = require('./routes/storefront');
 const waciRoutes = require('./routes/waci');
+const waciProjectsRoutes = require('./routes/waciProjects');
+const waciGrantsRoutes = require('./routes/waciGrants');
+const waciReportsRoutes = require('./routes/waciReports');
 const wildlifePediaRoutes = require('./routes/wildlifePedia');
 const expeditionAmericaRoutes = require('./routes/expeditionAmerica');
 const expeditionAmericaStandaloneRoutes = require('./routes/expeditionAmericaStandalone');
@@ -57,6 +60,7 @@ const defaultAllowedOrigins = [
     'https://expedition-america-kj011p40q-felabayomis-projects.vercel.app',
     'https://citytourhub.vercel.app',
     'https://tours.citydiscoverer.guide',
+    'https://waci-hub.felixplatforms.com',
 ];
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
@@ -127,6 +131,12 @@ app.use('/categories', categoriesRoutes);
 app.use('/api', documentFormatterRoutes);
 app.use('/api/storefront', storefrontRoutes);
 app.use('/api/waci', waciRoutes);
+app.use('/api/waci/projects', waciProjectsRoutes);
+app.use('/api/waci/grants', waciGrantsRoutes);
+app.use('/api/waci/reports', waciReportsRoutes);
+app.use('/api/waci-hub/projects', waciProjectsRoutes);
+app.use('/api/waci-hub/grants', waciGrantsRoutes);
+app.use('/api/waci-hub/reports', waciReportsRoutes);
 app.use('/api/wildlife-pedia', wildlifePediaRoutes);
 app.use('/api/expedition-america', expeditionAmericaRoutes);
 app.use('/api/expedition-america-standalone', expeditionAmericaStandaloneRoutes);

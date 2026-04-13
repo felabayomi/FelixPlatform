@@ -4,6 +4,21 @@ import API from '../services/api';
 
 const managementLinks = [
     {
+        to: '/waci-project-hub',
+        label: 'WACI Project Hub control center',
+        description: 'Single entry point for project lifecycle admin routes: project, grant, offer, reports, and funding.',
+    },
+    {
+        to: '/waci-project-hub#projects',
+        label: 'WACI Project Hub projects',
+        description: 'Open project command controls and continue lifecycle execution from one page.',
+    },
+    {
+        to: '/waci-project-hub#reports',
+        label: 'WACI Project Hub report approvals',
+        description: 'Review and approve reports without leaving the admin shell.',
+    },
+    {
         to: '/wildlife-pedia',
         label: 'Wildlife-Pedia workspace',
         description: 'Review species, habitats, projects, and community sighting reports.',
@@ -159,11 +174,16 @@ function Dashboard() {
                 <div className="record-header">
                     <div>
                         <h3>Quick access</h3>
-                        <p className="muted">Use these shortcuts to jump directly into the Wildlife-Pedia, WACI, and Adrian workspaces from the main admin dashboard.</p>
+                        <p className="muted">Use these shortcuts to jump directly into WACI Project Hub and other workspaces from the main admin dashboard.</p>
                     </div>
-                    <Link to="/wildlife-pedia" className="edit-button preview-link">
-                        Open Wildlife-Pedia
-                    </Link>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Link to="/waci-project-hub" className="edit-button preview-link">
+                            Open WACI Project Hub
+                        </Link>
+                        <Link to="/wildlife-pedia" className="edit-button preview-link">
+                            Open Wildlife-Pedia
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="dashboard-link-grid">

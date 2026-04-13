@@ -20,3 +20,6 @@ database/backups/*.json
 !database/backups/.gitkeep
 .vercel
 .env*.local
+
+# Standalone projects with their own git repos (tracked independently via GitHub/Vercel)
+incoming/felix-consult/

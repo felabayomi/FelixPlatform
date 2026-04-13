@@ -17,6 +17,17 @@ const links = [
         ],
     },
     {
+        to: '/waci-project-hub',
+        label: 'WACI Project Hub',
+        children: [
+            { hash: '#projects', label: 'Projects' },
+            { hash: '#assignments', label: 'Volunteer Assignments' },
+            { hash: '#grant-offers', label: 'Grant Offers' },
+            { hash: '#reports', label: 'Report Review' },
+            { hash: '#payments', label: 'Payment Status' },
+        ],
+    },
+    {
         to: '/waci',
         label: 'WACI',
         publishedUrl: 'wildlifeafrica.org',
@@ -50,6 +61,7 @@ function Sidebar() {
     const [expandedGroups, setExpandedGroups] = useState(() => ({
         '/wildlife-pedia': location.pathname === '/wildlife-pedia',
         '/waci': location.pathname === '/waci',
+        '/waci-project-hub': location.pathname === '/waci-project-hub',
     }));
 
     const toggleGroup = (groupKey) => {

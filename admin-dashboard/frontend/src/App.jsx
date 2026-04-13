@@ -19,6 +19,7 @@ import Users from './pages/Users';
 import ExpeditionAmerica from './pages/ExpeditionAmerica';
 import ExpeditionAmericaStandalone from './pages/ExpeditionAmericaStandalone';
 import CityTourHub from './pages/CityTourHub';
+import WACIProjectHub from './pages/WACIProjectHub';
 import { clearAuthSession, getStoredUser, hasAdminAccess } from './services/api';
 
 function ProtectedRoute({ user, children }) {
@@ -78,6 +79,7 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/expedition-america" element={<ProtectedRoute user={user}><ExpeditionAmerica /></ProtectedRoute>} />
             <Route path="/expedition-america-app" element={<ProtectedRoute user={user}><ExpeditionAmericaStandalone /></ProtectedRoute>} />
             <Route path="/city-tour-hub" element={<ProtectedRoute user={user}><CityTourHub /></ProtectedRoute>} />
+            <Route path="/waci-project-hub" element={<ProtectedRoute user={user}><WACIProjectHub /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>
