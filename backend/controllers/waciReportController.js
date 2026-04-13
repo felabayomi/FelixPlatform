@@ -487,7 +487,58 @@ exports.getPayments = async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
+        if (err?.code === '42P01' || err?.code === '42703') {
+            try {
+                const reportFallback = await pool.query(
+                    `SELECT
+                        (-1 * r.id) AS id,
+                        r.project_id,
+                        r.user_id,
+                        r.id AS report_id,
+                        NULL::integer AS grant_offer_id,
+                        COALESCE(ROUND(g.total_amount_cents / 12.0), 0)::integer AS amount_cents,
+                        COALESCE(g.currency, 'usd') AS currency,
+                        NULL::text AS payout_method,
+                        r.report_month AS payment_month,
+                        CASE
+                            WHEN r.status = 'approved' THEN 'pending'
+                            WHEN r.status IN ('pending', 'late') THEN 'locked'
+                            ELSE 'failed'
+                        END AS status,
+                        p.title AS project_title,
+                        u.name AS volunteer_name,
+                        u.email AS volunteer_email,
+                        g.title AS grant_title,
+                        r.status AS report_status,
+                        (r.status = 'approved') AS payment_unlock_eligible,
+                        r.submitted_at AS created_at
+                    FROM waci_monthly_reports r
+                    JOIN waci_projects p ON p.id = r.project_id
+                    JOIN users u ON u.id = r.user_id
+                    LEFT JOIN LATERAL (
+                        SELECT gg.*
+                        FROM waci_grant_offers gg
+                        WHERE gg.project_id = r.project_id
+                          AND gg.user_id = r.user_id
+                        ORDER BY gg.created_at DESC
+                        LIMIT 1
+                    ) g ON true
+                    ORDER BY r.submitted_at DESC`
+                );
+
+                let rows = reportFallback.rows;
+                const { project_id, user_id, status } = req.query;
+                if (project_id) rows = rows.filter((row) => String(row.project_id) === String(project_id));
+                if (user_id) rows = rows.filter((row) => String(row.user_id) === String(user_id));
+                if (status) rows = rows.filter((row) => String(row.status) === String(status));
+
+                return res.json(rows);
+            } catch (fallbackErr) {
+                console.error('[WACI:getPayments:fallback]', fallbackErr);
+            }
+        }
+
+        console.error('[WACI:getPayments]', err);
         res.status(500).json({ error: 'Failed to fetch payments' });
     }
 };

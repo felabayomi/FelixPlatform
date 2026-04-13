@@ -25,7 +25,31 @@ exports.getProjects = async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
+        // Fallback when optional relationship tables are absent in older DB snapshots.
+        if (err?.code === '42P01' || err?.code === '42703') {
+            try {
+                const { status } = req.query;
+                const params = [];
+                let where = '';
+                if (status) {
+                    params.push(status);
+                    where = `WHERE p.status = $${params.length}`;
+                }
+
+                const fallback = await pool.query(
+                    `SELECT p.*, 0::int AS assignment_count
+                     FROM waci_projects p
+                     ${where}
+                     ORDER BY p.created_at DESC`,
+                    params
+                );
+                return res.json(fallback.rows);
+            } catch (fallbackErr) {
+                console.error('[WACI:getProjects:fallback]', fallbackErr);
+            }
+        }
+
+        console.error('[WACI:getProjects]', err);
         res.status(500).json({ error: 'Failed to fetch projects' });
     }
 };

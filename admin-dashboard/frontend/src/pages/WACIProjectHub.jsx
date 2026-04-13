@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import API from '../services/api';
 
 const SECTION_LINKS = [
@@ -24,6 +25,13 @@ const STATUS_COLORS = {
     revision_requested: '#f59e0b',
     processing: '#3b82f6',
     failed: '#ef4444',
+};
+
+const SECTION_IDS = new Set(SECTION_LINKS.map((section) => section.id));
+
+const getSectionFromHash = (hashValue) => {
+    const normalized = String(hashValue || '').replace(/^#/, '');
+    return SECTION_IDS.has(normalized) ? normalized : 'projects';
 };
 
 function StatusBadge({ status }) {
@@ -92,6 +100,25 @@ function ProjectsSection() {
             <h3>Projects</h3>
             {error && <p style={{ color: 'red' }}>{error}</p>}
 
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                <a
+                    href="https://waci-project-hub.vercel.app/admin/projects"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: 13 }}
+                >
+                    Open AI Lifecycle Interface
+                </a>
+                <a
+                    href="https://waci-project-hub.vercel.app/admin/projects/create"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: 13 }}
+                >
+                    Create Project in AI Interface
+                </a>
+            </div>
+
             <form onSubmit={handleCreate} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
                 <input required placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
                 <input required placeholder="Slug (e.g. airport-wildlife-watch-katsina)" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
@@ -122,7 +149,17 @@ function ProjectsSection() {
                             <td style={{ padding: '6px 8px' }}><StatusBadge status={p.status} /></td>
                             <td style={{ padding: '6px 8px' }}>{p.assignment_count ?? 0}</td>
                             <td style={{ padding: '6px 8px' }}>
-                                <button onClick={() => handleDelete(p.id)} style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }}>Delete</button>
+                                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                    <a
+                                        href={`https://waci-project-hub.vercel.app/projects/${p.slug}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{ fontSize: 12 }}
+                                    >
+                                        Open Frontend
+                                    </a>
+                                    <button onClick={() => handleDelete(p.id)} style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }}>Delete</button>
+                                </div>
                             </td>
                         </tr>
                     ))}
@@ -341,7 +378,19 @@ function PaymentsSection() {
 
 // ─── Main Page ────────────────────────────────────────────────
 export default function WACIProjectHub() {
-    const [activeSection, setActiveSection] = useState('projects');
+    const location = useLocation();
+    const navigate = useNavigate();
+    const initialSection = useMemo(() => getSectionFromHash(location.hash), [location.hash]);
+    const [activeSection, setActiveSection] = useState(initialSection);
+
+    useEffect(() => {
+        setActiveSection(getSectionFromHash(location.hash));
+    }, [location.hash]);
+
+    const handleSectionChange = (sectionId) => {
+        setActiveSection(sectionId);
+        navigate(`${location.pathname}#${sectionId}`, { replace: true });
+    };
 
     return (
         <div className="page-container">
@@ -350,11 +399,22 @@ export default function WACIProjectHub() {
                 Manage WACI field projects, volunteer assignments, grant offers, monthly reports, and payments.
             </p>
 
+            <div style={{ marginBottom: 16, padding: 12, border: '1px solid #e5e7eb', borderRadius: 8, background: '#f8fafc' }}>
+                <strong style={{ display: 'block', marginBottom: 6 }}>AI Command Center</strong>
+                <p style={{ margin: 0, color: '#475569', fontSize: 13 }}>
+                    Open the full AI project lifecycle interface here if you need the advanced grant/report command center.
+                </p>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
+                    <a href="https://waci-project-hub.vercel.app/admin/projects" target="_blank" rel="noreferrer">Open AI Interface</a>
+                    <a href="https://waci-project-hub.vercel.app/admin/projects/create" target="_blank" rel="noreferrer">New AI Project</a>
+                </div>
+            </div>
+
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 32 }}>
                 {SECTION_LINKS.map((s) => (
                     <button
                         key={s.id}
-                        onClick={() => setActiveSection(s.id)}
+                        onClick={() => handleSectionChange(s.id)}
                         style={{
                             padding: '6px 16px',
                             borderRadius: 6,
