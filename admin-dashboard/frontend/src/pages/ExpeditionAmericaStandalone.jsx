@@ -590,13 +590,28 @@ function ExpeditionAmericaStandalone() {
                     <label>
                         <span>Section Template</span>
                         <select
-                            value={form.sectionKey}
-                            onChange={(event) => handleSectionChange(event.target.value)}
+                            value={currentSectionOptions.some((s) => s.key === form.sectionKey) ? form.sectionKey : '__custom__'}
+                            onChange={(event) => {
+                                if (event.target.value === '__custom__') {
+                                    setForm((current) => ({ ...current, sectionKey: '' }));
+                                } else {
+                                    handleSectionChange(event.target.value);
+                                }
+                            }}
                         >
                             {currentSectionOptions.map((section) => (
                                 <option key={section.key} value={section.key}>{section.label} ({section.key})</option>
                             ))}
+                            <option value="__custom__">-- Custom / New key... --</option>
                         </select>
+                        {(!currentSectionOptions.some((s) => s.key === form.sectionKey) || form.sectionKey === '') && (
+                            <input
+                                style={{ marginTop: 6 }}
+                                placeholder="e.g. city-denver  (must start with city-)"
+                                value={form.sectionKey === '__custom__' ? '' : form.sectionKey}
+                                onChange={(event) => setForm((current) => ({ ...current, sectionKey: event.target.value.toLowerCase().replace(/\s+/g, '-') }))}
+                            />
+                        )}
                     </label>
 
                     <label>
