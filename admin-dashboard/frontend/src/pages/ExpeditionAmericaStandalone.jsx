@@ -103,6 +103,7 @@ function ExpeditionAmericaStandalone() {
     const [isSaving, setIsSaving] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isSavingPage, setIsSavingPage] = useState(false);
+    const [savingSectionKey, setSavingSectionKey] = useState('');
     const [uploadingTarget, setUploadingTarget] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
@@ -527,6 +528,23 @@ function ExpeditionAmericaStandalone() {
         }
     };
 
+    const saveSinglePageSection = async (section) => {
+        setSavingSectionKey(section.sectionKey);
+        setError('');
+        setMessage('');
+        try {
+            await savePageSection(section);
+            setMessage(`Saved section: ${section.sectionKey}`);
+            await loadContent();
+            await loadExport();
+        } catch (err) {
+            console.error(err);
+            setError(`Failed to save section: ${section.sectionKey}`);
+        } finally {
+            setSavingSectionKey('');
+        }
+    };
+
     return (
         <div className="page-section" style={{ gap: 16, display: 'grid' }}>
             <div className="page-header" style={{ marginBottom: 0 }}>
@@ -798,6 +816,14 @@ function ExpeditionAmericaStandalone() {
                                             <p className="muted" style={{ margin: '4px 0 0' }}>Updated: {new Date(section.updatedAt).toLocaleString()}</p>
                                         </div>
                                         <div className="toolbar-actions">
+                                            <button
+                                                type="button"
+                                                className="edit-button"
+                                                onClick={() => saveSinglePageSection(section)}
+                                                disabled={isSavingPage || savingSectionKey === section.sectionKey}
+                                            >
+                                                {savingSectionKey === section.sectionKey ? 'Saving...' : 'Save This Section'}
+                                            </button>
                                             <button type="button" className="secondary-button" onClick={() => startEdit(section)}>
                                                 Open In Single Editor
                                             </button>
