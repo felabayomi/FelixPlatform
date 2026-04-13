@@ -69,17 +69,20 @@
   line-height: 1.2;
 }
 
-.sidebar-link-url {
+.sidebar-published-url {
+  margin: -2px 0 4px 12px;
+  display: inline-block;
   font-size: 0.72rem;
   color: #93c5fd;
   opacity: 0.9;
   line-height: 1.2;
   word-break: break-word;
+  text-decoration: none;
 }
 
-.sidebar-link:hover .sidebar-link-url,
-.sidebar-link.active .sidebar-link-url {
+.sidebar-published-url:hover {
   color: #dbeafe;
+  text-decoration: underline;
 }
 
 .sidebar-link-main {

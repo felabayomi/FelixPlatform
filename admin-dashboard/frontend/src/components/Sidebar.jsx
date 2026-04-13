@@ -79,9 +79,6 @@ function Sidebar() {
                                     className={({ isActive }) => `sidebar-link sidebar-link-main${isActive ? ' active' : ''}`}
                                 >
                                     <span className="sidebar-link-label">{link.label}</span>
-                                    {link.publishedUrl ? (
-                                        <span className="sidebar-link-url">{link.publishedUrl}</span>
-                                    ) : null}
                                 </NavLink>
 
                                 {hasChildren ? (
@@ -96,6 +93,17 @@ function Sidebar() {
                                     </button>
                                 ) : null}
                             </div>
+
+                            {link.publishedUrl ? (
+                                <a
+                                    className="sidebar-published-url"
+                                    href={`https://${link.publishedUrl}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    {link.publishedUrl}
+                                </a>
+                            ) : null}
 
                             {hasChildren && isExpanded ? (
                                 <div className="sidebar-subnav">
