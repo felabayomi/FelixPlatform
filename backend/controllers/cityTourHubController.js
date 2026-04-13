@@ -144,6 +144,26 @@ const ADMIN_EMAIL = () => process.env.CITY_TOUR_HUB_ADMIN_EMAIL
     || process.env.ADMIN_EMAIL
     || 'discoverercity@gmail.com';
 
+function getEmailDiagnosticsConfig() {
+    const resendApiKey = process.env.CITY_TOUR_HUB_RESEND_API_KEY
+        || process.env.CITYTOURHUB_RESEND_API_KEY
+        || process.env.RESEND_API_KEY;
+    const configuredFromEmail = process.env.CITY_TOUR_HUB_RESEND_FROM_EMAIL
+        || process.env.CITYTOURHUB_RESEND_FROM_EMAIL
+        || process.env.RESEND_FROM_EMAIL
+        || 'onboarding@resend.dev';
+    const fallbackFromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+    const fromCandidates = [...new Set([configuredFromEmail, fallbackFromEmail].filter(Boolean))];
+
+    return {
+        hasResendApiKey: Boolean(resendApiKey),
+        configuredFromEmail,
+        fallbackFromEmail,
+        fromCandidates,
+        adminEmail: ADMIN_EMAIL(),
+    };
+}
+
 async function emailSignupConfirmation(signup, tour) {
     await sendEmail({
         to: signup.email,
@@ -270,7 +290,7 @@ body{font-family:Arial,sans-serif;line-height:1.6;color:#333}
 }
 
 async function emailContactConfirmation(msg) {
-    await sendEmail({
+    return sendEmail({
         to: msg.email,
         subject: 'We received your message - City Discoverer',
         html: `<!DOCTYPE html><html><head><style>
@@ -298,7 +318,7 @@ body{font-family:Arial,sans-serif;line-height:1.6;color:#333}
 }
 
 async function emailContactAdminNotification(msg) {
-    await sendEmail({
+    return sendEmail({
         to: ADMIN_EMAIL(),
         subject: `New Contact Message: ${msg.subject}`,
         html: `<!DOCTYPE html><html><head><style>
@@ -635,6 +655,41 @@ exports.getContactMessages = async (req, res) => {
     } catch (err) {
         console.error('[CityTourHub] getContactMessages:', err);
         res.status(500).json({ error: 'Failed to fetch contact messages' });
+    }
+};
+
+exports.diagnoseContactEmailDelivery = async (req, res) => {
+    try {
+        const { fullName, email, subject, message } = req.body || {};
+        const targetEmail = String(email || '').trim();
+
+        if (!targetEmail) {
+            return res.status(400).json({ error: 'Email is required for diagnostics' });
+        }
+
+        const msg = {
+            full_name: String(fullName || 'Diagnostics User').trim() || 'Diagnostics User',
+            email: targetEmail,
+            subject: String(subject || 'Contact Email Diagnostics').trim() || 'Contact Email Diagnostics',
+            message: String(message || 'This is a diagnostics-only email test.').trim() || 'This is a diagnostics-only email test.',
+        };
+
+        const [confirmationResult, adminResult] = await Promise.all([
+            emailContactConfirmation(msg),
+            emailContactAdminNotification(msg),
+        ]);
+
+        return res.json({
+            ok: Boolean(confirmationResult?.sent) && Boolean(adminResult?.sent),
+            config: getEmailDiagnosticsConfig(),
+            results: {
+                user: confirmationResult,
+                admin: adminResult,
+            },
+        });
+    } catch (err) {
+        console.error('[CityTourHub] diagnoseContactEmailDelivery:', err);
+        return res.status(500).json({ error: 'Failed to run contact email diagnostics' });
     }
 };
 

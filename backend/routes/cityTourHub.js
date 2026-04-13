@@ -2,6 +2,7 @@
 
 const express = require('express');
 const upload = require('../middleware/uploadMiddleware');
+const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 const { storeProductImage } = require('../services/productImageStorage');
 const router = express.Router();
 const controller = require('../controllers/cityTourHubController');
@@ -51,6 +52,7 @@ router.get('/admin/local-picks', controller.getLocalPicksSignups);
 router.get('/admin/contacts', controller.getContactMessages);
 router.get('/admin/newsletter-subscribers', controller.getNewsletterSubscribers);
 router.get('/admin/user-signups', controller.getUserSignups);
+router.post('/admin/contact-email-diagnostics', authenticateToken, requireAdmin, controller.diagnoseContactEmailDelivery);
 
 module.exports = router;
 
