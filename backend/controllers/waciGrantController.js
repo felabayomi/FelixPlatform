@@ -1,6 +1,7 @@
 const pool = require('../db');
 const fs = require('fs');
 const path = require('path');
+const { ensureWaciProjectHubSchema } = require('../services/ensureWaciProjectHubSchema');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const { sendEmail } = require('../services/resendEmail');
 
@@ -217,6 +218,7 @@ let ensureLifecycleSchemaPromise = null;
 const ensureLifecycleSchema = async () => {
     if (!ensureLifecycleSchemaPromise) {
         ensureLifecycleSchemaPromise = (async () => {
+            await ensureWaciProjectHubSchema();
             await pool.query('ALTER TABLE waci_grant_offers ADD COLUMN IF NOT EXISTS offer_code VARCHAR(255)');
             await pool.query('ALTER TABLE waci_grant_offers ADD COLUMN IF NOT EXISTS volunteer_name VARCHAR(255)');
             await pool.query('ALTER TABLE waci_grant_offers ADD COLUMN IF NOT EXISTS volunteer_email VARCHAR(255)');
@@ -686,7 +688,7 @@ exports.acceptGrantOffer = async (req, res) => {
         const emailMatch = offer.volunteer_email && req.user?.email
             ? String(offer.volunteer_email).toLowerCase() === String(req.user.email).toLowerCase()
             : false;
-        const assignedToRequester = Number(offer.user_id) === Number(user_id);
+        const assignedToRequester = String(offer.user_id) === String(user_id);
         if (!assignedToRequester && !emailMatch) {
             return res.status(403).json({ error: 'You do not have access to this grant offer' });
         }

@@ -1,9 +1,11 @@
 const pool = require('../db');
+const { ensureWaciProjectHubSchema } = require('../services/ensureWaciProjectHubSchema');
 
 // ─── Projects ────────────────────────────────────────────────
 
 exports.getProjects = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const { status } = req.query;
         const params = [];
         let where = '';
@@ -56,6 +58,7 @@ exports.getProjects = async (req, res) => {
 
 exports.getProject = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const { slug } = req.params;
         const result = await pool.query(
             `SELECT p.*, u.name AS created_by_name
@@ -74,6 +77,7 @@ exports.getProject = async (req, res) => {
 
 exports.createProject = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const {
             title, slug, purpose, objectives, methodology,
             deliverables, expectations, region, status,
@@ -108,6 +112,7 @@ exports.createProject = async (req, res) => {
 
 exports.updateProject = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const { id } = req.params;
         const {
             title, slug, purpose, objectives, methodology,
@@ -148,6 +153,7 @@ exports.updateProject = async (req, res) => {
 
 exports.deleteProject = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const { id } = req.params;
         const result = await pool.query('DELETE FROM waci_projects WHERE id = $1 RETURNING id', [id]);
         if (!result.rows.length) return res.status(404).json({ error: 'Project not found' });
@@ -162,6 +168,7 @@ exports.deleteProject = async (req, res) => {
 
 exports.getAssignments = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const { projectId } = req.params;
         const result = await pool.query(
             `SELECT a.*, u.name, u.email, p.title AS project_title
@@ -181,6 +188,7 @@ exports.getAssignments = async (req, res) => {
 
 exports.assignVolunteer = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const { projectId } = req.params;
         const { user_id, role } = req.body;
         if (!user_id) return res.status(400).json({ error: 'user_id is required' });
@@ -202,6 +210,7 @@ exports.assignVolunteer = async (req, res) => {
 
 exports.removeAssignment = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const { projectId, userId } = req.params;
         const result = await pool.query(
             `UPDATE waci_project_assignments SET status = 'removed'
@@ -220,6 +229,7 @@ exports.removeAssignment = async (req, res) => {
 
 exports.getProjectGrant = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const { id } = req.params;
         const result = await pool.query(
             `SELECT g.*,
@@ -245,6 +255,7 @@ exports.getProjectGrant = async (req, res) => {
 
 exports.getProjectReports = async (req, res) => {
     try {
+        await ensureWaciProjectHubSchema();
         const { id } = req.params;
         const reportsResult = await pool.query(
             `SELECT r.*,

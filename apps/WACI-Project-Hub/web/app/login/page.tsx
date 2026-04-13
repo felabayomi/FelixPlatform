@@ -21,11 +21,15 @@ export default function LoginPage() {
         setError(null);
         setLoading(true);
 
+        const callbackUrl = typeof window === "undefined"
+            ? "/"
+            : new URLSearchParams(window.location.search).get("callbackUrl") || "/";
+
         const result = await signIn("credentials", {
             email,
             password,
             rememberMe: keepLoggedIn,
-            callbackUrl: "/",
+            callbackUrl,
             redirect: false,
         });
 
@@ -36,7 +40,7 @@ export default function LoginPage() {
             return;
         }
 
-        window.location.href = result?.url || "/";
+        window.location.href = result?.url || callbackUrl;
     };
 
     const handleForgotPassword = async () => {

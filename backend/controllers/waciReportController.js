@@ -1,5 +1,6 @@
 const pool = require('../db');
 const { sendEmail } = require('../services/resendEmail');
+const { ensureWaciProjectHubSchema } = require('../services/ensureWaciProjectHubSchema');
 
 const REPORT_DUE_DAY = 25;
 
@@ -20,6 +21,7 @@ let ensureReportLifecycleSchemaPromise = null;
 const ensureReportLifecycleSchema = async () => {
     if (!ensureReportLifecycleSchemaPromise) {
         ensureReportLifecycleSchemaPromise = (async () => {
+            await ensureWaciProjectHubSchema();
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS waci_dashboard_profiles (
                     id SERIAL PRIMARY KEY,
@@ -131,6 +133,7 @@ const syncDashboardAfterApproval = async (client, scheduleRow) => {
 
 exports.submitReport = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const user_id = req.user?.id;
         const {
             project_id, grant_offer_id, report_month,
@@ -178,6 +181,7 @@ exports.submitReport = async (req, res) => {
 
 exports.getReports = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const { project_id, user_id, status } = req.query;
         const params = [];
         const conditions = [];
@@ -228,6 +232,7 @@ exports.getReports = async (req, res) => {
 
 exports.getMyReports = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const user_id = req.user?.id;
         const result = await pool.query(
             `SELECT r.*,
@@ -385,6 +390,7 @@ exports.submitScheduledReport = async (req, res) => {
 
 exports.getReport = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const { id } = req.params;
         const reportResult = await pool.query(
             `SELECT r.*,
@@ -414,6 +420,7 @@ exports.getReport = async (req, res) => {
 
 exports.reviewReport = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const { id } = req.params;
         const { status, admin_notes } = req.body;
         const VALID = ['approved', 'rejected', 'revision_requested'];
@@ -440,6 +447,7 @@ exports.reviewReport = async (req, res) => {
 
 exports.addAttachment = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const { id } = req.params; // report_id
         const { file_url, file_name } = req.body;
         if (!file_url) return res.status(400).json({ error: 'file_url is required' });
@@ -459,6 +467,7 @@ exports.addAttachment = async (req, res) => {
 
 exports.getPayments = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const { project_id, user_id, status } = req.query;
         const params = [];
         const conditions = [];
@@ -545,6 +554,7 @@ exports.getPayments = async (req, res) => {
 
 exports.getMyPayments = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const result = await pool.query(
             `SELECT pay.*,
                     p.title AS project_title,
@@ -568,6 +578,7 @@ exports.getMyPayments = async (req, res) => {
 
 exports.createPayment = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const {
             grant_offer_id, user_id, project_id, report_id,
             amount_cents, currency, payout_method, payment_month, scheduled_at,
@@ -588,7 +599,7 @@ exports.createPayment = async (req, res) => {
             return res.status(404).json({ error: 'Linked report not found' });
         }
         const report = reportResult.rows[0];
-        if (Number(report.user_id) !== Number(user_id) || Number(report.project_id) !== Number(project_id)) {
+        if (String(report.user_id) !== String(user_id) || String(report.project_id) !== String(project_id)) {
             return res.status(400).json({ error: 'Linked report does not match this volunteer/project' });
         }
         if (report.status !== 'approved') {
@@ -616,6 +627,7 @@ exports.createPayment = async (req, res) => {
 
 exports.updatePaymentStatus = async (req, res) => {
     try {
+        await ensureReportLifecycleSchema();
         const { id } = req.params;
         const { status, payout_reference } = req.body;
         const VALID = ['pending', 'approved', 'processing', 'completed', 'failed'];
@@ -657,6 +669,7 @@ exports.updatePaymentStatus = async (req, res) => {
 // ─── Approve Report + Auto-unlock Payment + Notify ───────────
 
 exports.approveReport = async (req, res) => {
+    await ensureReportLifecycleSchema();
     const client = await pool.connect();
     try {
         const { id } = req.params;

@@ -15,11 +15,15 @@ export async function proxy(request: NextRequest) {
     const role = token?.role as string | undefined;
 
     if (isAdmin && role !== "admin") {
-        return NextResponse.redirect(new URL("/", request.url));
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("callbackUrl", pathname);
+        return NextResponse.redirect(loginUrl);
     }
 
     if (isGrantee && role !== "grantee") {
-        return NextResponse.redirect(new URL("/", request.url));
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("callbackUrl", pathname);
+        return NextResponse.redirect(loginUrl);
     }
 
     return NextResponse.next();
