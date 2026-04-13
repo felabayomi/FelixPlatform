@@ -93,29 +93,50 @@ async function sendEmail({ to, subject, html }) {
     const resendApiKey = process.env.CITY_TOUR_HUB_RESEND_API_KEY
         || process.env.CITYTOURHUB_RESEND_API_KEY
         || process.env.RESEND_API_KEY;
-    const fromEmail = process.env.CITY_TOUR_HUB_RESEND_FROM_EMAIL
+    const configuredFromEmail = process.env.CITY_TOUR_HUB_RESEND_FROM_EMAIL
         || process.env.CITYTOURHUB_RESEND_FROM_EMAIL
         || process.env.RESEND_FROM_EMAIL
         || 'onboarding@resend.dev';
+    const fallbackFromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
     if (!resendApiKey) {
         console.warn('[CityTourHub] RESEND_API_KEY not configured. Email not sent.');
-        return false;
+        return {
+            sent: false,
+            reason: 'Missing RESEND_API_KEY',
+        };
     }
-    try {
-        const response = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendApiKey}` },
-            body: JSON.stringify({ from: fromEmail, to, subject, html }),
-        });
-        if (!response.ok) {
-            console.error('[CityTourHub] Email send failed:', await response.text());
-            return false;
+
+    const fromCandidates = [...new Set([configuredFromEmail, fallbackFromEmail].filter(Boolean))];
+    let lastError = null;
+
+    for (const fromEmail of fromCandidates) {
+        try {
+            const response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendApiKey}` },
+                body: JSON.stringify({ from: fromEmail, to, subject, html }),
+            });
+
+            if (response.ok) {
+                return {
+                    sent: true,
+                    from: fromEmail,
+                };
+            }
+
+            const errorText = await response.text();
+            lastError = `HTTP ${response.status}: ${errorText}`;
+            console.error(`[CityTourHub] Email send failed (from: ${fromEmail}):`, errorText);
+        } catch (err) {
+            lastError = err instanceof Error ? err.message : String(err);
+            console.error(`[CityTourHub] Email error (from: ${fromEmail}):`, err);
         }
-        return true;
-    } catch (err) {
-        console.error('[CityTourHub] Email error:', err);
-        return false;
     }
+
+    return {
+        sent: false,
+        reason: lastError || 'Unknown email send failure',
+    };
 }
 
 const ADMIN_EMAIL = () => process.env.CITY_TOUR_HUB_ADMIN_EMAIL
@@ -579,9 +600,27 @@ exports.createContactMessage = async (req, res) => {
             [fullName, email, subject, message, honeypot || null]
         );
         const msg = rows[0];
-        emailContactConfirmation(msg).catch((e) => console.error('[CityTourHub] contact confirmation email:', e));
-        emailContactAdminNotification(msg).catch((e) => console.error('[CityTourHub] contact admin email:', e));
-        res.status(201).json(msg);
+        const [confirmationResult, adminResult] = await Promise.all([
+            emailContactConfirmation(msg),
+            emailContactAdminNotification(msg),
+        ]);
+
+        if (!confirmationResult?.sent || !adminResult?.sent) {
+            console.warn('[CityTourHub] contact email delivery issues:', {
+                userEmailSent: Boolean(confirmationResult?.sent),
+                adminEmailSent: Boolean(adminResult?.sent),
+                userEmailReason: confirmationResult?.reason || null,
+                adminEmailReason: adminResult?.reason || null,
+            });
+        }
+
+        res.status(201).json({
+            ...msg,
+            emailStatus: {
+                userEmailSent: Boolean(confirmationResult?.sent),
+                adminEmailSent: Boolean(adminResult?.sent),
+            },
+        });
     } catch (err) {
         console.error('[CityTourHub] createContactMessage:', err);
         res.status(500).json({ error: 'Failed to send message' });
