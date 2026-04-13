@@ -6,6 +6,7 @@ const links = [
     {
         to: '/wildlife-pedia',
         label: 'Wildlife-Pedia',
+        publishedUrl: 'wildlife-pedia.com',
         children: [
             { hash: '#species', label: 'Species' },
             { hash: '#habitats', label: 'Habitats' },
@@ -18,6 +19,7 @@ const links = [
     {
         to: '/waci',
         label: 'WACI',
+        publishedUrl: 'wildlifeafrica.org',
         children: [
             { hash: '#overview', label: 'Overview' },
             { hash: '#programs', label: 'Programs' },
@@ -29,11 +31,11 @@ const links = [
             { hash: '#donors-sponsors', label: 'Donors/Sponsors' },
         ],
     },
-    { to: '/adrian-store', label: 'Adrian Store' },
-    { to: '/expedition-america', label: 'Expedition America (50USAStates)' },
-    { to: '/expedition-america-app', label: 'Expedition America (Standalone)' },
-    { to: '/city-tour-hub', label: 'City Tour Hub' },
-    { to: '/document-formatter', label: 'Document Formatter' },
+    { to: '/adrian-store', label: 'Adrian Store', publishedUrl: 'shopwithadrian.com' },
+    { to: '/expedition-america', label: 'Expedition America (50USAStates)', publishedUrl: 'expeditionamerica.online' },
+    { to: '/expedition-america-app', label: 'Expedition America (Standalone)', publishedUrl: 'expeditionamerica.us' },
+    { to: '/city-tour-hub', label: 'City Tour Hub', publishedUrl: 'tours.citydiscoverer.guide' },
+    { to: '/document-formatter', label: 'Document Formatter', publishedUrl: 'formatter.felixplatforms.com' },
     { to: '/quote-requests', label: 'Quote Requests' },
     { to: '/platform-content', label: 'Platform Content' },
     { to: '/products', label: 'Products' },
@@ -76,7 +78,10 @@ function Sidebar() {
                                     to={link.to}
                                     className={({ isActive }) => `sidebar-link sidebar-link-main${isActive ? ' active' : ''}`}
                                 >
-                                    {link.label}
+                                    <span className="sidebar-link-label">{link.label}</span>
+                                    {link.publishedUrl ? (
+                                        <span className="sidebar-link-url">{link.publishedUrl}</span>
+                                    ) : null}
                                 </NavLink>
 
                                 {hasChildren ? (
