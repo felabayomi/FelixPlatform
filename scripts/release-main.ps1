@@ -63,12 +63,23 @@ function Run-BuildChecks {
     Invoke-CheckedCommand "npm --prefix apps/WACI/web run build" "WACI web build failed"
     Invoke-CheckedCommand "npm --prefix apps/Wildlife-Pedia/web run build" "Wildlife-Pedia web build failed"
 
-    $waciDynamic = rg --line-number --fixed-strings "export const dynamic = \"force-dynamic\"" "apps/WACI/web/app/layout.tsx"
+    $dynamicMarker = 'export const dynamic = "force-dynamic"'
+    $rgAvailable = $null -ne (Get-Command rg -ErrorAction SilentlyContinue)
+
+    if ($rgAvailable) {
+        $waciDynamic = rg --line-number --fixed-strings $dynamicMarker "apps/WACI/web/app/layout.tsx"
+    } else {
+        $waciDynamic = Select-String -Path "apps/WACI/web/app/layout.tsx" -SimpleMatch $dynamicMarker
+    }
     if (-not $waciDynamic) {
         throw "WACI layout must stay dynamic for admin-save propagation."
     }
 
-    $wildlifeDynamic = rg --line-number --fixed-strings "export const dynamic = \"force-dynamic\"" "apps/Wildlife-Pedia/web/app/layout.tsx"
+    if ($rgAvailable) {
+        $wildlifeDynamic = rg --line-number --fixed-strings $dynamicMarker "apps/Wildlife-Pedia/web/app/layout.tsx"
+    } else {
+        $wildlifeDynamic = Select-String -Path "apps/Wildlife-Pedia/web/app/layout.tsx" -SimpleMatch $dynamicMarker
+    }
     if (-not $wildlifeDynamic) {
         throw "Wildlife-Pedia layout must stay dynamic for admin-save propagation."
     }
