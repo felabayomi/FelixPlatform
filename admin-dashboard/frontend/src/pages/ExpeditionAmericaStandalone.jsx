@@ -106,6 +106,7 @@ function ExpeditionAmericaStandalone() {
     const [uploadingTarget, setUploadingTarget] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [isCustomKey, setIsCustomKey] = useState(false);
     const [contentExport, setContentExport] = useState({ generatedAt: '', pages: {} });
     const [exportPageKey, setExportPageKey] = useState('home');
     const [pageDrafts, setPageDrafts] = useState({});
@@ -220,6 +221,7 @@ function ExpeditionAmericaStandalone() {
     };
 
     const resetForm = () => {
+        setIsCustomKey(false);
         const firstPage = mapper.pages[0] || DEFAULT_MAPPER.pages[0];
         const firstSection = firstPage.sections?.[0];
         loadSectionIntoForm(firstPage.key, firstSection?.key || 'hero', Number(firstSection?.sortOrder || 0));
@@ -293,6 +295,7 @@ function ExpeditionAmericaStandalone() {
     }, [exportPageKey, exportPage]);
 
     const startEdit = (section) => {
+        setIsCustomKey(false);
         setEditingId(section.id);
         setForm({
             pageKey: section.pageKey || 'home',
@@ -590,11 +593,13 @@ function ExpeditionAmericaStandalone() {
                     <label>
                         <span>Section Template</span>
                         <select
-                            value={currentSectionOptions.some((s) => s.key === form.sectionKey) ? form.sectionKey : '__custom__'}
+                            value={isCustomKey ? '__custom__' : form.sectionKey}
                             onChange={(event) => {
                                 if (event.target.value === '__custom__') {
+                                    setIsCustomKey(true);
                                     setForm((current) => ({ ...current, sectionKey: '' }));
                                 } else {
+                                    setIsCustomKey(false);
                                     handleSectionChange(event.target.value);
                                 }
                             }}
@@ -604,11 +609,12 @@ function ExpeditionAmericaStandalone() {
                             ))}
                             <option value="__custom__">-- Custom / New key... --</option>
                         </select>
-                        {(!currentSectionOptions.some((s) => s.key === form.sectionKey) || form.sectionKey === '') && (
+                        {isCustomKey && (
                             <input
                                 style={{ marginTop: 6 }}
-                                placeholder="e.g. city-denver  (must start with city-)"
-                                value={form.sectionKey === '__custom__' ? '' : form.sectionKey}
+                                placeholder="e.g. city-denver"
+                                autoFocus
+                                value={form.sectionKey}
                                 onChange={(event) => setForm((current) => ({ ...current, sectionKey: event.target.value.toLowerCase().replace(/\s+/g, '-') }))}
                             />
                         )}
