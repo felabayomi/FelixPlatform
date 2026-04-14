@@ -100,23 +100,8 @@ function ProjectsSection() {
             <h3>Projects</h3>
             {error && <p style={{ color: 'red' }}>{error}</p>}
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                <a
-                    href="https://waci-project-hub.vercel.app/admin/projects"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: 13 }}
-                >
-                    Open AI Lifecycle Interface
-                </a>
-                <a
-                    href="https://waci-project-hub.vercel.app/admin/projects/create"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: 13 }}
-                >
-                    Create Project in AI Interface
-                </a>
+            <div style={{ marginBottom: 12, fontSize: 13, color: '#64748b' }}>
+                AI command links removed.
             </div>
 
             <form onSubmit={handleCreate} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
@@ -151,7 +136,7 @@ function ProjectsSection() {
                             <td style={{ padding: '6px 8px' }}>
                                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                     <a
-                                        href={`https://waci-project-hub.vercel.app/projects/${p.slug}`}
+                                        href={`https://projecthub.wildlifeafrica.org/projects/${p.slug}`}
                                         target="_blank"
                                         rel="noreferrer"
                                         style={{ fontSize: 12 }}
@@ -402,12 +387,8 @@ export default function WACIProjectHub() {
             <div style={{ marginBottom: 16, padding: 12, border: '1px solid #e5e7eb', borderRadius: 8, background: '#f8fafc' }}>
                 <strong style={{ display: 'block', marginBottom: 6 }}>AI Command Center</strong>
                 <p style={{ margin: 0, color: '#475569', fontSize: 13 }}>
-                    Open the full AI project lifecycle interface here if you need the advanced grant/report command center.
+                    Links removed for now. We will reintroduce this after workflow stabilization.
                 </p>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
-                    <a href="https://waci-project-hub.vercel.app/admin/projects" target="_blank" rel="noreferrer">Open AI Interface</a>
-                    <a href="https://waci-project-hub.vercel.app/admin/projects/create" target="_blank" rel="noreferrer">New AI Project</a>
-                </div>
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 32 }}>

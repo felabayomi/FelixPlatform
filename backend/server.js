@@ -24,6 +24,7 @@ const expeditionAmericaRoutes = require('./routes/expeditionAmerica');
 const expeditionAmericaStandaloneRoutes = require('./routes/expeditionAmericaStandalone');
 const expeditionAmericaController = require('./controllers/expeditionAmericaController');
 const cityTourHubRoutes = require('./routes/cityTourHub');
+const platformProjectsRoutes = require('./routes/platformProjects');
 const storefrontController = require('./controllers/storefrontController');
 const waciController = require('./controllers/waciController');
 
@@ -141,6 +142,7 @@ app.use('/api/wildlife-pedia', wildlifePediaRoutes);
 app.use('/api/expedition-america', expeditionAmericaRoutes);
 app.use('/api/expedition-america-standalone', expeditionAmericaStandaloneRoutes);
 app.use('/api/city-tour-hub', cityTourHubRoutes);
+app.use('/api/platform/projects', platformProjectsRoutes);
 app.use('/api/admin/aflaundry/appointments', afLaundryAppointmentsRoutes);
 app.use(platformContentRoutes);
 app.use(adrianStoreRoutes);

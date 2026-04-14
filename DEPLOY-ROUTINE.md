@@ -30,6 +30,64 @@ From repo root:
 pwsh -ExecutionPolicy Bypass -File .\scripts\release-main.ps1 -Deploy
 ```
 
+## Unified centralized app command (all app deployments)
+
+Use the registry-driven command from repo root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\app.ps1 list
+```
+
+Common examples:
+
+```powershell
+# list available apps from registry/folders
+powershell -ExecutionPolicy Bypass -File .\scripts\app.ps1 list
+
+# run one app locally
+powershell -ExecutionPolicy Bypass -File .\scripts\app.ps1 dev admin-dashboard
+
+# build one app
+powershell -ExecutionPolicy Bypass -File .\scripts\app.ps1 build waci-web
+
+# deploy one app
+powershell -ExecutionPolicy Bypass -File .\scripts\app.ps1 deploy wildlife-pedia-web
+
+# domain -> app mapping table
+powershell -ExecutionPolicy Bypass -File .\scripts\app.ps1 domains
+```
+
+Notes:
+
+- `scripts/app-registry.json` is the deployment source of truth.
+- `scripts/platform-control.ps1` can still be used if needed, but `scripts/app.ps1` is the canonical centralized command.
+
+Incoming -> apps intake and registry examples:
+
+```powershell
+# move incoming/<AppName> into apps/<AppName>
+powershell -ExecutionPolicy Bypass -File .\scripts\app.ps1 promote CityTourHub
+
+# create platform registry record (uses FELIX_ADMIN_TOKEN or -AdminToken)
+powershell -ExecutionPolicy Bypass -File .\scripts\app.ps1 register CityTourHub `
+   -AdminPath /city-tour-hub `
+   -SidebarLabel "City Tour Hub" `
+   -PublicUrl https://tours.citydiscoverer.guide `
+   -Status launched `
+   -ShowInSidebar `
+   -ShowInQuickAccess
+```
+
+The source of truth is `scripts/app-registry.json`. Add new apps there once, then the command automatically knows how to run, build, deploy, and map domains.
+
+## Centralized deployment routine for any app
+
+1. Confirm app exists in `scripts/app-registry.json` (or register it).
+2. Validate locally: `app.ps1 build <AppName>`.
+3. Deploy with: `app.ps1 deploy <AppName>`.
+4. Validate domain mapping with: `app.ps1 domains`.
+5. Run live smoke checks for the deployed domain/API.
+
 ## What the routine does
 
 1. Verifies branch is `main`.
@@ -66,3 +124,27 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\release-main.ps1 -Deploy
 3. Run the release command.
 4. Confirm all checks pass.
 5. Record release links in team notes.
+
+## Latest deployment record (Expedition America)
+
+- Date: 2026-04-13
+- Commit: `c9ecf49`
+- Change: Enforce one daily draft generation with Postgres advisory lock + existing draft/published check in `backend/controllers/expeditionAmericaController.js`.
+- Deploy target: Render backend `felix-platform-backend` (`https://felix-platform-backend.onrender.com`).
+- Deploy method: Push to `main` (`origin/main`) to trigger Render auto-deploy.
+- Centralized command coverage: documented and standardized for all apps via `scripts/app.ps1` + `scripts/app-registry.json`.
+
+### Validation run (production)
+
+Endpoint tested:
+
+- `POST /api/expedition-america/articles/generate-daily`
+
+Result:
+
+1. First call returned `all_complete` with `skipped: true` and message "Skipped generation: an article already exists for 2026-04-14."
+2. Second call returned the same skip result.
+
+Outcome:
+
+- Duplicate generation prevented on live backend for the same target publish date.

@@ -20,6 +20,7 @@ import ExpeditionAmerica from './pages/ExpeditionAmerica';
 import ExpeditionAmericaStandalone from './pages/ExpeditionAmericaStandalone';
 import CityTourHub from './pages/CityTourHub';
 import WACIProjectHub from './pages/WACIProjectHub';
+import DailyFelixWordOfDay from './pages/DailyFelixWordOfDay';
 import { clearAuthSession, getStoredUser, hasAdminAccess } from './services/api';
 
 function ProtectedRoute({ user, children }) {
@@ -80,6 +81,7 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/expedition-america-app" element={<ProtectedRoute user={user}><ExpeditionAmericaStandalone /></ProtectedRoute>} />
             <Route path="/city-tour-hub" element={<ProtectedRoute user={user}><CityTourHub /></ProtectedRoute>} />
             <Route path="/waci-project-hub" element={<ProtectedRoute user={user}><WACIProjectHub /></ProtectedRoute>} />
+            <Route path="/dailyfelix-wordofday" element={<ProtectedRoute user={user}><DailyFelixWordOfDay /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>

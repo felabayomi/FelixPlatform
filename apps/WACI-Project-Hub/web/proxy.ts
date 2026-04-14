@@ -14,7 +14,9 @@ export async function proxy(request: NextRequest) {
 
     const role = token?.role as string | undefined;
 
-    if (isAdmin && role !== "admin") {
+    const isAdminRole = role === "admin" || role === "superadmin";
+
+    if (isAdmin && !isAdminRole) {
         const loginUrl = new URL("/login", request.url);
         loginUrl.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(loginUrl);

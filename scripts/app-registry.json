@@ -1,0 +1,141 @@
+{
+    "apps": [
+        {
+            "id": "felix-platform",
+            "name": "Felix Platform",
+            "path": ".",
+            "domains": [
+                "https://www.felixplatforms.com"
+            ],
+            "commands": {
+                "run": null,
+                "build": null,
+                "deploy": "npx vercel deploy --prod --yes --scope felabayomis-projects"
+            }
+        },
+        {
+            "id": "admin-dashboard",
+            "name": "Admin Dashboard",
+            "path": "admin-dashboard/frontend",
+            "domains": [
+                "https://admin.felixplatforms.com"
+            ],
+            "commands": {
+                "run": "npm run dev",
+                "build": "npm run build",
+                "deploy": "npx vercel deploy --prod --yes --scope felabayomis-projects"
+            }
+        },
+        {
+            "id": "backend",
+            "name": "Shared Backend",
+            "path": "backend",
+            "domains": [
+                "https://felix-platform-backend.onrender.com"
+            ],
+            "commands": {
+                "run": "npm run dev",
+                "build": null,
+                "deploy": null
+            }
+        },
+        {
+            "id": "waci-web",
+            "name": "WACI Web",
+            "path": "apps/WACI/web",
+            "domains": [
+                "https://www.wildlifeafrica.org"
+            ],
+            "commands": {
+                "run": "npm run dev",
+                "build": "npm run build",
+                "deploy": "npx vercel deploy --prod --yes --scope felabayomis-projects"
+            }
+        },
+        {
+            "id": "wildlife-pedia-web",
+            "name": "Wildlife-Pedia Web",
+            "path": "apps/Wildlife-Pedia/web",
+            "domains": [
+                "https://www.wildlife-pedia.com"
+            ],
+            "commands": {
+                "run": "npm run dev",
+                "build": "npm run build",
+                "deploy": "npx vercel deploy --prod --yes --scope felabayomis-projects"
+            }
+        },
+        {
+            "id": "waci-project-hub-web",
+            "name": "WACI Project Hub Web",
+            "path": "apps/WACI-Project-Hub/web",
+            "aliases": [
+                "WACI Project Hub",
+                "projecthub"
+            ],
+            "domains": [
+                "https://projecthub.wildlifeafrica.org",
+                "https://waci-hub.felixplatforms.com"
+            ],
+            "notes": {
+                "quarantineArchive": "incoming/_quarantine/WACI-Project-Hub-web-.next-20260413-180303.zip",
+                "isolation": "Kept in quarantine for later edits; not part of DailyFelix runtime"
+            },
+            "commands": {
+                "run": "npm run dev",
+                "build": "npm run build",
+                "deploy": "npx vercel deploy --prod --yes --scope felabayomis-projects"
+            }
+        },
+        {
+            "id": "marketing-sites",
+            "name": "Marketing Sites",
+            "path": "marketing-sites",
+            "domains": [
+                "https://felixstore.felixplatforms.com",
+                "https://aflaundry.felixplatforms.com"
+            ],
+            "commands": {
+                "run": null,
+                "build": null,
+                "deploy": "npx vercel deploy --prod --yes --scope felabayomis-projects"
+            }
+        },
+        {
+            "id": "expedition-america",
+            "name": "Expedition America (50USAStates)",
+            "aliases": [
+                "50USAStates",
+                "Expedition America",
+                "Expedition America (50USAStates Project)"
+            ],
+            "path": "apps/50USAStates/web",
+            "domains": [
+                "https://expeditionamerica.online"
+            ],
+            "commands": {
+                "run": "npm run dev",
+                "build": "npm run build",
+                "deploy": "npx vercel deploy --prod --yes --scope felabayomis-projects"
+            }
+        },
+        {
+            "id": "dailyfelix-wordofday",
+            "name": "DailyFelix-WordofDay",
+            "aliases": [
+                "DailyFelix",
+                "WordOfDay",
+                "DailyFelix-WordofDay"
+            ],
+            "path": "apps/DailyFelix-WordofDay",
+            "domains": [
+                "https://faithhouse.app"
+            ],
+            "commands": {
+                "run": "npm run dev",
+                "build": "npm run build",
+                "deploy": "npx wrangler pages deploy dist/public --project-name dailyfelix-wordofday"
+            }
+        }
+    ]
+}

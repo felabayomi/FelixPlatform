@@ -4,6 +4,11 @@ import API from '../services/api';
 
 const managementLinks = [
     {
+        to: '/dailyfelix-wordofday',
+        label: 'DailyFelix Word of Day workspace',
+        description: 'Open DailyFelix controls and jump directly to admin access and public site routes.',
+    },
+    {
         to: '/waci-project-hub',
         label: 'WACI Project Hub control center',
         description: 'Single entry point for project lifecycle admin routes: project, grant, offer, reports, and funding.',
@@ -69,6 +74,7 @@ const managementLinks = [
 ];
 
 function Dashboard() {
+    const [platformQuickAccess, setPlatformQuickAccess] = useState([]);
     const [formatterSummary, setFormatterSummary] = useState(null);
     const [adrianSummary, setAdrianSummary] = useState({
         products: 0,
@@ -101,8 +107,9 @@ function Dashboard() {
             }).catch(() => ({ data: [] })),
             API.get('/api/wildlife-pedia/admin/overview').catch(() => ({ data: { overview: {} } })),
             API.get('/api/waci/admin/overview').catch(() => ({ data: { overview: {} } })),
+            API.get('/api/platform/projects/launched').catch(() => ({ data: [] })),
         ])
-            .then(([overviewRes, productsRes, ordersRes, supportRes, wildlifePediaRes, waciRes]) => {
+            .then(([overviewRes, productsRes, ordersRes, supportRes, wildlifePediaRes, waciRes, launchedProjectsRes]) => {
                 setFormatterSummary(overviewRes.data?.summary || null);
                 setAdrianSummary({
                     products: Array.isArray(productsRes.data) ? productsRes.data.length : 0,
@@ -120,6 +127,11 @@ function Dashboard() {
                     donors: Number(waciRes.data?.overview?.donors || 0),
                     newsletterSubscribers: Number(waciRes.data?.overview?.newsletterSubscribers || 0),
                 });
+
+                const quickAccess = (Array.isArray(launchedProjectsRes.data) ? launchedProjectsRes.data : [])
+                    .filter((row) => row?.show_in_quick_access && row?.admin_path)
+                    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+                setPlatformQuickAccess(quickAccess);
             })
             .catch((error) => {
                 console.error('Unable to load dashboard summary:', error);
@@ -174,17 +186,27 @@ function Dashboard() {
                 <div className="record-header">
                     <div>
                         <h3>Quick access</h3>
-                        <p className="muted">Use these shortcuts to jump directly into WACI Project Hub and other workspaces from the main admin dashboard.</p>
+                        <p className="muted">Project links below are driven by platform launch registry records.</p>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <Link to="/waci-project-hub" className="edit-button preview-link">
-                            Open WACI Project Hub
-                        </Link>
-                        <Link to="/wildlife-pedia" className="edit-button preview-link">
-                            Open Wildlife-Pedia
-                        </Link>
+                        {platformQuickAccess.slice(0, 2).map((project) => (
+                            <Link key={project.id} to={project.admin_path} className="edit-button preview-link">
+                                {project.quick_access_label || project.sidebar_label || project.name}
+                            </Link>
+                        ))}
                     </div>
                 </div>
+
+                {platformQuickAccess.length ? (
+                    <div className="dashboard-link-grid" style={{ marginBottom: 20 }}>
+                        {platformQuickAccess.map((project) => (
+                            <Link key={`quick-${project.id}`} to={project.admin_path} className="management-link">
+                                <strong>{project.quick_access_label || project.sidebar_label || project.name}</strong>
+                                <span>{project.public_url || project.app_path || project.slug}</span>
+                            </Link>
+                        ))}
+                    </div>
+                ) : null}
 
                 <div className="dashboard-link-grid">
                     {managementLinks.map((item) => (

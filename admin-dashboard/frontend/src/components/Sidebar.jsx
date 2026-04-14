@@ -1,52 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import API from '../services/api';
 
-const links = [
+const coreLinks = [
     { to: '/dashboard', label: 'Dashboard' },
-    {
-        to: '/wildlife-pedia',
-        label: 'Wildlife-Pedia',
-        publishedUrl: 'wildlife-pedia.com',
-        children: [
-            { hash: '#species', label: 'Species' },
-            { hash: '#habitats', label: 'Habitats' },
-            { hash: '#projects', label: 'Projects' },
-            { hash: '#reports', label: 'Sightings' },
-            { hash: '#volunteers', label: 'Volunteers' },
-            { hash: '#donors', label: 'Donors' },
-        ],
-    },
-    {
-        to: '/waci-project-hub',
-        label: 'WACI Project Hub',
-        children: [
-            { hash: '#projects', label: 'Projects' },
-            { hash: '#assignments', label: 'Volunteer Assignments' },
-            { hash: '#grant-offers', label: 'Grant Offers' },
-            { hash: '#reports', label: 'Report Review' },
-            { hash: '#payments', label: 'Payment Status' },
-        ],
-    },
-    {
-        to: '/waci',
-        label: 'WACI',
-        publishedUrl: 'wildlifeafrica.org',
-        children: [
-            { hash: '#overview', label: 'Overview' },
-            { hash: '#programs', label: 'Programs' },
-            { hash: '#stories', label: 'Stories' },
-            { hash: '#resources', label: 'Resources' },
-            { hash: '#newsletter-subscribers', label: 'Newsletter Subscribers' },
-            { hash: '#volunteers', label: 'Volunteers' },
-            { hash: '#partner-requests', label: 'Partner Requests' },
-            { hash: '#donors-sponsors', label: 'Donors/Sponsors' },
-        ],
-    },
-    { to: '/adrian-store', label: 'Adrian Store', publishedUrl: 'shopwithadrian.com' },
-    { to: '/expedition-america', label: 'Expedition America (50USAStates)', publishedUrl: 'expeditionamerica.online' },
-    { to: '/expedition-america-app', label: 'Expedition America (Standalone)', publishedUrl: 'expeditionamerica.us' },
-    { to: '/city-tour-hub', label: 'City Tour Hub', publishedUrl: 'tours.citydiscoverer.guide' },
-    { to: '/document-formatter', label: 'Document Formatter', publishedUrl: 'formatter.felixplatforms.com' },
     { to: '/quote-requests', label: 'Quote Requests' },
     { to: '/platform-content', label: 'Platform Content' },
     { to: '/products', label: 'Products' },
@@ -56,8 +13,132 @@ const links = [
     { to: '/users', label: 'Users' },
 ];
 
+const fallbackProjectLinks = [
+    {
+        to: '/dailyfelix-wordofday',
+        label: 'DailyFelix Word of Day',
+        slug: 'dailyfelix-wordofday',
+        publishedUrl: 'faithhouse.app',
+    },
+    {
+        to: '/wildlife-pedia',
+        label: 'Wildlife-Pedia',
+        slug: 'wildlife-pedia',
+        publishedUrl: 'wildlife-pedia.com',
+    },
+    {
+        to: '/waci-project-hub',
+        label: 'WACI Project Hub',
+        slug: 'waci-project-hub',
+    },
+    {
+        to: '/waci',
+        label: 'WACI',
+        slug: 'waci',
+        publishedUrl: 'wildlifeafrica.org',
+    },
+    { to: '/adrian-store', label: 'Adrian Store', slug: 'adrian-store', publishedUrl: 'shopwithadrian.com' },
+    { to: '/expedition-america', label: 'Expedition America (50USAStates)', slug: 'expedition-america', publishedUrl: 'expeditionamerica.online' },
+    { to: '/expedition-america-app', label: 'Expedition America (Standalone)', slug: 'expedition-america-standalone', publishedUrl: 'expeditionamerica.us' },
+    { to: '/city-tour-hub', label: 'City Tour Hub', slug: 'city-tour-hub', publishedUrl: 'tours.citydiscoverer.guide' },
+    { to: '/document-formatter', label: 'Document Formatter', slug: 'document-formatter', publishedUrl: 'formatter.felixplatforms.com' },
+];
+
+const projectChildrenBySlug = {
+    'wildlife-pedia': [
+        { hash: '#species', label: 'Species' },
+        { hash: '#habitats', label: 'Habitats' },
+        { hash: '#projects', label: 'Projects' },
+        { hash: '#reports', label: 'Sightings' },
+        { hash: '#volunteers', label: 'Volunteers' },
+        { hash: '#donors', label: 'Donors' },
+    ],
+    'waci': [
+        { hash: '#overview', label: 'Overview' },
+        { hash: '#programs', label: 'Programs' },
+        { hash: '#stories', label: 'Stories' },
+        { hash: '#resources', label: 'Resources' },
+        { hash: '#newsletter-subscribers', label: 'Newsletter Subscribers' },
+        { hash: '#volunteers', label: 'Volunteers' },
+        { hash: '#partner-requests', label: 'Partner Requests' },
+        { hash: '#donors-sponsors', label: 'Donors/Sponsors' },
+    ],
+    'waci-project-hub': [
+        { hash: '#projects', label: 'Projects' },
+        { hash: '#assignments', label: 'Volunteer Assignments' },
+        { hash: '#grant-offers', label: 'Grant Offers' },
+        { hash: '#reports', label: 'Report Review' },
+        { hash: '#payments', label: 'Payment Status' },
+    ],
+};
+
+const normalizeHost = (urlValue) => {
+    if (!urlValue) {
+        return null;
+    }
+
+    const trimmed = String(urlValue).trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    try {
+        return new URL(trimmed).host;
+    } catch (_error) {
+        return trimmed.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    }
+};
+
 function Sidebar() {
     const location = useLocation();
+    const [registryLinks, setRegistryLinks] = useState([]);
+
+    useEffect(() => {
+        let isActive = true;
+
+        API.get('/api/platform/projects/launched')
+            .then((response) => {
+                if (!isActive) {
+                    return;
+                }
+
+                const rows = Array.isArray(response.data) ? response.data : [];
+                const mapped = rows
+                    .filter((row) => row?.show_in_sidebar && row?.admin_path)
+                    .map((row) => ({
+                        to: row.admin_path,
+                        label: row.sidebar_label || row.name || row.slug,
+                        slug: row.slug || null,
+                        publishedUrl: normalizeHost(row.public_url),
+                        children: row.slug ? (projectChildrenBySlug[row.slug] || []) : [],
+                        sortOrder: Number(row.sort_order || 0),
+                    }))
+                    .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
+
+                setRegistryLinks(mapped);
+            })
+            .catch(() => {
+                if (isActive) {
+                    setRegistryLinks([]);
+                }
+            });
+
+        return () => {
+            isActive = false;
+        };
+    }, []);
+
+    const links = useMemo(() => {
+        const rawProjectLinks = registryLinks.length ? registryLinks : fallbackProjectLinks;
+        const projectLinks = rawProjectLinks.map((link) => ({
+            ...link,
+            children: Array.isArray(link.children) && link.children.length
+                ? link.children
+                : (link.slug ? (projectChildrenBySlug[link.slug] || []) : []),
+        }));
+        return [...coreLinks, ...projectLinks];
+    }, [registryLinks]);
+
     const [expandedGroups, setExpandedGroups] = useState(() => ({
         '/wildlife-pedia': location.pathname === '/wildlife-pedia',
         '/waci': location.pathname === '/waci',
