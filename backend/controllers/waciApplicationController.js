@@ -88,7 +88,7 @@ exports.submitApplication = async (req, res) => {
         sendEmail({
             to: email.trim().toLowerCase(),
             subject: `Application received — ${projectTitle}`,
-            appName: 'WACI Project Hub',
+            appName: 'WACI',
             html: `
                 <p>Hi ${name.trim()},</p>
                 <p>Thank you for applying to be a <strong>${roleLabel}</strong> on the <strong>${projectTitle}</strong> project with Wildlife Africa Conservation Initiative.</p>
@@ -109,7 +109,7 @@ exports.submitApplication = async (req, res) => {
         sendEmail({
             to: WACI_ADMIN_EMAIL,
             subject: `New application: ${name.trim()} — ${projectTitle}`,
-            appName: 'WACI Project Hub',
+            appName: 'WACI',
             html: `
                 <p>A new application was submitted on WACI Project Hub.</p>
                 <table style="border-collapse:collapse;width:100%;max-width:540px">
