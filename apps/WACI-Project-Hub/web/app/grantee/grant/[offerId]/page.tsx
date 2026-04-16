@@ -1,13 +1,25 @@
 import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { SiteHeader } from "@/components/waci/site-header";
+import { SiteFooter } from "@/components/waci/site-footer";
+import { GrantSummaryCard } from "@/components/waci/grant-summary-card";
+import { GrantAcceptanceForm } from "@/components/waci/grant-acceptance-form";
+import { getGrantSummaryByOfferId } from "@/lib/waci-server";
 
-export default async function GrantOfferPage({
+export default async function GranteeGrantPage({
     params,
 }: {
     params: Promise<{ offerId: string }>;
 }) {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+        redirect(`/login?next=/grantee/grant/${(await params).offerId}`);
+    }
+
     const { offerId } = await params;
-    redirect(`/grantee/grant/${offerId}`);
-}
+    const summary = await getGrantSummaryByOfferId(offerId);
 
     return (
         <>
@@ -21,8 +33,7 @@ export default async function GrantOfferPage({
                             Grantee acceptance interface
                         </h1>
                         <p style={{ color: "var(--muted)", lineHeight: 1.7, maxWidth: 760 }}>
-                            This private-style page is where the selected volunteer or grantee
-                            reviews the offer, understands expectations, and signs acceptance.
+                            Review your grant offer, understand expectations, and sign acceptance below.
                         </p>
                     </div>
 

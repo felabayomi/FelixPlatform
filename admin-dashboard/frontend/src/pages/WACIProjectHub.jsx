@@ -9,6 +9,7 @@ const SECTION_LINKS = [
     { id: 'reports', label: 'Report Review' },
     { id: 'payments', label: 'Payment Status' },
     { id: 'grantees', label: 'Grantees' },
+    { id: 'applications', label: 'Applications' },
 ];
 
 const STATUS_COLORS = {
@@ -430,7 +431,115 @@ function GranteesSection() {
     );
 }
 
+// ─── Applications Section ────────────────────────────────────
+const APPLICATION_STATUS_COLORS = {
+    pending: '#f59e0b',
+    shortlisted: '#3b82f6',
+    approved: '#22c55e',
+    rejected: '#ef4444',
+};
+
+function ApplicationsSection() {
+    const [apps, setApps] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [notes, setNotes] = useState({});
+    const [saving, setSaving] = useState({});
+
+    const load = () => {
+        setLoading(true);
+        API.get('/api/waci-hub/apply')
+            .then((r) => setApps(r.data))
+            .catch(() => setError('Failed to load applications'))
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(load, []);
+
+    const updateStatus = async (id, status) => {
+        setSaving((s) => ({ ...s, [id]: true }));
+        try {
+            await API.put(`/api/waci-hub/apply/${id}/status`, { status, admin_notes: notes[id] || '' });
+            setApps((prev) => prev.map((a) => (a.id === id ? { ...a, status, admin_notes: notes[id] || a.admin_notes } : a)));
+        } catch {
+            setError('Failed to update application');
+        } finally {
+            setSaving((s) => ({ ...s, [id]: false }));
+        }
+    };
+
+    if (loading) return <p>Loading applications…</p>;
+
+    return (
+        <div>
+            <h3>Applications</h3>
+            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 16 }}>
+                Review public applications submitted via project pages. Shortlist, approve, or reject.
+                Approved applicants can then be issued a grantee account from the Grantees tab.
+            </p>
+            {error && <p style={{ color: 'red' }}>{error}</p>}
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                    <tr>
+                        {['Name', 'Email', 'Project', 'Role', 'Location', 'Applied', 'Status', 'Notes', 'Actions'].map((h) => (
+                            <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #e5e7eb', fontSize: 12 }}>{h}</th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {apps.map((a) => (
+                        <tr key={a.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                            <td style={{ padding: '6px 8px', fontWeight: 500 }}>{a.name}</td>
+                            <td style={{ padding: '6px 8px', fontSize: 12 }}>{a.email}</td>
+                            <td style={{ padding: '6px 8px', fontSize: 12 }}>{a.project_slug}</td>
+                            <td style={{ padding: '6px 8px', fontSize: 12 }}>{a.role_interest}</td>
+                            <td style={{ padding: '6px 8px', fontSize: 12 }}>{a.location || '—'}</td>
+                            <td style={{ padding: '6px 8px', fontSize: 11, color: '#6b7280' }}>
+                                {new Date(a.created_at).toLocaleDateString()}
+                            </td>
+                            <td style={{ padding: '6px 8px' }}>
+                                <span style={{
+                                    background: APPLICATION_STATUS_COLORS[a.status] + '22',
+                                    color: APPLICATION_STATUS_COLORS[a.status],
+                                    borderRadius: 4,
+                                    padding: '2px 8px',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    textTransform: 'capitalize',
+                                }}>{a.status}</span>
+                            </td>
+                            <td style={{ padding: '6px 8px' }}>
+                                <input
+                                    placeholder="Internal note…"
+                                    value={notes[a.id] !== undefined ? notes[a.id] : (a.admin_notes || '')}
+                                    onChange={(e) => setNotes((n) => ({ ...n, [a.id]: e.target.value }))}
+                                    style={{ width: 140, fontSize: 12 }}
+                                />
+                            </td>
+                            <td style={{ padding: '6px 8px', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                {a.status === 'pending' && (
+                                    <button onClick={() => updateStatus(a.id, 'shortlisted')} disabled={saving[a.id]} style={{ fontSize: 11 }}>Shortlist</button>
+                                )}
+                                {(a.status === 'pending' || a.status === 'shortlisted') && (
+                                    <button onClick={() => updateStatus(a.id, 'approved')} disabled={saving[a.id]} style={{ fontSize: 11, background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac' }}>Approve</button>
+                                )}
+                                {a.status !== 'rejected' && (
+                                    <button onClick={() => updateStatus(a.id, 'rejected')} disabled={saving[a.id]} style={{ fontSize: 11, background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>Reject</button>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                    {apps.length === 0 && (
+                        <tr><td colSpan={9} style={{ padding: 16, textAlign: 'center', color: '#6b7280' }}>No applications yet.</td></tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 // ─── Payments Section ─────────────────────────────────────────
+function PaymentsSection() {
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -556,6 +665,7 @@ export default function WACIProjectHub() {
             {activeSection === 'reports' && <ReportsSection />}
             {activeSection === 'payments' && <PaymentsSection />}
             {activeSection === 'grantees' && <GranteesSection />}
+            {activeSection === 'applications' && <ApplicationsSection />}
         </div>
     );
 }

@@ -82,8 +82,8 @@ export default async function ProjectDetailPage({
                             <Info label="Funding" value={project.monthlyFunding} />
                         </div>
 
-                        <Link href="/volunteer/grant/offer-001" className="btn btn-primary">
-                            Apply as Volunteer / Grantee
+                        <Link href={`/apply/${slug}`} className="btn btn-primary">
+                            Apply for this Project
                         </Link>
                     </aside>
                 </div>

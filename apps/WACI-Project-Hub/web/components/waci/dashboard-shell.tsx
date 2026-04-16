@@ -24,7 +24,7 @@ export function DashboardShell({
                         <Link className="btn btn-secondary" href="/projects/hukia-airport">
                             Project View
                         </Link>
-                        <Link className="btn btn-secondary" href="/volunteer/grant/offer-001">
+                        <Link className="btn btn-secondary" href="/grantee/grant/offer-001">
                             Grant Offer
                         </Link>
                     </div>
