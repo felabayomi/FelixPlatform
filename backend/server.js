@@ -56,6 +56,7 @@ const defaultAllowedOrigins = [
     'https://waci.felixplatforms.com',
     'https://wildlifeafrica.org',
     'https://www.wildlifeafrica.org',
+    'https://projecthub.wildlifeafrica.org',
     'https://expeditionamerica.online',
     'https://www.expeditionamerica.online',
     'https://expeditionamerica.us',
