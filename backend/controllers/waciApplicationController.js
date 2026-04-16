@@ -1,4 +1,8 @@
 const pool = require('../db');
+const { sendEmail } = require('../services/resendEmail');
+
+const WACI_ADMIN_EMAIL = process.env.WACI_ADMIN_EMAIL || 'wildlifeaboutafrica@gmail.com';
+const WACI_FROM_EMAIL = process.env.WACI_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || 'WACI Project Hub <noreply@wildlifeafrica.org>';
 
 const ensureTable = async () => {
     await pool.query(`
@@ -75,6 +79,53 @@ exports.submitApplication = async (req, res) => {
         );
 
         res.status(201).json({ ok: true, id: result.rows[0].id });
+
+        // Send emails after responding (fire-and-forget)
+        const projectTitle = project_slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        const roleLabel = role_interest === 'both' ? 'Volunteer & Grantee' : (role_interest === 'grantee' ? 'Grantee' : 'Volunteer');
+
+        // Confirmation to applicant
+        sendEmail({
+            to: email.trim().toLowerCase(),
+            subject: `Application received — ${projectTitle}`,
+            appName: 'WACI Project Hub',
+            html: `
+                <p>Hi ${name.trim()},</p>
+                <p>Thank you for applying to be a <strong>${roleLabel}</strong> on the <strong>${projectTitle}</strong> project with Wildlife Africa Conservation Initiative.</p>
+                <p>Your application has been received and will be reviewed by our team. We will reach out to you if you are selected to move forward.</p>
+                <p>Application details:</p>
+                <ul>
+                    <li><strong>Project:</strong> ${projectTitle}</li>
+                    <li><strong>Role:</strong> ${roleLabel}</li>
+                    ${location ? `<li><strong>Location:</strong> ${location}</li>` : ''}
+                </ul>
+                <p>If you have any questions, reply to this email or contact us at <a href="mailto:${WACI_ADMIN_EMAIL}">${WACI_ADMIN_EMAIL}</a>.</p>
+                <p>Warm regards,<br>WACI Project Hub Team</p>
+            `,
+            text: `Hi ${name.trim()},\n\nThank you for applying to the ${projectTitle} project. We will review your application and contact you if selected.\n\nWACI Project Hub Team`,
+        }).catch((err) => console.error('Applicant confirmation email error:', err));
+
+        // Admin notification
+        sendEmail({
+            to: WACI_ADMIN_EMAIL,
+            subject: `New application: ${name.trim()} — ${projectTitle}`,
+            appName: 'WACI Project Hub',
+            html: `
+                <p>A new application was submitted on WACI Project Hub.</p>
+                <table style="border-collapse:collapse;width:100%;max-width:540px">
+                    <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:bold">Name</td><td style="padding:6px 10px;border:1px solid #e5e7eb">${name.trim()}</td></tr>
+                    <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:bold">Email</td><td style="padding:6px 10px;border:1px solid #e5e7eb">${email.trim().toLowerCase()}</td></tr>
+                    ${phone ? `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:bold">Phone</td><td style="padding:6px 10px;border:1px solid #e5e7eb">${phone}</td></tr>` : ''}
+                    <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:bold">Project</td><td style="padding:6px 10px;border:1px solid #e5e7eb">${projectTitle}</td></tr>
+                    <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:bold">Role interest</td><td style="padding:6px 10px;border:1px solid #e5e7eb">${roleLabel}</td></tr>
+                    ${location ? `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:bold">Location</td><td style="padding:6px 10px;border:1px solid #e5e7eb">${location}</td></tr>` : ''}
+                    <tr><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:bold">Motivation</td><td style="padding:6px 10px;border:1px solid #e5e7eb">${motivation}</td></tr>
+                    ${experience ? `<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:bold">Experience</td><td style="padding:6px 10px;border:1px solid #e5e7eb">${experience}</td></tr>` : ''}
+                </table>
+                <p style="margin-top:16px"><a href="https://felix-admin.vercel.app/#/waci-project-hub" style="background:#111827;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none">Review in Admin Dashboard</a></p>
+            `,
+            text: `New application from ${name.trim()} (${email}) for ${projectTitle} as ${roleLabel}.\n\nMotivation: ${motivation}`,
+        }).catch((err) => console.error('Admin notification email error:', err));
     } catch (err) {
         console.error('submitApplication error:', err);
         res.status(500).json({ error: 'Failed to submit application' });
