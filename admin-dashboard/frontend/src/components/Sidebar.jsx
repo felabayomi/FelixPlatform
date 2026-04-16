@@ -41,7 +41,22 @@ const fallbackProjectLinks = [
     { to: '/expedition-america', label: 'Expedition America (50USAStates)', slug: 'expedition-america', publishedUrl: 'expeditionamerica.online' },
     { to: '/expedition-america-app', label: 'Expedition America (Standalone)', slug: 'expedition-america-standalone', publishedUrl: 'expeditionamerica.us' },
     { to: '/city-tour-hub', label: 'City Tour Hub', slug: 'city-tour-hub', publishedUrl: 'tours.citydiscoverer.guide' },
+    {
+        to: '/citydayint-international',
+        label: 'CityDayInt International',
+        slug: 'citydayint-international',
+        publishedUrl: 'international.citydiscoverer.guide',
+    },
+    {
+        to: '/cityofday-daily',
+        label: 'CityOfDay Daily',
+        slug: 'cityofday-daily',
+        publishedUrl: 'daily.citydiscoverer.guide',
+    },
     { to: '/document-formatter', label: 'Document Formatter', slug: 'document-formatter', publishedUrl: 'formatter.felixplatforms.com' },
+    { to: '/tfcgchat', label: 'TFCG Chat', slug: 'tfcgchat', publishedUrl: 'tfcgchat.felixconsult.co' },
+    { to: '/felitrips', label: 'FeliTrips', slug: 'felitrips', publishedUrl: 'grouptours.citydiscoverer.guide' },
+    { to: '/waci-project-hub', label: 'WACI Project Hub', slug: 'waci-project-hub', publishedUrl: 'projecthub.wildlifeafrica.org' },
 ];
 
 const projectChildrenBySlug = {
@@ -129,7 +144,20 @@ function Sidebar() {
     }, []);
 
     const links = useMemo(() => {
-        const rawProjectLinks = registryLinks.length ? registryLinks : fallbackProjectLinks;
+        const fallbackByKey = new Map(
+            fallbackProjectLinks.map((link) => [link.slug || link.to, link]),
+        );
+
+        // Merge registry links into fallback so one launched project does not hide all others.
+        for (const link of registryLinks) {
+            const key = link.slug || link.to;
+            fallbackByKey.set(key, {
+                ...fallbackByKey.get(key),
+                ...link,
+            });
+        }
+
+        const rawProjectLinks = Array.from(fallbackByKey.values());
         const projectLinks = rawProjectLinks.map((link) => ({
             ...link,
             children: Array.isArray(link.children) && link.children.length
