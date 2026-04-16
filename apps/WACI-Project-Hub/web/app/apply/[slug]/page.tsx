@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import { SiteHeader } from "@/components/waci/site-header";
 import { SiteFooter } from "@/components/waci/site-footer";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "https://felix-platform-backend.onrender.com").replace(/\/$/, "");
 
-export default function ApplyPage({ params }: { params: { slug: string } }) {
-    const { slug } = params;
+export default function ApplyPage() {
+    const params = useParams();
+    const slug = params.slug as string;
 
     const [form, setForm] = useState({
         name: "",
