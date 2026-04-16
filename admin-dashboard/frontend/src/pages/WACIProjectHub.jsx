@@ -8,6 +8,7 @@ const SECTION_LINKS = [
     { id: 'grant-offers', label: 'Grant Offers' },
     { id: 'reports', label: 'Report Review' },
     { id: 'payments', label: 'Payment Status' },
+    { id: 'grantees', label: 'Grantees' },
 ];
 
 const STATUS_COLORS = {
@@ -291,8 +292,145 @@ function ReportsSection() {
     );
 }
 
+// ─── Grantees Section ────────────────────────────────────────
+function GranteesSection() {
+    const [grantees, setGrantees] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [form, setForm] = useState({ name: '', email: '', password: '' });
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    const load = () => {
+        setLoading(true);
+        API.get('/api/waci-hub/grantees')
+            .then((r) => setGrantees(r.data))
+            .catch(() => setError('Failed to load grantees'))
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(load, []);
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        setError('');
+        setSuccess('');
+        try {
+            await API.post('/api/waci-hub/grantees', form);
+            setSuccess(`Account created for ${form.email}. Share these credentials with the grantee.`);
+            setForm({ name: '', email: '', password: '' });
+            load();
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to create grantee');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleRevoke = async (id, name) => {
+        if (!window.confirm(`Revoke grantee access for ${name}? Their account will remain but lose grantee permissions.`)) return;
+        try {
+            await API.delete(`/api/waci-hub/grantees/${id}`);
+            load();
+        } catch {
+            setError('Failed to revoke access');
+        }
+    };
+
+    if (loading) return <p>Loading grantees…</p>;
+
+    return (
+        <div>
+            <h3>Grantees</h3>
+            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 16 }}>
+                Create login accounts for grantees. They log in at{' '}
+                <a href="https://projecthub.wildlifeafrica.org/login" target="_blank" rel="noreferrer">
+                    projecthub.wildlifeafrica.org/login
+                </a>.
+            </p>
+
+            {error && <p style={{ color: 'red', marginBottom: 8 }}>{error}</p>}
+            {success && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+                    ✅ {success}
+                </div>
+            )}
+
+            <form onSubmit={handleCreate} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28, alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: '#374151' }}>Full Name</label>
+                    <input
+                        required
+                        placeholder="e.g. Grace Okonkwo"
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        style={{ minWidth: 180 }}
+                    />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: '#374151' }}>Email</label>
+                    <input
+                        required
+                        type="email"
+                        placeholder="grantee@email.com"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        style={{ minWidth: 220 }}
+                    />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: '#374151' }}>Temporary Password</label>
+                    <input
+                        required
+                        type="text"
+                        placeholder="min 8 characters"
+                        value={form.password}
+                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        style={{ minWidth: 180 }}
+                    />
+                </div>
+                <button type="submit" disabled={saving} style={{ alignSelf: 'flex-end' }}>
+                    {saving ? 'Creating…' : 'Create Grantee'}
+                </button>
+            </form>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                    <tr>
+                        {['Name', 'Email', 'Created', 'Actions'].map((h) => (
+                            <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {grantees.map((g) => (
+                        <tr key={g.id}>
+                            <td style={{ padding: '6px 8px' }}>{g.name}</td>
+                            <td style={{ padding: '6px 8px' }}>{g.email}</td>
+                            <td style={{ padding: '6px 8px', fontSize: 12, color: '#6b7280' }}>
+                                {new Date(g.created_at).toLocaleDateString()}
+                            </td>
+                            <td style={{ padding: '6px 8px' }}>
+                                <button
+                                    onClick={() => handleRevoke(g.id, g.name)}
+                                    style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                                >
+                                    Revoke Access
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                    {grantees.length === 0 && (
+                        <tr><td colSpan={4} style={{ padding: 16, textAlign: 'center', color: '#6b7280' }}>No grantee accounts yet.</td></tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 // ─── Payments Section ─────────────────────────────────────────
-function PaymentsSection() {
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -417,6 +555,7 @@ export default function WACIProjectHub() {
             {activeSection === 'grant-offers' && <GrantOffersSection />}
             {activeSection === 'reports' && <ReportsSection />}
             {activeSection === 'payments' && <PaymentsSection />}
+            {activeSection === 'grantees' && <GranteesSection />}
         </div>
     );
 }

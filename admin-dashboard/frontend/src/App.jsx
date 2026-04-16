@@ -25,7 +25,7 @@ import CityDayInt from './pages/CityDayInt';
 import CityOfDay from './pages/CityOfDay';
 import TFCGChat from './pages/TFCGChat';
 import FeliTrips from './pages/FeliTrips';
-import WaciProjectHub from './pages/WaciProjectHub';
+
 import { clearAuthSession, getStoredUser, hasAdminAccess } from './services/api';
 
 function ProtectedRoute({ user, children }) {
@@ -91,7 +91,6 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/cityofday-daily" element={<ProtectedRoute user={user}><CityOfDay /></ProtectedRoute>} />
             <Route path="/tfcgchat" element={<ProtectedRoute user={user}><TFCGChat /></ProtectedRoute>} />
             <Route path="/felitrips" element={<ProtectedRoute user={user}><FeliTrips /></ProtectedRoute>} />
-            <Route path="/waci-project-hub" element={<ProtectedRoute user={user}><WaciProjectHub /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>
