@@ -1,0 +1,8 @@
+{
+    "buildCommand": "cd admin-dashboard/frontend && npm install && npm run build",
+    "outputDirectory": "admin-dashboard/frontend/dist",
+    "installCommand": "echo skip",
+    "rewrites": [
+        { "source": "/(.*)", "destination": "/index.html" }
+    ]
+}
