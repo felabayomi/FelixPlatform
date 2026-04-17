@@ -11,6 +11,7 @@ const {
     getAssignments,
     assignVolunteer,
     removeAssignment,
+    generateProject,
 } = require('../controllers/waciProjectController');
 const { generateGrantOfferFromProject } = require('../controllers/waciGrantController');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
@@ -22,6 +23,7 @@ router.get('/:id/reports', authenticateToken, requireAdmin, getProjectReports);
 router.get('/:slug', getProject);
 
 // Admin only
+router.post('/generate', authenticateToken, requireAdmin, generateProject);
 router.post('/', authenticateToken, requireAdmin, createProject);
 router.post('/:projectId/generate-grant', authenticateToken, requireAdmin, generateGrantOfferFromProject);
 router.put('/:id', authenticateToken, requireAdmin, updateProject);

@@ -1,6 +1,58 @@
 const pool = require('../db');
 const { ensureWaciProjectHubSchema } = require('../services/ensureWaciProjectHubSchema');
 
+exports.generateProject = async (req, res) => {
+    const { input } = req.body;
+    if (!input) return res.status(400).json({ error: 'input is required' });
+
+    const OPENAI_KEY = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!OPENAI_KEY) return res.status(500).json({ error: 'Missing OpenAI API key' });
+
+    const prompt = `You are a conservation project designer for WACI (Wildlife Africa Conservation Initiative).
+
+Your task: design a UNIQUE, research-backed, grant-ready conservation project based on the user's input below.
+You MUST research and tailor every field specifically to the exact species, ecosystem, and region mentioned.
+Do NOT reuse content from any previous project. Every project must be completely unique.
+
+STRICT RULES:
+- One project = one grantee
+- Monthly funding model
+- Must include reporting + deliverables
+- Must be practical and field-executable in the specific region stated
+- Keep scope small and realistic
+- Max 5 objectives
+- Max 6 deliverables
+- Reporting must include: daily logs, monthly report, final report
+- Monthly funding must be between $100 and $500
+
+Return ONLY valid JSON in this exact format (no markdown, no code block):
+
+{"title":"","location":"","summary":"","focus":"","durationMonths":12,"monthlyFunding":300,"objectives":[],"deliverables":[],"methodology":[],"reportingRequirements":[]}
+
+User input:
+${input}`;
+
+    try {
+        const openaiRes = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${OPENAI_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model: 'gpt-5.3', input: prompt }),
+        });
+        const data = await openaiRes.json();
+        const text = data.output[0].content[0].text;
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}');
+        const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+        return res.json(parsed);
+    } catch (err) {
+        console.error('[WACI:generateProject]', err);
+        return res.status(500).json({ error: 'AI generation failed' });
+    }
+};
+
 // ─── Projects ────────────────────────────────────────────────
 
 exports.getProjects = async (req, res) => {

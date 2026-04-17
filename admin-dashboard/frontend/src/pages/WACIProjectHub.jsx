@@ -94,18 +94,13 @@ function ProjectsSection() {
         setSuccessMsg('');
 
         try {
-            const res = await fetch(`${WACI_HUB_FRONTEND}/api/ai/generate-project`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    input: `Project title: ${form.title}\nRegion: ${form.region || 'not specified'}\nSlug: ${form.slug}\n\nConduct deep ecological research specific to this project title and region. Generate a unique, grant-ready conservation project proposal.`,
-                }),
+            const res = await API.post('/api/waci-hub/projects/generate', {
+                input: `Project title: ${form.title}\nRegion: ${form.region || 'not specified'}\nSlug: ${form.slug}\n\nConduct deep ecological research specific to this project title and region. Generate a unique, grant-ready conservation project proposal.`,
             });
 
-            if (!res.ok) throw new Error(`AI API returned ${res.status}`);
-            const data = await res.json();
-            if (data?.error) throw new Error(data.error);
-            setAiDraft({ ...data, slug: form.slug, region: form.region, status: form.status });
+            const draft = res.data;
+            setAiDraft(draft);
+            setAiDraft((prev) => ({ ...prev, slug: form.slug, region: form.region, status: form.status }));
         } catch (err) {
             setError(err.message || 'AI generation failed');
         } finally {
