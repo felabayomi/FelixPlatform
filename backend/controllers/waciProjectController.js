@@ -1,6 +1,73 @@
 const pool = require('../db');
-const axios = require('axios');
+const https = require('https');
 const { ensureWaciProjectHubSchema } = require('../services/ensureWaciProjectHubSchema');
+
+exports.generateProject = async (req, res) => {
+    const { input } = req.body;
+    if (!input) return res.status(400).json({ error: 'input is required' });
+
+    const OPENAI_KEY = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!OPENAI_KEY) return res.status(500).json({ error: 'Missing OpenAI API key' });
+
+    const systemPrompt = `You are a conservation project designer for WACI (Wildlife Africa Conservation Initiative).
+Design a UNIQUE, research-backed, grant-ready conservation project based on the user's input.
+Tailor every field specifically to the exact species, ecosystem, and region mentioned.
+Do NOT reuse content from any previous project.
+
+STRICT RULES:
+- One project = one grantee, monthly funding model
+- Must be practical and field-executable in the specific region
+- Keep scope small and realistic
+- Max 5 objectives, max 6 deliverables
+- Reporting must include: daily logs, monthly report, final report
+- Monthly funding between $100 and $500
+
+Return ONLY a valid JSON object (no markdown, no code fences) with these exact keys:
+title, location, summary, focus, durationMonths, monthlyFunding, objectives (array), deliverables (array), methodology (array), reportingRequirements (array)`;
+
+    const body = JSON.stringify({
+        model: 'gpt-4o',
+        response_format: { type: 'json_object' },
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: input },
+        ],
+        temperature: 0.8,
+    });
+
+    try {
+        const parsed = await new Promise((resolve, reject) => {
+            const reqOptions = {
+                hostname: 'api.openai.com',
+                path: '/v1/chat/completions',
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${OPENAI_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(body),
+                },
+            };
+            const request = https.request(reqOptions, (response) => {
+                let data = '';
+                response.on('data', (chunk) => { data += chunk; });
+                response.on('end', () => {
+                    try {
+                        const json = JSON.parse(data);
+                        if (json.error) return reject(new Error(json.error.message));
+                        resolve(JSON.parse(json.choices[0].message.content));
+                    } catch (e) { reject(e); }
+                });
+            });
+            request.on('error', reject);
+            request.write(body);
+            request.end();
+        });
+        return res.json(parsed);
+    } catch (err) {
+        console.error('[WACI:generateProject]', err.message);
+        return res.status(500).json({ error: err.message || 'AI generation failed' });
+    }
+};
 
 exports.generateProject = async (req, res) => {
     const { input } = req.body;
