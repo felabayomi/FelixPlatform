@@ -27,6 +27,7 @@ const expeditionAmericaStandaloneRoutes = require('./routes/expeditionAmericaSta
 const expeditionAmericaController = require('./controllers/expeditionAmericaController');
 const cityTourHubRoutes = require('./routes/cityTourHub');
 const platformProjectsRoutes = require('./routes/platformProjects');
+const electionPredictorRoutes = require('./routes/electionPredictor');
 const storefrontController = require('./controllers/storefrontController');
 const waciController = require('./controllers/waciController');
 
@@ -65,6 +66,7 @@ const defaultAllowedOrigins = [
     'https://citytourhub.vercel.app',
     'https://tours.citydiscoverer.guide',
     'https://waci-hub.felixplatforms.com',
+    'https://electionpredictor.felixplatforms.com',
 ];
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
@@ -148,6 +150,7 @@ app.use('/api/expedition-america', expeditionAmericaRoutes);
 app.use('/api/expedition-america-standalone', expeditionAmericaStandaloneRoutes);
 app.use('/api/city-tour-hub', cityTourHubRoutes);
 app.use('/api/platform/projects', platformProjectsRoutes);
+app.use('/api/election-predictor', electionPredictorRoutes);
 app.use('/api/admin/aflaundry/appointments', afLaundryAppointmentsRoutes);
 app.use(platformContentRoutes);
 app.use(adrianStoreRoutes);
