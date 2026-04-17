@@ -53,12 +53,22 @@ function StatusBadge({ status }) {
 }
 
 // ─── Projects Section ─────────────────────────────────────────
+const WACI_HUB_FRONTEND = 'https://projecthub.wildlifeafrica.org';
+
+function slugify(value) {
+    return String(value || '').trim().toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 80);
+}
+
 function ProjectsSection() {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [form, setForm] = useState({ title: '', slug: '', purpose: '', region: '', status: 'active' });
+    const [form, setForm] = useState({ title: '', slug: '', region: '', status: 'active' });
+    const [aiDraft, setAiDraft] = useState(null);
+    const [generating, setGenerating] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
 
     const load = () => {
         setLoading(true);
@@ -70,16 +80,61 @@ function ProjectsSection() {
 
     useEffect(load, []);
 
-    const handleCreate = async (e) => {
+    const handleTitleChange = (e) => {
+        const title = e.target.value;
+        setForm((f) => ({ ...f, title, slug: slugify(title) }));
+    };
+
+    const handleGenerate = async (e) => {
         e.preventDefault();
+        if (!form.title) return setError('Enter a project title first.');
+        setGenerating(true);
+        setError('');
+        setAiDraft(null);
+        setSuccessMsg('');
+
+        try {
+            const res = await fetch(`${WACI_HUB_FRONTEND}/api/ai/generate-project`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input: `Project title: ${form.title}\nRegion: ${form.region || 'not specified'}\nSlug: ${form.slug}\n\nConduct deep ecological research specific to this project title and region. Generate a unique, grant-ready conservation project proposal.`,
+                }),
+            });
+
+            if (!res.ok) throw new Error(`AI API returned ${res.status}`);
+            const data = await res.json();
+            if (data?.error) throw new Error(data.error);
+            setAiDraft({ ...data, slug: form.slug, region: form.region, status: form.status });
+        } catch (err) {
+            setError(err.message || 'AI generation failed');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!aiDraft) return;
         setSaving(true);
         setError('');
         try {
-            await API.post('/api/waci-hub/projects', form);
-            setForm({ title: '', slug: '', purpose: '', region: '', status: 'active' });
+            await API.post('/api/waci-hub/projects', {
+                title: aiDraft.title || form.title,
+                slug: aiDraft.slug || form.slug,
+                region: aiDraft.region || form.region,
+                status: aiDraft.status || 'active',
+                purpose: aiDraft.summary || '',
+                objectives: aiDraft.objectives || [],
+                methodology: aiDraft.methodology || [],
+                deliverables: aiDraft.deliverables || [],
+                expectations: aiDraft.reportingRequirements || [],
+            });
+            setAiDraft(null);
+            setForm({ title: '', slug: '', region: '', status: 'active' });
+            setSuccessMsg('Project created successfully.');
             load();
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to create project');
+            setError(err.response?.data?.error || 'Failed to save project');
         } finally {
             setSaving(false);
         }
@@ -100,24 +155,78 @@ function ProjectsSection() {
     return (
         <div>
             <h3>Projects</h3>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
+            {error && <p style={{ color: 'red', marginBottom: 8 }}>{error}</p>}
+            {successMsg && <p style={{ color: 'green', marginBottom: 8 }}>{successMsg}</p>}
 
-            <div style={{ marginBottom: 12, fontSize: 13, color: '#64748b' }}>
-                AI command links removed.
-            </div>
-
-            <form onSubmit={handleCreate} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
-                <input required placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-                <input required placeholder="Slug (e.g. airport-wildlife-watch-katsina)" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
-                <input placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
-                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <form onSubmit={handleGenerate} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24, alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: '#374151' }}>Title *</label>
+                    <input required placeholder="Title" value={form.title} onChange={handleTitleChange} style={{ minWidth: 220 }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: '#374151' }}>Slug (auto)</label>
+                    <input placeholder="Slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} style={{ minWidth: 200, color: '#6b7280' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 12, color: '#374151' }}>Region</label>
+                    <input placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
+                </div>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} style={{ alignSelf: 'flex-end' }}>
                     <option value="active">Active</option>
+                    <option value="pilot">Pilot</option>
                     <option value="paused">Paused</option>
                     <option value="completed">Completed</option>
                     <option value="archived">Archived</option>
                 </select>
-                <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Create Project'}</button>
+                <button type="submit" disabled={generating} style={{ alignSelf: 'flex-end' }}>
+                    {generating ? '🔬 Researching…' : 'Create Project'}
+                </button>
             </form>
+
+            {generating && (
+                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1' }}>
+                    AI is conducting ecological research for <strong>{form.title}</strong>… This may take a few seconds.
+                </div>
+            )}
+
+            {aiDraft && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: 20, marginBottom: 28 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <h4 style={{ margin: 0 }}>AI Draft — {aiDraft.title}</h4>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={handleSave} disabled={saving} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', cursor: 'pointer' }}>
+                                {saving ? 'Saving…' : '✓ Save Project'}
+                            </button>
+                            <button onClick={() => setAiDraft(null)} style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12 }}>
+                                Discard
+                            </button>
+                        </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
+                        <div><strong>Location:</strong> {aiDraft.location || form.region}</div>
+                        <div><strong>Duration:</strong> {aiDraft.durationMonths} months</div>
+                        <div><strong>Monthly Funding:</strong> ${aiDraft.monthlyFunding}</div>
+                        <div><strong>Focus:</strong> {aiDraft.focus}</div>
+                    </div>
+                    <p style={{ fontSize: 13, margin: '10px 0' }}><strong>Summary:</strong> {aiDraft.summary}</p>
+                    {aiDraft.objectives?.length > 0 && (
+                        <div style={{ marginBottom: 8 }}>
+                            <strong style={{ fontSize: 13 }}>Objectives ({aiDraft.objectives.length}):</strong>
+                            <ul style={{ margin: '4px 0 0 16px', fontSize: 12, color: '#374151' }}>
+                                {aiDraft.objectives.map((o, i) => <li key={i}>{o}</li>)}
+                            </ul>
+                        </div>
+                    )}
+                    {aiDraft.deliverables?.length > 0 && (
+                        <div>
+                            <strong style={{ fontSize: 13 }}>Deliverables ({aiDraft.deliverables.length}):</strong>
+                            <ul style={{ margin: '4px 0 0 16px', fontSize: 12, color: '#374151' }}>
+                                {aiDraft.deliverables.map((d, i) => <li key={i}>{d}</li>)}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -137,14 +246,7 @@ function ProjectsSection() {
                             <td style={{ padding: '6px 8px' }}>{p.assignment_count ?? 0}</td>
                             <td style={{ padding: '6px 8px' }}>
                                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                                    <a
-                                        href={`https://projecthub.wildlifeafrica.org/projects/${p.slug}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        style={{ fontSize: 12 }}
-                                    >
-                                        Open Frontend
-                                    </a>
+                                    <a href={`https://projecthub.wildlifeafrica.org/projects/${p.slug}`} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>Open Frontend</a>
                                     <button onClick={() => handleDelete(p.id)} style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }}>Delete</button>
                                 </div>
                             </td>

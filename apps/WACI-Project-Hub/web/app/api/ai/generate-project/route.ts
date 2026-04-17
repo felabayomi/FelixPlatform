@@ -16,35 +16,36 @@ export async function POST(req: Request) {
     const { input, section, current } = await req.json();
 
     const basePrompt = `
-You are designing a WACI conservation project.
+You are a conservation project designer for WACI (Wildlife Africa Conservation Initiative).
+
+Your task: design a UNIQUE, research-backed, grant-ready conservation project based on the user's input below.
+You MUST research and tailor every field specifically to the exact species, ecosystem, and region mentioned.
+Do NOT reuse content from any previous project. Every project must be completely unique.
 
 STRICT RULES:
 - One project = one grantee
 - Monthly funding model
 - Must include reporting + deliverables
-- Must be practical and field-executable
+- Must be practical and field-executable in the specific region stated
 - Keep scope small and realistic
 - Max 5 objectives
 - Max 6 deliverables
 - Reporting must include: daily logs, monthly report, final report
-- Monthly funding must be realistic for pilot scale: between $100 and $500
+- Monthly funding must be between $100 and $500
 
-Follow this template strictly:
-${JSON.stringify(template)}
-
-Return ONLY JSON in this format:
+Return ONLY JSON in this exact format:
 
 {
   "title": "",
   "location": "",
   "summary": "",
   "focus": "",
-    "durationMonths": 12,
-    "monthlyFunding": 300,
+  "durationMonths": 12,
+  "monthlyFunding": 300,
   "objectives": [],
   "deliverables": [],
   "methodology": [],
-    "reportingRequirements": []
+  "reportingRequirements": []
 }
 
 User input:
