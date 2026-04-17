@@ -13,6 +13,8 @@ const pageTitles = {
     '/waci-project-hub': 'WACI Project Hub',
     '/waci': 'WACI',
     '/wildlife-pedia': 'Wildlife-Pedia',
+    '/citydayint-international': 'CityDayInt International',
+    '/cityofday-daily': 'CityOfDay Daily',
     '/login': 'Login',
 };
 

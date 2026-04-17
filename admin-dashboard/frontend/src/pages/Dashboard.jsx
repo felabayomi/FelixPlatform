@@ -9,6 +9,16 @@ const managementLinks = [
         description: 'Open DailyFelix controls and jump directly to admin access and public site routes.',
     },
     {
+        to: '/citydayint-international',
+        label: 'CityDayInt International workspace',
+        description: 'Open CityDayInt controls and launch the live international city experience.',
+    },
+    {
+        to: '/cityofday-daily',
+        label: 'CityOfDay Daily workspace',
+        description: 'Open CityOfDay controls and launch the live USA-only daily city experience.',
+    },
+    {
         to: '/waci-project-hub',
         label: 'WACI Project Hub control center',
         description: 'Single entry point for project lifecycle admin routes: project, grant, offer, reports, and funding.',
