@@ -34,6 +34,9 @@ type ApiProject = {
     deliverables?: string;
     status?: string;
     assignment_count?: number;
+    monthly_funding?: string;
+    funding_structure?: string;
+    focus?: string;
 };
 
 type ApiGrantOffer = {
@@ -113,6 +116,11 @@ function toDashboardStatus(status?: string): string {
 }
 
 function mapProject(project: ApiProject): WaciProject {
+    const durationMatch = project.funding_structure?.match(/Duration:\s*(\d+)\s*months/i);
+    const durationMonths = durationMatch ? durationMatch[1] : "12";
+    const monthlyRaw = project.monthly_funding ? project.monthly_funding.replace(/[^0-9.]/g, '') : null;
+    const monthlyDisplay = monthlyRaw ? `$${monthlyRaw}` : "$300";
+
     return {
         slug: project.slug,
         title: project.title,
@@ -121,9 +129,9 @@ function mapProject(project: ApiProject): WaciProject {
         summary:
             project.purpose ||
             "A pilot conservation operations project focused on reducing wildlife risk through structured field reporting and measurable monthly delivery.",
-        focus: "Bird/Wildlife Hazard Reduction",
-        duration: "12 months",
-        monthlyFunding: "$300",
+        focus: project.focus || "Conservation & Monitoring",
+        duration: `${durationMonths} months`,
+        monthlyFunding: monthlyDisplay,
         objectives: splitTextLines(project.objectives, fallbackProjects[0]?.objectives || []),
         deliverables: splitTextLines(project.deliverables, fallbackProjects[0]?.deliverables || []),
     };
