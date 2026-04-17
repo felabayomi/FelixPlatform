@@ -95,12 +95,11 @@ function ProjectsSection() {
 
         try {
             const res = await API.post('/api/waci-hub/projects/generate', {
-                input: `Project title: ${form.title}\nRegion: ${form.region || 'not specified'}\nSlug: ${form.slug}\n\nConduct deep ecological research specific to this project title and region. Generate a unique, grant-ready conservation project proposal.`,
+                input: `Project title: ${form.title}\nRegion / Location: ${form.region || 'Africa (specify in output)'}\n\nConduct deep ecological research on this specific species or conservation topic in the stated region. Generate a completely unique, grant-ready project proposal.`,
             });
 
             const draft = res.data;
-            setAiDraft(draft);
-            setAiDraft((prev) => ({ ...prev, slug: form.slug, region: form.region, status: form.status }));
+            setAiDraft({ ...draft, slug: form.slug, region: draft.location || form.region, status: form.status });
         } catch (err) {
             setError(err.message || 'AI generation failed');
         } finally {

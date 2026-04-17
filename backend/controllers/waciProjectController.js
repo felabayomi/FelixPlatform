@@ -1,4 +1,5 @@
 const pool = require('../db');
+const axios = require('axios');
 const { ensureWaciProjectHubSchema } = require('../services/ensureWaciProjectHubSchema');
 
 exports.generateProject = async (req, res) => {
@@ -8,48 +9,41 @@ exports.generateProject = async (req, res) => {
     const OPENAI_KEY = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
     if (!OPENAI_KEY) return res.status(500).json({ error: 'Missing OpenAI API key' });
 
-    const prompt = `You are a conservation project designer for WACI (Wildlife Africa Conservation Initiative).
-
-Your task: design a UNIQUE, research-backed, grant-ready conservation project based on the user's input below.
-You MUST research and tailor every field specifically to the exact species, ecosystem, and region mentioned.
-Do NOT reuse content from any previous project. Every project must be completely unique.
+    const systemPrompt = `You are a conservation project designer for WACI (Wildlife Africa Conservation Initiative).
+Design a UNIQUE, research-backed, grant-ready conservation project based on the user's input.
+Tailor every field specifically to the exact species, ecosystem, and region mentioned.
+Do NOT reuse content from any previous project.
 
 STRICT RULES:
-- One project = one grantee
-- Monthly funding model
-- Must include reporting + deliverables
-- Must be practical and field-executable in the specific region stated
+- One project = one grantee, monthly funding model
+- Must be practical and field-executable in the specific region
 - Keep scope small and realistic
-- Max 5 objectives
-- Max 6 deliverables
+- Max 5 objectives, max 6 deliverables
 - Reporting must include: daily logs, monthly report, final report
-- Monthly funding must be between $100 and $500
+- Monthly funding between $100 and $500
 
-Return ONLY valid JSON in this exact format (no markdown, no code block):
-
-{"title":"","location":"","summary":"","focus":"","durationMonths":12,"monthlyFunding":300,"objectives":[],"deliverables":[],"methodology":[],"reportingRequirements":[]}
-
-User input:
-${input}`;
+Return ONLY a valid JSON object (no markdown, no code fences) with these exact keys:
+title, location, summary, focus, durationMonths, monthlyFunding, objectives (array), deliverables (array), methodology (array), reportingRequirements (array)`;
 
     try {
-        const openaiRes = await fetch('https://api.openai.com/v1/responses', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${OPENAI_KEY}`,
-                'Content-Type': 'application/json',
+        const openaiRes = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: 'gpt-4o',
+                response_format: { type: 'json_object' },
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: input },
+                ],
+                temperature: 0.8,
             },
-            body: JSON.stringify({ model: 'gpt-5.3', input: prompt }),
-        });
-        const data = await openaiRes.json();
-        const text = data.output[0].content[0].text;
-        const jsonStart = text.indexOf('{');
-        const jsonEnd = text.lastIndexOf('}');
-        const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+            { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        );
+        const parsed = JSON.parse(openaiRes.data.choices[0].message.content);
         return res.json(parsed);
     } catch (err) {
-        console.error('[WACI:generateProject]', err);
-        return res.status(500).json({ error: 'AI generation failed' });
+        console.error('[WACI:generateProject]', err?.response?.data || err.message);
+        return res.status(500).json({ error: err?.response?.data?.error?.message || 'AI generation failed' });
     }
 };
 
