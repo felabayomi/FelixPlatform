@@ -67,6 +67,8 @@ const defaultAllowedOrigins = [
     'https://tours.citydiscoverer.guide',
     'https://waci-hub.felixplatforms.com',
     'https://electionpredictor.felixplatforms.com',
+    'https://electionpredictor.net',
+    'https://www.electionpredictor.net',
 ];
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
