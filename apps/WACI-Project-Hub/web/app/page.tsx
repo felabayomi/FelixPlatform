@@ -1,12 +1,11 @@
+import Link from "next/link";
 import { SiteHeader } from "@/components/waci/site-header";
 import { SiteFooter } from "@/components/waci/site-footer";
 import { HeroSection } from "@/components/waci/hero-section";
 import { StatStrip } from "@/components/waci/stat-strip";
 import { SectionTitle } from "@/components/waci/section-title";
-import { FeaturedProjectCard } from "@/components/waci/featured-project-card";
 import { HowItWorks } from "@/components/waci/how-it-works";
 import { MotionSection } from "@/components/waci/motion-section";
-import { projects } from "@/lib/waci-data";
 import { getLandingStats, getPublicProjects } from "@/lib/waci-server";
 
 export default async function HomePage() {
@@ -14,7 +13,6 @@ export default async function HomePage() {
         getLandingStats(),
         getPublicProjects(),
     ]);
-    const featured = backendProjects[0] || projects[0];
 
     return (
         <>
@@ -25,12 +23,39 @@ export default async function HomePage() {
             <section className="section">
                 <div className="container">
                     <SectionTitle
-                        eyebrow="Public platform"
-                        title="A platform first, then projects, then grantee execution."
-                        subtitle="The landing page should introduce WACI, establish trust, explain the grant workflow, and only then guide users into specific projects."
+                        eyebrow="Active projects"
+                        title="Conservation projects, built on accountable monthly delivery."
+                        subtitle="Each project is field-operated, grant-funded, and reported monthly."
                     />
                     <MotionSection>
-                        <FeaturedProjectCard project={featured} />
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            {backendProjects.map((p) => (
+                                <div
+                                    key={p.slug}
+                                    className="card"
+                                    style={{
+                                        padding: "18px 24px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: 16,
+                                        flexWrap: "wrap",
+                                    }}
+                                >
+                                    <div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                                            <span className="badge badge-pilot">{p.status}</span>
+                                            <span style={{ fontSize: 13, color: "var(--muted)" }}>{p.location}</span>
+                                        </div>
+                                        <div style={{ fontWeight: 700, fontSize: 17 }}>{p.title}</div>
+                                        <div style={{ fontSize: 14, color: "var(--muted)", marginTop: 2 }}>{p.focus}</div>
+                                    </div>
+                                    <Link href={`/projects/${p.slug}`} className="btn btn-secondary" style={{ whiteSpace: "nowrap" }}>
+                                        View project
+                                    </Link>
+                                </div>
+                            ))}
+                        </div>
                     </MotionSection>
                 </div>
             </section>
@@ -45,11 +70,13 @@ export default async function HomePage() {
                         subtitle="Today it begins with airport wildlife hazard control. Tomorrow it can support more projects, more volunteers, more grants, and stronger reporting."
                     />
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        <a href="/projects" className="btn btn-primary">
-                            Explore Projects
-                        </a>
-                        <a href="/grantee/dashboard" className="btn btn-secondary">
-                            View Grantee Interface
+                        <a
+                            href="https://www.wildlifeafrica.org/?source=donate#join"
+                            className="btn btn-primary"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Donate
                         </a>
                     </div>
                 </div>
