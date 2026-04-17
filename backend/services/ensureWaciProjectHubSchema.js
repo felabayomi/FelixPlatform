@@ -59,6 +59,14 @@ async function ensureWaciProjectHubSchema() {
                 )
             `);
 
+            // Add columns that may not exist in older deployments
+            for (const col of [
+                `ALTER TABLE waci_projects ADD COLUMN IF NOT EXISTS monthly_funding TEXT`,
+                `ALTER TABLE waci_projects ADD COLUMN IF NOT EXISTS funding_structure TEXT`,
+            ]) {
+                await pool.query(col).catch(() => {});
+            }
+
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS waci_project_assignments (
                     id SERIAL PRIMARY KEY,
