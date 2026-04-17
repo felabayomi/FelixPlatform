@@ -151,7 +151,7 @@ exports.createProject = async (req, res) => {
         const {
             title, slug, purpose, objectives, methodology,
             deliverables, expectations, region, status,
-            start_date, end_date,
+            start_date, end_date, monthly_funding, funding_structure,
         } = req.body;
 
         if (!title || !slug) {
@@ -161,14 +161,16 @@ exports.createProject = async (req, res) => {
         const result = await pool.query(
             `INSERT INTO waci_projects
                 (title, slug, purpose, objectives, methodology, deliverables,
-                 expectations, region, status, start_date, end_date, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                 expectations, region, status, start_date, end_date,
+                 monthly_funding, funding_structure, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
              RETURNING *`,
             [
                 title, slug, purpose || null, objectives || null,
                 methodology || null, deliverables || null, expectations || null,
                 region || null, status || 'active',
                 start_date || null, end_date || null,
+                monthly_funding || null, funding_structure || null,
                 req.user?.id || null,
             ]
         );
