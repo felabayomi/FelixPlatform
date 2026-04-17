@@ -23,7 +23,7 @@ router.get('/:id/reports', authenticateToken, requireAdmin, getProjectReports);
 router.get('/:slug', getProject);
 
 // Admin only
-router.post('/generate', authenticateToken, requireAdmin, generateProject);
+router.post('/generate', authenticateToken, generateProject);
 router.post('/', authenticateToken, requireAdmin, createProject);
 router.post('/:projectId/generate-grant', authenticateToken, requireAdmin, generateGrantOfferFromProject);
 router.put('/:id', authenticateToken, requireAdmin, updateProject);
