@@ -97,9 +97,9 @@ function parseTemplate(text) {
         return match ? match[1].trim() : '';
     };
     const getList = (key) => {
-        const match = text.match(new RegExp(`^${key}:\\s*\\n((?:- .+\\n?)+)`, 'm'));
+        const match = text.match(new RegExp(`^${key}:[^\\n]*\\n((?:[\\s\\S]*?))(?=\\n[A-Z_]+:|$)`, 'm'));
         if (!match) return [];
-        return match[1].split('\n').filter(l => l.trim().startsWith('- ')).map(l => l.replace(/^- /, '').trim());
+        return match[1].split('\n').filter(l => /^[\-\*\•]\s/.test(l.trim())).map(l => l.replace(/^[\-\*\•]\s+/, '').trim()).filter(Boolean);
     };
     return {
         title: get('TITLE'),
@@ -112,6 +112,7 @@ function parseTemplate(text) {
         deliverables: getList('DELIVERABLES'),
         methodology: getList('METHODOLOGY'),
         reportingRequirements: getList('REPORTING'),
+        budgetLines: getList('BUDGET'),
     };
 }
 
@@ -159,7 +160,10 @@ function ProjectsSection() {
                 deliverables: draft.deliverables || [],
                 expectations: draft.reportingRequirements || [],
                 monthly_funding: String(draft.monthlyFunding || ''),
-                funding_structure: `Duration: ${draft.durationMonths || 12} months | Monthly: $${draft.monthlyFunding || 300}`,
+                funding_structure: [
+                    `Duration: ${draft.durationMonths || 12} months | Monthly: $${draft.monthlyFunding || 300}`,
+                    ...(draft.budgetLines || []),
+                ].join('\n'),
             });
             setDraft(null);
             setPasteText('');
