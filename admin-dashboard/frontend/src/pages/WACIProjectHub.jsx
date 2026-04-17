@@ -53,22 +53,77 @@ function StatusBadge({ status }) {
 }
 
 // ─── Projects Section ─────────────────────────────────────────
-const WACI_HUB_FRONTEND = 'https://projecthub.wildlifeafrica.org';
-
 function slugify(value) {
     return String(value || '').trim().toLowerCase()
         .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 80);
 }
 
+const SAMPLE_TEMPLATE = `TITLE: Mangrove Restoration Monitoring
+LOCATION: Lagos Lagoon, Nigeria
+FOCUS: Mangrove ecosystem rehabilitation and biodiversity recovery
+SUMMARY: This project monitors the restoration of degraded mangrove forests along the Lagos Lagoon shoreline, tracking species return, water quality improvement, and community engagement in conservation activities.
+DURATION_MONTHS: 12
+MONTHLY_FUNDING: 350
+
+OBJECTIVES:
+- Establish baseline biodiversity survey across 5 restoration zones
+- Monitor mangrove seedling survival rates monthly
+- Document bird and fish species returning to restored areas
+- Engage 3 local fishing communities in restoration stewardship
+- Produce quarterly conservation reports for funding bodies
+
+DELIVERABLES:
+- Baseline biodiversity report (Month 1)
+- Monthly field logs with photo evidence
+- 3 quarterly progress reports
+- Community engagement documentation
+- Final restoration impact report with GIS maps
+
+METHODOLOGY:
+- Weekly transect walks and species counts
+- Water quality testing at 10 fixed sampling points
+- Drone imagery analysis for canopy coverage
+- Community workshops and fishermen interviews
+
+REPORTING:
+- Daily field logs submitted via mobile app
+- Monthly report to WACI program officer
+- Quarterly donor progress report
+- Final comprehensive report at project close`;
+
+function parseTemplate(text) {
+    const get = (key) => {
+        const match = text.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
+        return match ? match[1].trim() : '';
+    };
+    const getList = (key) => {
+        const match = text.match(new RegExp(`^${key}:\\s*\\n((?:- .+\\n?)+)`, 'm'));
+        if (!match) return [];
+        return match[1].split('\n').filter(l => l.trim().startsWith('- ')).map(l => l.replace(/^- /, '').trim());
+    };
+    return {
+        title: get('TITLE'),
+        location: get('LOCATION'),
+        focus: get('FOCUS'),
+        summary: get('SUMMARY'),
+        durationMonths: parseInt(get('DURATION_MONTHS')) || 12,
+        monthlyFunding: parseInt(get('MONTHLY_FUNDING')) || 300,
+        objectives: getList('OBJECTIVES'),
+        deliverables: getList('DELIVERABLES'),
+        methodology: getList('METHODOLOGY'),
+        reportingRequirements: getList('REPORTING'),
+    };
+}
+
 function ProjectsSection() {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [form, setForm] = useState({ title: '', slug: '', region: '', status: 'active' });
-    const [aiDraft, setAiDraft] = useState(null);
-    const [generating, setGenerating] = useState(false);
+    const [pasteText, setPasteText] = useState('');
+    const [draft, setDraft] = useState(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+    const [showTemplate, setShowTemplate] = useState(false);
 
     const load = () => {
         setLoading(true);
@@ -80,51 +135,34 @@ function ProjectsSection() {
 
     useEffect(load, []);
 
-    const handleTitleChange = (e) => {
-        const title = e.target.value;
-        setForm((f) => ({ ...f, title, slug: slugify(title) }));
-    };
-
-    const handleGenerate = async (e) => {
-        e.preventDefault();
-        if (!form.title) return setError('Enter a project title first.');
-        setGenerating(true);
+    const handleParse = () => {
         setError('');
-        setAiDraft(null);
-        setSuccessMsg('');
-
-        try {
-            const res = await API.post('/api/waci-hub/projects/generate', {
-                input: `Project title: ${form.title}\nRegion / Location: ${form.region || 'Africa (specify in output)'}\n\nConduct deep ecological research on this specific species or conservation topic in the stated region. Generate a completely unique, grant-ready project proposal.`,
-            });
-
-            const draft = res.data;
-            setAiDraft({ ...draft, slug: form.slug, region: draft.location || form.region, status: form.status });
-        } catch (err) {
-            setError(err.message || 'AI generation failed');
-        } finally {
-            setGenerating(false);
-        }
+        const parsed = parseTemplate(pasteText);
+        if (!parsed.title) return setError('Could not find TITLE in the pasted text. Use the sample format.');
+        const slug = slugify(parsed.title);
+        setDraft({ ...parsed, slug, status: 'active' });
     };
 
     const handleSave = async () => {
-        if (!aiDraft) return;
+        if (!draft) return;
         setSaving(true);
         setError('');
         try {
             await API.post('/api/waci-hub/projects', {
-                title: aiDraft.title || form.title,
-                slug: aiDraft.slug || form.slug,
-                region: aiDraft.region || form.region,
-                status: aiDraft.status || 'active',
-                purpose: aiDraft.summary || '',
-                objectives: aiDraft.objectives || [],
-                methodology: aiDraft.methodology || [],
-                deliverables: aiDraft.deliverables || [],
-                expectations: aiDraft.reportingRequirements || [],
+                title: draft.title,
+                slug: draft.slug,
+                region: draft.location,
+                status: draft.status || 'active',
+                purpose: draft.summary || '',
+                objectives: draft.objectives || [],
+                methodology: draft.methodology || [],
+                deliverables: draft.deliverables || [],
+                expectations: draft.reportingRequirements || [],
+                monthly_funding: String(draft.monthlyFunding || ''),
+                funding_structure: `Duration: ${draft.durationMonths || 12} months | Monthly: $${draft.monthlyFunding || 300}`,
             });
-            setAiDraft(null);
-            setForm({ title: '', slug: '', region: '', status: 'active' });
+            setDraft(null);
+            setPasteText('');
             setSuccessMsg('Project created successfully.');
             load();
         } catch (err) {
@@ -152,71 +190,74 @@ function ProjectsSection() {
             {error && <p style={{ color: 'red', marginBottom: 8 }}>{error}</p>}
             {successMsg && <p style={{ color: 'green', marginBottom: 8 }}>{successMsg}</p>}
 
-            <form onSubmit={handleGenerate} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24, alignItems: 'flex-end' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <label style={{ fontSize: 12, color: '#374151' }}>Title *</label>
-                    <input required placeholder="Title" value={form.title} onChange={handleTitleChange} style={{ minWidth: 220 }} />
+            {/* Paste & Parse */}
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: 20, marginBottom: 28 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <h4 style={{ margin: 0, fontSize: 14 }}>Add New Project — Paste &amp; Parse</h4>
+                    <button
+                        onClick={() => { setShowTemplate(!showTemplate); setPasteText(showTemplate ? pasteText : SAMPLE_TEMPLATE); }}
+                        style={{ fontSize: 12, background: 'none', border: '1px solid #d1d5db', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+                    >
+                        {showTemplate ? 'Hide Template' : '📋 Load Sample Template'}
+                    </button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <label style={{ fontSize: 12, color: '#374151' }}>Slug (auto)</label>
-                    <input placeholder="Slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} style={{ minWidth: 200, color: '#6b7280' }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <label style={{ fontSize: 12, color: '#374151' }}>Region</label>
-                    <input placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
-                </div>
-                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} style={{ alignSelf: 'flex-end' }}>
-                    <option value="active">Active</option>
-                    <option value="pilot">Pilot</option>
-                    <option value="paused">Paused</option>
-                    <option value="completed">Completed</option>
-                    <option value="archived">Archived</option>
-                </select>
-                <button type="submit" disabled={generating} style={{ alignSelf: 'flex-end' }}>
-                    {generating ? '🔬 Researching…' : 'Create Project'}
+                <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 10px' }}>
+                    Fill in the template below (or paste your own in this format), then click <strong>Parse &amp; Preview</strong>.
+                </p>
+                <textarea
+                    value={pasteText}
+                    onChange={(e) => { setPasteText(e.target.value); setDraft(null); }}
+                    rows={14}
+                    style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, padding: 10, border: '1px solid #d1d5db', borderRadius: 6, resize: 'vertical', boxSizing: 'border-box' }}
+                    placeholder="Paste project data here using the template format…"
+                />
+                <button
+                    onClick={handleParse}
+                    disabled={!pasteText.trim()}
+                    style={{ marginTop: 8, padding: '7px 20px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                    Parse &amp; Preview
                 </button>
-            </form>
+            </div>
 
-            {generating && (
-                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1' }}>
-                    AI is conducting ecological research for <strong>{form.title}</strong>… This may take a few seconds.
-                </div>
-            )}
-
-            {aiDraft && (
+            {/* Draft Preview */}
+            {draft && (
                 <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: 20, marginBottom: 28 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <h4 style={{ margin: 0 }}>AI Draft — {aiDraft.title}</h4>
+                        <h4 style={{ margin: 0 }}>Preview — {draft.title}</h4>
                         <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={handleSave} disabled={saving} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', cursor: 'pointer' }}>
+                            <button onClick={handleSave} disabled={saving} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', cursor: 'pointer', fontWeight: 600 }}>
                                 {saving ? 'Saving…' : '✓ Save Project'}
                             </button>
-                            <button onClick={() => setAiDraft(null)} style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12 }}>
+                            <button onClick={() => setDraft(null)} style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12 }}>
                                 Discard
                             </button>
                         </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
-                        <div><strong>Location:</strong> {aiDraft.location || form.region}</div>
-                        <div><strong>Duration:</strong> {aiDraft.durationMonths} months</div>
-                        <div><strong>Monthly Funding:</strong> ${aiDraft.monthlyFunding}</div>
-                        <div><strong>Focus:</strong> {aiDraft.focus}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, fontSize: 13, marginBottom: 10 }}>
+                        <div><strong>Slug:</strong> <code style={{ fontSize: 11 }}>{draft.slug}</code></div>
+                        <div><strong>Location:</strong> {draft.location}</div>
+                        <div><strong>Duration:</strong> {draft.durationMonths} months</div>
+                        <div><strong>Monthly Funding:</strong> ${draft.monthlyFunding}</div>
+                        <div><strong>Focus:</strong> {draft.focus}</div>
                     </div>
-                    <p style={{ fontSize: 13, margin: '10px 0' }}><strong>Summary:</strong> {aiDraft.summary}</p>
-                    {aiDraft.objectives?.length > 0 && (
+                    <p style={{ fontSize: 13, margin: '8px 0' }}><strong>Summary:</strong> {draft.summary}</p>
+                    {draft.objectives?.length > 0 && (
                         <div style={{ marginBottom: 8 }}>
-                            <strong style={{ fontSize: 13 }}>Objectives ({aiDraft.objectives.length}):</strong>
-                            <ul style={{ margin: '4px 0 0 16px', fontSize: 12, color: '#374151' }}>
-                                {aiDraft.objectives.map((o, i) => <li key={i}>{o}</li>)}
-                            </ul>
+                            <strong style={{ fontSize: 13 }}>Objectives:</strong>
+                            <ul style={{ margin: '4px 0 0 16px', fontSize: 12, color: '#374151' }}>{draft.objectives.map((o, i) => <li key={i}>{o}</li>)}</ul>
                         </div>
                     )}
-                    {aiDraft.deliverables?.length > 0 && (
+                    {draft.deliverables?.length > 0 && (
+                        <div style={{ marginBottom: 8 }}>
+                            <strong style={{ fontSize: 13 }}>Deliverables:</strong>
+                            <ul style={{ margin: '4px 0 0 16px', fontSize: 12, color: '#374151' }}>{draft.deliverables.map((d, i) => <li key={i}>{d}</li>)}</ul>
+                        </div>
+                    )}
+                    {draft.reportingRequirements?.length > 0 && (
                         <div>
-                            <strong style={{ fontSize: 13 }}>Deliverables ({aiDraft.deliverables.length}):</strong>
-                            <ul style={{ margin: '4px 0 0 16px', fontSize: 12, color: '#374151' }}>
-                                {aiDraft.deliverables.map((d, i) => <li key={i}>{d}</li>)}
-                            </ul>
+                            <strong style={{ fontSize: 13 }}>Reporting:</strong>
+                            <ul style={{ margin: '4px 0 0 16px', fontSize: 12, color: '#374151' }}>{draft.reportingRequirements.map((r, i) => <li key={i}>{r}</li>)}</ul>
                         </div>
                     )}
                 </div>
