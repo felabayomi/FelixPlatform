@@ -57,6 +57,7 @@ const fallbackProjectLinks = [
     { to: '/tfcgchat', label: 'TFCG Chat', slug: 'tfcgchat', publishedUrl: 'tfcgchat.felixconsult.co' },
     { to: '/felitrips', label: 'FeliTrips', slug: 'felitrips', publishedUrl: 'grouptours.citydiscoverer.guide' },
     { to: '/waci-project-hub', label: 'WACI Project Hub', slug: 'waci-project-hub', publishedUrl: 'projecthub.wildlifeafrica.org' },
+    { to: '/election-predictor', label: 'Election Predictor', slug: 'election-predictor', publishedUrl: 'electionpredictor.net' },
 ];
 
 const projectChildrenBySlug = {
@@ -84,6 +85,10 @@ const projectChildrenBySlug = {
         { hash: '#grant-offers', label: 'Grant Offers' },
         { hash: '#reports', label: 'Report Review' },
         { hash: '#payments', label: 'Payment Status' },
+    ],
+    'election-predictor': [
+        { hash: '#races', label: 'Races' },
+        { hash: '#featured-matchups', label: 'Featured Matchups' },
     ],
 };
 
@@ -171,6 +176,7 @@ function Sidebar() {
         '/wildlife-pedia': location.pathname === '/wildlife-pedia',
         '/waci': location.pathname === '/waci',
         '/waci-project-hub': location.pathname === '/waci-project-hub',
+        '/election-predictor': location.pathname === '/election-predictor',
     }));
 
     const toggleGroup = (groupKey) => {

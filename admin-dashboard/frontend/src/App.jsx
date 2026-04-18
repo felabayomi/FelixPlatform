@@ -20,6 +20,7 @@ import ExpeditionAmerica from './pages/ExpeditionAmerica';
 import ExpeditionAmericaStandalone from './pages/ExpeditionAmericaStandalone';
 import CityTourHub from './pages/CityTourHub';
 import WACIProjectHub from './pages/WACIProjectHub';
+import ElectionPredictor from './pages/ElectionPredictor';
 import DailyFelixWordOfDay from './pages/DailyFelixWordOfDay';
 import CityDayInt from './pages/CityDayInt';
 import CityOfDay from './pages/CityOfDay';
@@ -86,6 +87,7 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/expedition-america-app" element={<ProtectedRoute user={user}><ExpeditionAmericaStandalone /></ProtectedRoute>} />
             <Route path="/city-tour-hub" element={<ProtectedRoute user={user}><CityTourHub /></ProtectedRoute>} />
             <Route path="/waci-project-hub" element={<ProtectedRoute user={user}><WACIProjectHub /></ProtectedRoute>} />
+            <Route path="/election-predictor" element={<ProtectedRoute user={user}><ElectionPredictor /></ProtectedRoute>} />
             <Route path="/dailyfelix-wordofday" element={<ProtectedRoute user={user}><DailyFelixWordOfDay /></ProtectedRoute>} />
             <Route path="/citydayint-international" element={<ProtectedRoute user={user}><CityDayInt /></ProtectedRoute>} />
             <Route path="/cityofday-daily" element={<ProtectedRoute user={user}><CityOfDay /></ProtectedRoute>} />
