@@ -42,7 +42,7 @@ function RacesSection() {
     const load = async () => {
         setLoading(true);
         try {
-            const data = await API.get('/api/election-predictor/races');
+            const { data } = await API.get('/api/election-predictor/races');
             setRaces(data);
         } catch (e) {
             setError('Failed to load races');
@@ -323,7 +323,7 @@ function FeaturedMatchupsSection() {
     const load = async () => {
         setLoading(true);
         try {
-            const data = await API.get('/api/election-predictor/featured-matchups');
+            const { data } = await API.get('/api/election-predictor/featured-matchups');
             setMatchups(data);
         } catch (e) {
             // ignore
