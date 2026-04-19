@@ -1,0 +1,226 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: articles
+    description: News articles management
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /articles:
+    get:
+      operationId: getArticles
+      tags: [articles]
+      summary: Get all articles
+      description: Returns all news articles ordered by published date descending
+      responses:
+        "200":
+          description: List of articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Article"
+    post:
+      operationId: createArticle
+      tags: [articles]
+      summary: Create an article from a URL
+      description: Fetches the URL, breaks the content into snippets with AI, and creates an article
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateArticleInput"
+      responses:
+        "201":
+          description: Article created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Could not process URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /articles/{id}:
+    delete:
+      operationId: deleteArticle
+      tags: [articles]
+      summary: Delete an article and all its snippets
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Article deleted
+        "404":
+          description: Article not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /articles/{id}/snippets:
+    get:
+      operationId: getArticleSnippets
+      tags: [articles]
+      summary: Get snippets for an article
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of snippets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Snippet"
+        "404":
+          description: Article not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /snippets/{id}/image:
+    get:
+      operationId: getSnippetImage
+      tags: [articles]
+      summary: Get snippet image as binary
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    Article:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        source:
+          type: ["string", "null"]
+        publishedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        snippetCount:
+          type: integer
+      required:
+        - id
+        - url
+        - title
+        - summary
+        - source
+        - publishedAt
+        - createdAt
+        - snippetCount
+    Snippet:
+      type: object
+      properties:
+        id:
+          type: integer
+        articleId:
+          type: integer
+        snippetOrder:
+          type: integer
+        headline:
+          type: string
+        caption:
+          type: string
+        explanation:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        imagePrompt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - articleId
+        - snippetOrder
+        - headline
+        - caption
+        - explanation
+        - imageUrl
+        - imagePrompt
+        - createdAt
+    CreateArticleInput:
+      type: object
+      properties:
+        url:
+          type: string
+          description: The URL of the news article to process
+      required:
+        - url
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error

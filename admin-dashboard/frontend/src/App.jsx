@@ -26,6 +26,7 @@ import CityDayInt from './pages/CityDayInt';
 import CityOfDay from './pages/CityOfDay';
 import TFCGChat from './pages/TFCGChat';
 import FeliTrips from './pages/FeliTrips';
+import FelixTravelTV from './pages/FelixTravelTV';
 
 import { clearAuthSession, getStoredUser, hasAdminAccess } from './services/api';
 
@@ -93,6 +94,7 @@ function AppLayout({ user, onLogout, onAuthSuccess }) {
             <Route path="/cityofday-daily" element={<ProtectedRoute user={user}><CityOfDay /></ProtectedRoute>} />
             <Route path="/tfcgchat" element={<ProtectedRoute user={user}><TFCGChat /></ProtectedRoute>} />
             <Route path="/felitrips" element={<ProtectedRoute user={user}><FeliTrips /></ProtectedRoute>} />
+            <Route path="/felix-travel-tv" element={<ProtectedRoute user={user}><FelixTravelTV /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>

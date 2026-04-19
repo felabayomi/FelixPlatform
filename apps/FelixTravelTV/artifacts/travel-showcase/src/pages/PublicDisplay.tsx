@@ -1,0 +1,1015 @@
+import { useEffect, useState, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Loader2, Volume2, VolumeX } from 'lucide-react';
+import { useGetArticles, useGetArticleSnippets } from '@workspace/api-client-react';
+import { ProgressBar } from '@/components/ProgressBar';
+import { SnippetDisplay } from '@/components/SnippetDisplay';
+import { AmbientMusicPlayer } from '@/components/AmbientMusicPlayer';
+import { useVoiceReader } from '@/hooks/use-voice-reader';
+import { cn } from '@/lib/utils';
+
+function ESTClock() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const day = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' }).toUpperCase();
+  const date = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' }).toUpperCase();
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'America/New_York' });
+
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '11px', fontWeight: 400, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.4)' }}>
+        {day} · EST
+      </span>
+      <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '11px', fontWeight: 400, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.55)' }}>
+        {date}
+      </span>
+      <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '22px', fontWeight: 600, letterSpacing: '0.06em', color: '#ffffff', lineHeight: 1.2 }}>
+        {time}
+      </span>
+    </div>
+  );
+}
+
+interface PlaybackState {
+  itemType: 'article' | 'video' | 'interlude' | null;
+  articleId: number | null;
+  snippetIndex: number;
+  videoId: number | null;
+  interludeImageUrl: string | null;
+  onAir: boolean;
+  updatedAt: number;
+}
+
+interface Video {
+  id: number;
+  title: string;
+  url: string;
+  maxDurationSecs: number | null;
+  loop: boolean;
+}
+
+interface TickerItem {
+  headline: string;
+  caption: string;
+  isCustom?: boolean;
+}
+
+interface WaitingConfig {
+  channelName: string;
+  tagline: string;
+  broadcastTime: string | null;
+  nextBroadcastSource: string;
+  topics: string[];
+  websiteLabel: string;
+  websiteUrl: string;
+  socialLinks: Array<{ label: string; url: string }>;
+  customTickerItems: string[];
+  tickerSpeed: number;
+  rotatingNames: Array<{ name: string; tagline: string }>;
+  ticker2Items: Array<{ text: string; url: string }>;
+}
+
+const POLL_MS = 1000;
+
+function usePlaybackSync() {
+  const [state, setState] = useState<PlaybackState>({ itemType: null, articleId: null, snippetIndex: 0, videoId: null, interludeImageUrl: null, onAir: false, updatedAt: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const res = await fetch('/api/playback');
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setState(prev => data.updatedAt !== prev.updatedAt ? data : prev);
+        }
+      } catch { /* network error — keep last state */ }
+    }
+    poll();
+    const id = setInterval(poll, POLL_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  return state;
+}
+
+function useWaitingConfig() {
+  const [config, setConfig] = useState<WaitingConfig | null>(null);
+  const lastJsonRef = useRef<string>('');
+
+  useEffect(() => {
+    async function fetchConfig() {
+      try {
+        const res = await fetch('/api/waiting-config', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const newJson = JSON.stringify(data);
+          if (newJson !== lastJsonRef.current) {
+            lastJsonRef.current = newJson;
+            setConfig(data);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    fetchConfig();
+    const id = setInterval(fetchConfig, 4000);
+    return () => clearInterval(id);
+  }, []);
+
+  return config;
+}
+
+function LiveClock() {
+  const [time, setTime] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span
+      className="tabular-nums text-white/55"
+      style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 500, fontSize: '17px', letterSpacing: '0.1em' }}
+    >
+      {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+    </span>
+  );
+}
+
+function Countdown({ targetTime }: { targetTime: string }) {
+  const [remaining, setRemaining] = useState(() => {
+    const diff = new Date(targetTime).getTime() - Date.now();
+    return Math.max(0, Math.floor(diff / 1000));
+  });
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const diff = new Date(targetTime).getTime() - Date.now();
+      setRemaining(Math.max(0, Math.floor(diff / 1000)));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [targetTime]);
+
+  if (remaining <= 0) {
+    return (
+      <div>
+        <p
+          className="text-white/25 text-xs uppercase tracking-widest mb-1"
+          style={{ fontFamily: 'Oswald, sans-serif' }}
+        >
+          Scheduled time has passed
+        </p>
+        <p
+          className="text-white/50 text-sm uppercase tracking-widest"
+          style={{ fontFamily: 'Oswald, sans-serif' }}
+        >
+          Broadcast starting shortly
+        </p>
+      </div>
+    );
+  }
+
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const s = remaining % 60;
+  const timeStr = h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    : `${m}:${String(s).padStart(2, '0')}`;
+
+  return (
+    <div>
+      <p
+        className="text-white/30 text-xs uppercase tracking-widest mb-1"
+        style={{ fontFamily: 'Oswald, sans-serif' }}
+      >
+        Broadcast begins in
+      </p>
+      <p
+        className="text-5xl text-white tabular-nums"
+        style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, letterSpacing: '0.05em' }}
+      >
+        {timeStr}
+      </p>
+    </div>
+  );
+}
+
+// px/s for each speed level 1–5 (react-fast-marquee speed prop)
+const TICKER_SPEEDS_PPS = [20, 35, 50, 72, 100];
+
+function GlobalTicker({ speed = 3, channelName = 'Felix Travel TV' }: { speed?: number; channelName?: string }) {
+  const [items, setItems] = useState<TickerItem[]>([]);
+  const lastJsonRef = useRef<string>('');
+
+  useEffect(() => {
+    async function fetchTicker() {
+      try {
+        const res = await fetch('/api/ticker', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const newJson = JSON.stringify(data);
+          if (newJson !== lastJsonRef.current) {
+            lastJsonRef.current = newJson;
+            setItems(data);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    fetchTicker();
+    const id = setInterval(fetchTicker, 4000);
+    return () => clearInterval(id);
+  }, []);
+
+  const pps = TICKER_SPEEDS_PPS[Math.min(Math.max(speed, 1), 5) - 1] ?? 90;
+
+  const tickerText = items.length > 0
+    ? items.map(item =>
+        item.isCustom || !item.caption
+          ? item.headline.toUpperCase()
+          : `${item.headline.toUpperCase()}  ·  ${item.caption}`
+      ).join('     ◆     ')
+    : 'STANDING BY FOR BROADCAST  ·  TUNE IN FOR LIVE COVERAGE';
+
+  const textStyle: React.CSSProperties = {
+    fontFamily: 'IBM Plex Sans, sans-serif',
+    fontWeight: 500,
+    fontSize: '19px',
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: '0.05em',
+    whiteSpace: 'nowrap',
+    paddingRight: '6rem',
+  };
+
+  return (
+    <div
+      className="absolute bottom-[40px] left-0 right-0 z-50 flex items-center"
+      style={{ height: '80px', background: 'rgba(3,3,8,0.97)', borderTop: '2px solid #c8102e', overflow: 'hidden' }}
+    >
+      {/* Logo + label */}
+      <div
+        className="flex-shrink-0 flex items-center gap-3 h-full px-6"
+        style={{ background: '#ffffff', zIndex: 1 }}
+      >
+        <img
+          src="/ticker-logo.png"
+          alt="logo"
+          style={{ height: '72px', width: 'auto', objectFit: 'contain', display: 'block' }}
+        />
+        {(() => {
+          const words = channelName.trim().split(/\s+/);
+          const line1 = words[0] ?? '';
+          const line2 = words.slice(1).join(' ');
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+              <span style={{ fontFamily: 'Oswald, sans-serif', color: '#D4880A', fontWeight: 700, fontSize: '12px', letterSpacing: '0.12em' }}>
+                {line1.toUpperCase()}
+              </span>
+              {line2 && (
+                <span style={{ fontFamily: 'Oswald, sans-serif', color: '#1A4B8C', fontWeight: 700, fontSize: '13px', letterSpacing: '0.08em' }}>
+                  {line2.toUpperCase()}
+                </span>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* CSS scroll strip */}
+      {(() => {
+        const CHAR_WIDTH_PX = 11; // approx px per char at 19px IBM Plex Sans
+        const stripWidth = tickerText.length * CHAR_WIDTH_PX;
+        const duration = Math.max(4, stripWidth / pps);
+        const animName = `ticker-scroll-${pps}`;
+        return (
+          <div style={{ flex: 1, overflow: 'hidden', height: '80px', display: 'flex', alignItems: 'center' }}>
+            <style>{`@keyframes ${animName}{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
+            <div
+              key={`${pps}-${tickerText.length}`}
+              style={{ display: 'inline-flex', animation: `${animName} ${duration}s linear infinite`, willChange: 'transform' }}
+            >
+              <span style={textStyle}>{tickerText}</span>
+              <span style={textStyle}>{tickerText}</span>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function SecondaryTicker({ items, speed = 3 }: { items: Array<{ text: string; url?: string }>; speed?: number }) {
+  const validItems = (items ?? []).filter(i => i.text?.trim());
+  if (validItems.length === 0) return null;
+
+  const pps = TICKER_SPEEDS_PPS[Math.min(Math.max(speed, 1), 5) - 1] ?? 50;
+  const CHAR_WIDTH_PX = 10;
+
+  // Build JSX nodes so label and URL get distinct colours
+  const segmentNodes: React.ReactNode[] = [];
+  const baseStyle: React.CSSProperties = {
+    fontFamily: 'IBM Plex Sans, sans-serif',
+    fontWeight: 500,
+    fontSize: '15px',
+    letterSpacing: '0.06em',
+    whiteSpace: 'nowrap',
+  };
+
+  validItems.forEach((item, idx) => {
+    const displayUrl = item.url ? item.url.replace(/^https?:\/\//, '') : '';
+    if (idx > 0) {
+      segmentNodes.push(
+        <span key={`sep-${idx}`} style={{ ...baseStyle, color: 'rgba(200,16,46,0.7)', paddingLeft: '1.5rem', paddingRight: '1.5rem' }}>•</span>
+      );
+    }
+    segmentNodes.push(
+      <span key={`txt-${idx}`} style={{ ...baseStyle, color: 'rgba(255,255,255,0.92)' }}>{item.text.toUpperCase()}</span>
+    );
+    if (displayUrl) {
+      segmentNodes.push(
+        <span key={`dot-${idx}`} style={{ ...baseStyle, color: 'rgba(255,255,255,0.3)', padding: '0 0.6rem' }}>·</span>
+      );
+      segmentNodes.push(
+        <span key={`url-${idx}`} style={{ ...baseStyle, color: '#93c5fd' }}>{displayUrl.toUpperCase()}</span>
+      );
+    }
+  });
+  // Trailing spacer so the loop gap is comfortable
+  segmentNodes.push(<span key="trail" style={{ paddingRight: '5rem' }} />);
+
+  // Use character count for duration estimate (same as before)
+  const rawText = validItems.map(i => {
+    const u = i.url ? i.url.replace(/^https?:\/\//, '') : '';
+    return u ? `${i.text}  ·  ${u}` : i.text;
+  }).join('  •  ');
+  const stripWidth = rawText.length * CHAR_WIDTH_PX;
+  const duration = Math.max(4, stripWidth / pps);
+  const animName = `ticker2-scroll-${pps}`;
+
+  return (
+    <div
+      className="absolute bottom-0 left-0 right-0 z-50 flex items-center"
+      style={{ height: '40px', background: 'rgba(10,18,40,0.98)', borderTop: '1px solid rgba(200,16,46,0.35)', overflow: 'hidden' }}
+    >
+      {/* Site label pill */}
+      <div
+        className="flex-shrink-0 flex items-center px-5 h-full"
+        style={{ background: '#c8102e', minWidth: '120px' }}
+      >
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: '11px', color: '#fff', letterSpacing: '0.14em' }}>
+          VISIT US
+        </span>
+      </div>
+
+      {/* Scrolling strip */}
+      <div style={{ flex: 1, overflow: 'hidden', height: '40px', display: 'flex', alignItems: 'center' }}>
+        <style>{`@keyframes ${animName}{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
+        <div
+          key={`${pps}-${rawText.length}`}
+          style={{ display: 'inline-flex', alignItems: 'center', animation: `${animName} ${duration}s linear infinite`, willChange: 'transform' }}
+        >
+          {segmentNodes}
+          {segmentNodes}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getVideoEmbed(url: string, loop: boolean): { type: 'youtube' | 'vimeo' | 'direct' | 'iframe'; src: string } {
+  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+  if (ytMatch) {
+    const vid = ytMatch[1];
+    const loopParam = loop ? `&loop=1&playlist=${vid}` : '&loop=0';
+    return { type: 'youtube', src: `https://www.youtube.com/embed/${vid}?autoplay=1&mute=1${loopParam}&rel=0&modestbranding=1&controls=1&enablejsapi=1` };
+  }
+  const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vimeoMatch) {
+    const vid = vimeoMatch[1];
+    const loopParam = loop ? '&loop=1' : '&loop=0';
+    return { type: 'vimeo', src: `https://player.vimeo.com/video/${vid}?autoplay=1&muted=1${loopParam}&title=0&byline=0&portrait=0&badge=0` };
+  }
+  if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(url)) {
+    return { type: 'direct', src: url };
+  }
+  return { type: 'iframe', src: url };
+}
+
+const INTERLUDE_DURATION = 30;
+
+function InterludeScreen({ imageUrl, config }: { imageUrl: string; config: WaitingConfig | null }) {
+  const [remaining, setRemaining] = useState(INTERLUDE_DURATION);
+
+  useEffect(() => {
+    setRemaining(INTERLUDE_DURATION);
+    const tick = setInterval(() => {
+      setRemaining(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [imageUrl]);
+
+  const pct = (remaining / INTERLUDE_DURATION) * 100;
+  const channelName = config?.channelName || 'News Reader';
+
+  return (
+    <main className="relative w-screen h-screen overflow-hidden" style={{ background: '#050508' }}>
+      {/* Background image — fills screen like article images (omitted when no URL) */}
+      {imageUrl && (
+        <img
+          src={imageUrl}
+          alt="Travel deal"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ opacity: 0.95 }}
+        />
+      )}
+      {/* Dark gradient overlay */}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(5,5,8,0.75) 0%, rgba(5,5,8,0.3) 40%, rgba(5,5,8,0.8) 100%)' }} />
+
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-8 py-4"
+        style={{ borderTop: '3px solid #c8102e', background: 'rgba(5,5,8,0.8)' }}>
+        <div className="flex items-center gap-3">
+          <span style={{ fontFamily: 'Oswald, sans-serif', color: '#fff', fontWeight: 700, fontSize: '15px', letterSpacing: '0.12em' }}>
+            {channelName.toUpperCase()}
+          </span>
+          <span className="w-px h-4 bg-white/20" />
+          <span style={{ fontFamily: 'Oswald, sans-serif', color: '#c8102e', fontWeight: 600, fontSize: '12px', letterSpacing: '0.2em' }}>
+            FELIX ABAYOMI TRAVEL ADVISOR
+          </span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-0.5 rounded-sm" style={{ background: '#c8102e' }}>
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <span style={{ fontFamily: 'Oswald, sans-serif', color: '#fff', fontWeight: 700, fontSize: '12px', letterSpacing: '0.12em' }}>
+            ON AIR
+          </span>
+        </div>
+      </div>
+
+      {/* Center label — sits above the two-ticker stack (120px) with extra clearance */}
+      <div className="absolute inset-0 flex flex-col items-center justify-end z-20" style={{ paddingBottom: '140px' }}>
+        <div className="text-center px-8 flex flex-col items-center gap-2">
+          <p style={{ fontFamily: 'Oswald, sans-serif', color: '#fff', fontSize: '22px', fontWeight: 700, letterSpacing: '0.08em', textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
+            FELIX ABAYOMI TRAVEL ADVISOR
+          </p>
+          <p style={{ fontFamily: 'IBM Plex Sans, sans-serif', color: 'rgba(255,255,255,0.65)', fontSize: '13px', letterSpacing: '0.06em', fontStyle: 'italic', textShadow: '0 1px 8px rgba(0,0,0,0.6)' }}>
+            Plan smarter. Travel better. Experience more.
+          </p>
+          <div className="w-10 h-px mt-1" style={{ background: '#c8102e' }} />
+          {/* Countdown clock */}
+          <div className="flex items-center gap-3 mt-1">
+            <p style={{ fontFamily: 'Oswald, sans-serif', color: '#c8102e', fontSize: '13px', letterSpacing: '0.28em', fontWeight: 600 }}>
+              COMING UP NEXT IN
+            </p>
+            <span style={{
+              fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: '22px',
+              color: '#fff', letterSpacing: '0.04em', minWidth: '2.2ch', textAlign: 'right',
+              textShadow: '0 0 20px rgba(200,16,46,0.6)',
+            }}>
+              {remaining}s
+            </span>
+          </div>
+          {/* Progress bar inline — visible above tickers */}
+          <div className="w-48 mt-2 rounded-full overflow-hidden" style={{ height: '4px', background: 'rgba(255,255,255,0.15)' }}>
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: '#c8102e', width: `${pct}%` }}
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 0.9, ease: 'linear' }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Ticker */}
+      <GlobalTicker speed={config?.tickerSpeed ?? 3} channelName={config?.channelName} />
+      <SecondaryTicker items={config?.ticker2Items ?? []} speed={config?.tickerSpeed ?? 3} />
+    </main>
+  );
+}
+
+function VideoScreen({ videoId, config }: { videoId: number; config: WaitingConfig | null }) {
+  const [video, setVideo] = useState<Video | null>(null);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const startedAtRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    startedAtRef.current = Date.now();
+    setVideo(null);
+    fetch(`/api/videos/${videoId}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(v => {
+        if (v) {
+          setVideo(v);
+          if (v.maxDurationSecs) setRemaining(v.maxDurationSecs);
+        }
+      })
+      .catch(() => {});
+  }, [videoId]);
+
+  useEffect(() => {
+    if (!video?.maxDurationSecs) return;
+    const tick = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
+      const rem = Math.max(0, video.maxDurationSecs! - elapsed);
+      setRemaining(rem);
+      if (rem <= 0) {
+        clearInterval(tick);
+        fetch('/api/playback/queue/advance', { method: 'POST' }).catch(() => {});
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [video]);
+
+  if (!video) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center" style={{ background: '#050508' }}>
+        <Loader2 className="w-10 h-10 animate-spin" style={{ color: '#c8102e', opacity: 0.5 }} />
+      </div>
+    );
+  }
+
+  const embed = getVideoEmbed(video.url, video.loop);
+
+  return (
+    <main className="relative w-screen h-screen overflow-hidden" style={{ background: '#000' }}>
+      {embed.type === 'direct' ? (
+        <video
+          key={videoId}
+          src={embed.src}
+          autoPlay
+          loop={video.loop}
+          playsInline
+          className="absolute inset-0 w-full h-full object-contain"
+          style={{ background: '#000' }}
+        />
+      ) : (
+        <iframe
+          key={videoId}
+          src={embed.src}
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+          className="absolute inset-0 w-full h-full border-0"
+          style={{ background: '#000' }}
+        />
+      )}
+
+      {/* Top HUD overlay */}
+      <div
+        className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-8"
+        style={{
+          paddingTop: '18px',
+          paddingBottom: '18px',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)',
+          borderTop: '3px solid #c8102e',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <span
+            className="text-white/80 text-xs tracking-[0.18em] uppercase"
+            style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 600 }}
+          >
+            {video.title}
+          </span>
+          {remaining != null && (
+            <>
+              <span className="text-white/20 text-xs">·</span>
+              <span className="text-white/40 text-xs" style={{ fontFamily: 'Oswald, sans-serif' }}>
+                {remaining > 0 ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')} remaining` : 'Finishing…'}
+              </span>
+            </>
+          )}
+          {video.loop && remaining == null && (
+            <>
+              <span className="text-white/20 text-xs">·</span>
+              <span className="text-white/30 text-[10px] uppercase tracking-widest" style={{ fontFamily: 'Oswald, sans-serif' }}>Loop</span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <LiveClock />
+          <div
+            className="flex items-center gap-1.5 px-3 py-0.5 rounded-sm"
+            style={{ background: '#c8102e' }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            <span style={{ fontFamily: 'Oswald, sans-serif', color: '#fff', fontWeight: 700, fontSize: '12px', letterSpacing: '0.12em' }}>
+              ON AIR
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <GlobalTicker speed={config?.tickerSpeed ?? 3} channelName={config?.channelName} />
+      <SecondaryTicker items={config?.ticker2Items ?? []} speed={config?.tickerSpeed ?? 3} />
+    </main>
+  );
+}
+
+export function PublicDisplay() {
+  const { itemType, articleId, snippetIndex, videoId, interludeImageUrl, onAir } = usePlaybackSync();
+  const config = useWaitingConfig();
+  const { data: articles = [] } = useGetArticles();
+  // Poll every 4 s while any snippet is missing its image (background generation).
+  // Stops automatically once all images have arrived.
+  const { data: snippets = [], isLoading: isLoadingSnippets } = useGetArticleSnippets(
+    articleId ?? 0,
+    {
+      query: {
+        enabled: itemType === 'article' && articleId !== null,
+        refetchInterval: (query) => {
+          const data = query.state.data;
+          if (!Array.isArray(data) || data.length === 0) return false;
+          const allLoaded = data.every((s: { imageUrl: string | null }) => s.imageUrl !== null);
+          return allLoaded ? false : 4000;
+        },
+      }
+    }
+  );
+
+  const safeIndex = Math.min(snippetIndex, Math.max(0, snippets.length - 1));
+  const currentSnippet = snippets[safeIndex] ?? null;
+  const selectedArticle = articles.find(a => a.id === articleId) ?? null;
+
+  const activeEntries: Array<{ name: string; tagline: string }> = (config?.rotatingNames?.length ?? 0) > 0
+    ? config!.rotatingNames
+    : [{ name: config?.channelName || 'News Reader', tagline: config?.tagline || '' }];
+
+  const [nameIndex, setNameIndex] = useState(0);
+  const activeNamesLenRef = useRef(activeEntries.length);
+  activeNamesLenRef.current = activeEntries.length;
+  useEffect(() => {
+    const id = setInterval(() => setNameIndex(i => (i + 1) % activeNamesLenRef.current), 10000);
+    return () => clearInterval(id);
+  }, []);
+
+  const [tick, setTick] = useState(0);
+  const prevIndexRef = useRef(snippetIndex);
+  useEffect(() => {
+    if (prevIndexRef.current !== snippetIndex) {
+      prevIndexRef.current = snippetIndex;
+      setTick(t => t + 1);
+    }
+  }, [snippetIndex]);
+
+  // ── Voice narration on public display ────────────────────────────────────────
+  // Start MUTED by default. Browsers block autoplay until user interaction, so
+  // we let the user click the volume button (which IS user interaction) to start
+  // audio. When they unmute, the effect re-fires and speaks the current snippet.
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const { speak, stop } = useVoiceReader(voiceEnabled);
+  const speakRef = useRef(speak);
+  useEffect(() => { speakRef.current = speak; }, [speak]);
+  const stopRef = useRef(stop);
+  useEffect(() => { stopRef.current = stop; }, [stop]);
+
+  // Track which snippet was last spoken
+  const lastSpokenRef = useRef<{ snippetId: number; articleId: number | null }>({ snippetId: -1, articleId: null });
+
+  useEffect(() => {
+    // Not playing an article, or voice is off — stop and reset the guard so
+    // that re-enabling voice will immediately speak the current snippet.
+    if (itemType !== 'article' || !currentSnippet || !voiceEnabled) {
+      stopRef.current();
+      lastSpokenRef.current = { snippetId: -1, articleId: null };
+      return;
+    }
+    // Guard: same snippet already speaking
+    if (
+      lastSpokenRef.current.snippetId === currentSnippet.id &&
+      lastSpokenRef.current.articleId === articleId
+    ) return;
+    lastSpokenRef.current = { snippetId: currentSnippet.id, articleId: articleId ?? null };
+    // No onEnded — public display never drives queue advances
+    speakRef.current(currentSnippet.id);
+  // voiceEnabled is in deps: toggling it on re-runs this effect and speaks the current snippet.
+  // The click that toggles it satisfies the browser's autoplay policy.
+  }, [currentSnippet, itemType, articleId, voiceEnabled]);
+
+  if (onAir && itemType === 'interlude') {
+    return <InterludeScreen imageUrl={interludeImageUrl ?? ''} config={config} />;
+  }
+
+  if (!onAir || (!articleId && !videoId)) {
+    const hasTopics = (config?.topics?.length ?? 0) > 0;
+    const hasWebsite = !!config?.websiteUrl;
+    const hasSocial = (config?.socialLinks?.length ?? 0) > 0;
+    const hasCountdown = !!config?.broadcastTime;
+    const hasInfo = hasTopics || hasWebsite || hasSocial;
+
+    return (
+      <div
+        className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-5 sm:p-12 pb-28"
+        style={{ background: '#050508' }}
+      >
+        {/* Top accent line */}
+        <div
+          className="absolute top-0 left-0 right-0 h-[3px]"
+          style={{ background: 'linear-gradient(to right, #c8102e, #ff3333, #c8102e)' }}
+        />
+
+        {/* Top-right: ON AIR badge + EST clock */}
+        <div className="absolute top-4 right-6 flex flex-col items-end gap-3">
+          <AnimatePresence>
+            {onAir && (
+              <motion.div
+                key="on-air-wait"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-sm"
+                style={{ background: '#c8102e' }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                <span style={{ fontFamily: 'Oswald, sans-serif', color: '#fff', fontWeight: 700, fontSize: '12px', letterSpacing: '0.1em' }}>
+                  ON AIR
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <ESTClock />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="w-full max-w-4xl"
+        >
+          {/* Two-column on desktop, single-column on mobile */}
+          <div className={`flex flex-col ${hasTopics ? 'sm:flex-row sm:items-start sm:gap-16 gap-8' : 'items-center text-center'}`}>
+
+            {/* Left / Center: Branding + countdown + website/social */}
+            <div className={`flex flex-col gap-5 sm:gap-7 flex-1 ${hasTopics ? 'items-start' : 'items-center'}`}>
+
+              {/* Thin red rule */}
+              <div
+                className={`h-px w-16 ${hasTopics ? '' : 'mx-auto'}`}
+                style={{ background: '#c8102e' }}
+              />
+
+              {/* Channel name + tagline — rotating pair */}
+              <div>
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={nameIndex}
+                    initial={{ opacity: 0, y: 48, filter: 'blur(6px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, y: -48, filter: 'blur(6px)' }}
+                    transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <h1
+                      className="text-3xl sm:text-5xl text-white uppercase"
+                      style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, letterSpacing: '0.06em', lineHeight: 1 }}
+                    >
+                      {activeEntries[nameIndex % activeEntries.length].name}
+                    </h1>
+                    {activeEntries[nameIndex % activeEntries.length].tagline && (
+                      <p
+                        className="text-white/40 text-base tracking-wide mt-2"
+                        style={{ fontFamily: 'IBM Plex Sans, sans-serif' }}
+                      >
+                        {activeEntries[nameIndex % activeEntries.length].tagline}
+                      </p>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              {/* Countdown */}
+              {hasCountdown && config?.broadcastTime && (
+                <Countdown targetTime={config.broadcastTime} />
+              )}
+
+              {/* Standby text when no countdown */}
+              {!hasCountdown && (
+                <p
+                  className="text-white/25 text-base tracking-wide"
+                  style={{ fontFamily: 'IBM Plex Sans, sans-serif' }}
+                >
+                  Live broadcast starting soon
+                </p>
+              )}
+
+              {/* Next broadcast source — shown in both countdown and standby modes */}
+              {config?.nextBroadcastSource && (
+                <p
+                  className="text-sm uppercase tracking-widest"
+                  style={{ fontFamily: 'Oswald, sans-serif', color: '#c8102e' }}
+                >
+                  <span className="mr-2" style={{ color: '#c8102e', opacity: 0.6 }}>NEXT:</span>
+                  {config.nextBroadcastSource}
+                </p>
+              )}
+
+              {/* Website */}
+              {hasWebsite && (
+                <div className={hasTopics ? '' : 'text-center'}>
+                  {config?.websiteLabel && (
+                    <p
+                      className="text-white/55 text-[11px] uppercase tracking-widest mb-1"
+                      style={{ fontFamily: 'Oswald, sans-serif' }}
+                    >
+                      {config.websiteLabel}
+                    </p>
+                  )}
+                  <p
+                    className="text-white/90 font-mono text-sm"
+                    style={{ fontFamily: 'IBM Plex Sans, sans-serif' }}
+                  >
+                    {config?.websiteUrl}
+                  </p>
+                </div>
+              )}
+
+              {/* Social links */}
+              {hasSocial && (
+                <div className={`space-y-1.5 ${hasTopics ? '' : 'text-center'}`}>
+                  {config?.socialLinks.map((link, i) => (
+                    <p key={i} className="text-xs" style={{ fontFamily: 'IBM Plex Sans, sans-serif' }}>
+                      <span className="text-white/50 mr-1">{link.label}:</span>
+                      <span style={{ color: '#4a9eff' }}>{link.url}</span>
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Thin rule bottom */}
+              <div
+                className={`h-px w-16 ${hasTopics ? '' : 'mx-auto'}`}
+                style={{ background: 'rgba(200,16,46,0.3)' }}
+              />
+            </div>
+
+            {/* Right: Today's Topics — full width on mobile, fixed on desktop */}
+            {hasTopics && (
+              <div className="sm:shrink-0 sm:w-64 w-full pt-1">
+                <p
+                  className="text-[#c8102e] text-xs uppercase tracking-widest font-bold mb-4"
+                  style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.18em' }}
+                >
+                  Today's Topics
+                </p>
+                <ul className="space-y-3">
+                  {config?.topics.map((topic, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center gap-3 text-white/60 text-sm"
+                      style={{ fontFamily: 'IBM Plex Sans, sans-serif' }}
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ background: '#c8102e' }}
+                      />
+                      {topic}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Brand footer — always visible above the ticker */}
+        <div className="absolute bottom-[120px] left-0 right-0 z-30 flex flex-col items-center gap-1 pointer-events-none">
+          <p style={{ fontFamily: 'Oswald, sans-serif', color: 'rgba(255,255,255,0.55)', fontSize: '13px', fontWeight: 700, letterSpacing: '0.14em' }}>
+            FELIX ABAYOMI TRAVEL ADVISOR
+          </p>
+          <p style={{ fontFamily: 'IBM Plex Sans, sans-serif', color: 'rgba(255,255,255,0.3)', fontSize: '11px', letterSpacing: '0.05em', fontStyle: 'italic' }}>
+            Plan smarter. Travel better. Experience more.
+          </p>
+        </div>
+
+        <GlobalTicker speed={config?.tickerSpeed ?? 3} channelName={config?.channelName} />
+        <SecondaryTicker items={config?.ticker2Items ?? []} speed={config?.tickerSpeed ?? 3} />
+      </div>
+    );
+  }
+
+  if (onAir && itemType === 'video' && videoId != null) {
+    return <VideoScreen videoId={videoId} config={config} />;
+  }
+
+  return (
+    <main className="relative w-screen h-screen overflow-hidden" style={{ background: '#050508' }}>
+
+      {/* ── Snippet slideshow ── */}
+      {isLoadingSnippets ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 className="w-10 h-10 animate-spin" style={{ color: '#c8102e', opacity: 0.5 }} />
+        </div>
+      ) : (
+        <AnimatePresence initial={false}>
+          {snippets.map((snippet, index) => (
+            <SnippetDisplay
+              key={snippet.id}
+              snippet={snippet}
+              isActive={index === safeIndex}
+              chapterIndex={index}
+              totalChapters={snippets.length}
+            />
+          ))}
+        </AnimatePresence>
+      )}
+
+      {/* ── Unified top HUD bar (z-40, above everything) ── */}
+      <div
+        className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-3 sm:px-8"
+        style={{
+          paddingTop: '18px',
+          paddingBottom: '14px',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.90) 0%, transparent 100%)',
+          borderTop: '3px solid #c8102e',
+        }}
+      >
+        {/* Left: source + chapter */}
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          {selectedArticle?.source && (
+            <>
+              <span
+                className="text-white/90 uppercase truncate"
+                style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 'clamp(14px, 4vw, 26px)', letterSpacing: '0.1em', lineHeight: 1 }}
+              >
+                {selectedArticle.source}
+              </span>
+              <span className="text-white/25 shrink-0" style={{ fontSize: '16px' }}>·</span>
+            </>
+          )}
+          {snippets.length > 0 && (
+            <span
+              className="text-white/50 uppercase shrink-0"
+              style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 500, fontSize: 'clamp(11px, 3vw, 17px)', letterSpacing: '0.14em', lineHeight: 1 }}
+            >
+              Clip {safeIndex + 1} of {snippets.length}
+            </span>
+          )}
+        </div>
+
+        {/* Right: clock + ON AIR badge */}
+        <div className="flex items-center gap-4">
+          <LiveClock />
+          <AnimatePresence>
+            {onAir && (
+              <motion.div
+                key="on-air"
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.85 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center gap-2 px-3 py-1 rounded-sm"
+                style={{ background: '#c8102e' }}
+              >
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span
+                  style={{ fontFamily: 'Oswald, sans-serif', color: '#fff', fontWeight: 700, fontSize: '15px', letterSpacing: '0.14em' }}
+                >
+                  ON AIR
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* ── Progress bar ── */}
+      {currentSnippet && (
+        <ProgressBar
+          duration={20000}
+          slideKey={`public-${currentSnippet.id}-${tick}`}
+          isPaused={false}
+        />
+      )}
+
+      {/* ── Global persistent ticker (always at bottom, never resets on slide change) ── */}
+      <GlobalTicker speed={config?.tickerSpeed ?? 3} channelName={config?.channelName} />
+      <SecondaryTicker items={config?.ticker2Items ?? []} speed={config?.tickerSpeed ?? 3} />
+
+      <AmbientMusicPlayer />
+
+      {/* Voice narration toggle — floats above the 120px ticker stack */}
+      <button
+        onClick={() => setVoiceEnabled(v => !v)}
+        title={voiceEnabled ? 'Mute voice narration' : 'Tap to enable voice narration'}
+        className={cn(
+          "fixed bottom-[136px] right-4 backdrop-blur-md transition-all duration-300 z-40 flex items-center gap-2 rounded-full",
+          voiceEnabled
+            ? "p-3 bg-primary/20 text-primary border border-primary/30"
+            : "px-4 py-2.5 bg-black/70 text-white border border-white/20 hover:bg-black/90 animate-pulse"
+        )}
+      >
+        {voiceEnabled
+          ? <Volume2 className="w-5 h-5" />
+          : <>
+              <VolumeX className="w-5 h-5 text-white/70" />
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '12px', letterSpacing: '0.12em', fontWeight: 600 }}>
+                TAP FOR SOUND
+              </span>
+            </>
+        }
+      </button>
+
+    </main>
+  );
+}
