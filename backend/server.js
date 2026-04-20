@@ -30,6 +30,7 @@ const platformProjectsRoutes = require('./routes/platformProjects');
 const electionPredictorRoutes = require('./routes/electionPredictor');
 const storefrontController = require('./controllers/storefrontController');
 const waciController = require('./controllers/waciController');
+const { registerRoutes: registerInquiryHubRoutes } = require('./inquiry-hub/routes');
 
 const PORT = Number(process.env.PORT) || 5000;
 const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -69,6 +70,8 @@ const defaultAllowedOrigins = [
     'https://electionpredictor.felixplatforms.com',
     'https://electionpredictor.net',
     'https://www.electionpredictor.net',
+    'https://inquiry-hub.netlify.app',
+    'https://inquiry.felixplatforms.com',
 ];
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 const isLocalDevOrigin = (origin = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
@@ -156,6 +159,12 @@ app.use('/api/election-predictor', electionPredictorRoutes);
 app.use('/api/admin/aflaundry/appointments', afLaundryAppointmentsRoutes);
 app.use(platformContentRoutes);
 app.use(adrianStoreRoutes);
+
+// === INQUIRY HUB (mounted at /iq so Netlify proxy maps /api/* → /iq/api/*) ===
+const inquiryHubApp = express();
+inquiryHubApp.use(express.json({ limit: '10mb' }));
+registerInquiryHubRoutes(inquiryHubApp).catch(err => console.error('Inquiry Hub init error:', err));
+app.use('/iq', inquiryHubApp);
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
