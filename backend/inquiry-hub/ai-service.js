@@ -10,7 +10,7 @@ const {
 } = require('./schema');
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  apiKey: process.env.INQUIRY_HUB_OPENAI_API_KEY,
 });
 
 function computeHash(text) {
