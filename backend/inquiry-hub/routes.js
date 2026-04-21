@@ -76,10 +76,10 @@ async function registerRoutes(app) {
 
     app.post(api.auth.login, (req, res, next) => {
         passport.authenticate('local', (err, user) => {
-            if (err) return res.status(500).json({ message: 'Auth error', detail: err.message });
+            if (err) return next(err);
             if (!user) return res.status(401).json({ message: 'Invalid username or password' });
             req.login(user, (loginErr) => {
-                if (loginErr) return res.status(500).json({ message: 'Session error', detail: loginErr.message });
+                if (loginErr) return next(loginErr);
                 const { password, ...safeUser } = user;
                 res.json(safeUser);
             });
