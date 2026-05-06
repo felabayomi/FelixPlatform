@@ -126,7 +126,7 @@ export default function LaundryInfoPage() {
     const resolvedSlug = Array.isArray(slug) ? slug[0] : slug;
     const page = pageContent[resolvedSlug || ''] || {
         title: 'A & F Laundry Info',
-        intro: 'This page is not available yet, but the rest of the A & F Laundry support pages are ready in-app.',
+        intro: 'This information page could not be found. Use the links below to open available in-app pages.',
         sections: [
             {
                 title: 'Available pages',

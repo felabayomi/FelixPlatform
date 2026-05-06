@@ -381,6 +381,22 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>App sections</Text>
+                    <Text style={styles.sectionSubtitle}>
+                        All app pages are available directly below: Home booking, Profile, Settings, Help, About, How to Use, Privacy Policy, Terms, and Support.
+                    </Text>
+                    <View style={styles.footerLinkGrid}>
+                        {laundryInfoLinks.map((link) => (
+                            <Link key={`top-${link.label}`} href={link.href as never} asChild>
+                                <Pressable style={styles.footerLinkButton}>
+                                    <Text style={styles.footerLinkButtonText}>{link.label}</Text>
+                                </Pressable>
+                            </Link>
+                        ))}
+                    </View>
+                </View>
+
+                <View style={styles.section}>
                     <Text style={styles.sectionTitle}>How it works</Text>
                     {serviceSteps.map((step, index) => (
                         <View key={step.title} style={styles.stepCard}>
