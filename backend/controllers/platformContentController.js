@@ -229,6 +229,28 @@ const DEFAULT_HOMEPAGE_CONTENT = {
             comingSoon: false,
             appleBadge: false,
         },
+        {
+            id: 'wildfilm-tracker',
+            title: 'WildFilm Tracker',
+            description: 'Discover, catalog, and track wildlife films and documentaries from festivals, conservation organizations, and independent filmmakers.',
+            imageUrl: 'https://images.unsplash.com/photo-1489749798305-4fea3ba63d60?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Download on App Store',
+            buttonLink: 'https://apps.apple.com/us/app/wildlifefilms/id6758022608',
+            note: 'iOS app with web companion at api.wildfilms.app',
+            comingSoon: false,
+            appleBadge: true,
+        },
+        {
+            id: 'praxis-nexus',
+            title: 'Praxis Nexus',
+            description: 'EdD academic inquiry journal exploring AI, ecology, and conservation through scholarly research and reflective practice.',
+            imageUrl: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f5?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit Praxis Nexus',
+            buttonLink: 'https://praxis-nexus.vercel.app/',
+            note: 'Academic portfolio and research platform',
+            comingSoon: false,
+            appleBadge: false,
+        },
     ],
 };
 

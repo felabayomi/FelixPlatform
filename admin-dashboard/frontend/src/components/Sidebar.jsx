@@ -61,6 +61,8 @@ const fallbackProjectLinks = [
     { to: '/felix-travel-tv', label: 'Felix Travel TV', slug: 'felix-travel-tv', publishedUrl: 'felix-travel-tv.netlify.app' },
     { to: '/waci-project-hub', label: 'WACI Project Hub', slug: 'waci-project-hub', publishedUrl: 'projecthub.wildlifeafrica.org' },
     { to: '/election-predictor', label: 'Election Predictor', slug: 'election-predictor', publishedUrl: 'electionpredictor.net' },
+    { to: 'https://apps.apple.com/us/app/wildlifefilms/id6758022608', label: 'WildFilm Tracker', slug: 'wildfilm-tracker', publishedUrl: 'apps.apple.com' },
+    { to: 'https://praxis-nexus.vercel.app/', label: 'Praxis Nexus', slug: 'praxis-nexus', publishedUrl: 'praxis-nexus.vercel.app' },
 ];
 
 const projectChildrenBySlug = {
