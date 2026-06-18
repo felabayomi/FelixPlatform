@@ -14,6 +14,8 @@ const coreLinks = [
 ];
 
 const fallbackProjectLinks = [
+    { to: '/products', label: 'Felix Store', slug: 'felix-store', publishedUrl: 'storeapp.felixplatforms.com' },
+    { to: '/bookings', label: 'A & F Laundry', slug: 'aflaundry', publishedUrl: 'laundryapp.felixplatforms.com' },
     {
         to: '/dailyfelix-wordofday',
         label: 'DailyFelix Word of Day',

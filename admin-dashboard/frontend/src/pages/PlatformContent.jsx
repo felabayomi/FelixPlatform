@@ -57,6 +57,33 @@ function PlatformContent() {
         }));
     };
 
+    const addCard = () => {
+        setContent((current) => ({
+            ...current,
+            cards: [
+                ...current.cards,
+                {
+                    id: `card-${Date.now()}`,
+                    title: '',
+                    description: '',
+                    imageUrl: '',
+                    buttonLabel: '',
+                    buttonLink: '',
+                    note: '',
+                    comingSoon: false,
+                    appleBadge: false,
+                },
+            ],
+        }));
+    };
+
+    const removeCard = (index) => {
+        setContent((current) => ({
+            ...current,
+            cards: current.cards.filter((_, i) => i !== index),
+        }));
+    };
+
     const handleSave = async () => {
         setSaving(true);
         setError('');
@@ -133,6 +160,14 @@ function PlatformContent() {
                                     <h3>{card.title || `Card ${index + 1}`}</h3>
                                     <p className="muted">Edit the image, title, copy, button label, and destination.</p>
                                 </div>
+                                <button
+                                    type="button"
+                                    className="delete-button"
+                                    onClick={() => removeCard(index)}
+                                    title="Remove this card"
+                                >
+                                    Remove
+                                </button>
                             </div>
 
                             <div className="edit-form">
@@ -183,6 +218,11 @@ function PlatformContent() {
                             </div>
                         </div>
                     ))}
+                    <div style={{ padding: '16px 0' }}>
+                        <button type="button" className="secondary-button" onClick={addCard}>
+                            + Add Card
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

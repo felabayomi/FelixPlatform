@@ -4,9 +4,10 @@ const CONTENT_KEY = 'felix_platform_homepage';
 
 const DEFAULT_HOMEPAGE_CONTENT = {
     heroTitle: 'Digital tools, services, and logistics solutions',
-    heroText: 'Discover the Felix Platforms ecosystem — from Document Formatter, to Felix Store across web and mobile, to A & F Laundry across its web app, brand site, and iOS experience.',
+    heroText: 'Felix Platforms powers 20+ digital products across conservation, travel, commerce, and community — from Document Formatter and Felix Store to Wildlife of Africa, Expedition America, and beyond.',
     sectionTitle: 'Our Apps & Services',
-    sectionText: 'The main site is your entry point. Each card below separates the live web apps, branded sites, and upcoming App Store destinations so customers land exactly where they need to go.',
+    sectionText: 'Explore the full Felix Platforms ecosystem — Core Platform services, Conservation & Wildlife tools, Travel & Discovery experiences, and Community platforms.',
+
     cards: [
         {
             id: 'document-formatter',
@@ -74,6 +75,160 @@ const DEFAULT_HOMEPAGE_CONTENT = {
             comingSoon: true,
             appleBadge: true,
         },
+        {
+            id: 'waci',
+            title: 'Wildlife of Africa Conservation Initiative',
+            description: 'WACI connects communities, data, and policy to protect Africa\'s biodiversity through conservation programs, storytelling, and field projects.',
+            imageUrl: 'https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit wildlifeafrica.org',
+            buttonLink: 'https://www.wildlifeafrica.org/',
+            note: 'Live at wildlifeafrica.org',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'wildlife-pedia',
+            title: 'Wildlife-Pedia',
+            description: 'Browse the crowdsourced wildlife encyclopedia — species profiles, habitat maps, community sightings, and active conservation projects.',
+            imageUrl: 'https://images.unsplash.com/photo-1564349683136-77e08dba1ef7?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit wildlife-pedia.com',
+            buttonLink: 'https://www.wildlife-pedia.com/',
+            note: 'Live at wildlife-pedia.com',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'waci-project-hub',
+            title: 'WACI Project Hub',
+            description: 'Manage WACI pilot projects, volunteer assignments, grant offers, and field reports in one place — the conservation project management platform.',
+            imageUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit Project Hub',
+            buttonLink: 'https://projecthub.wildlifeafrica.org/',
+            note: 'Live at projecthub.wildlifeafrica.org',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'expedition-america',
+            title: 'Expedition America',
+            description: 'Explore all 50 US states — curated travel stories, city guides, and AI-powered discovery powered by the 50USAStates platform.',
+            imageUrl: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit expeditionamerica.online',
+            buttonLink: 'https://expeditionamerica.online/',
+            note: 'Live at expeditionamerica.online',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'expedition-america-standalone',
+            title: 'Expedition America App',
+            description: 'The standalone Expedition America app experience — independent AI travel articles, state guides, and destination highlights at expeditionamerica.us.',
+            imageUrl: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit expeditionamerica.us',
+            buttonLink: 'https://expeditionamerica.us/',
+            note: 'Live at expeditionamerica.us',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'city-tour-hub',
+            title: 'City Tour Hub',
+            description: 'Book guided tours for cities across the USA and beyond — powered by the CityDiscoverer platform.',
+            imageUrl: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit City Tour Hub',
+            buttonLink: 'https://tours.citydiscoverer.guide/',
+            note: 'Live at tours.citydiscoverer.guide',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'citydayint',
+            title: 'CityDayInt International',
+            description: 'Discover international city destinations — daily curated city profiles and travel insights from around the world.',
+            imageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit CityDayInt',
+            buttonLink: 'https://international.citydiscoverer.guide/',
+            note: 'Live at international.citydiscoverer.guide',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'cityofday',
+            title: 'CityOfDay Daily',
+            description: 'Your daily USA city spotlight — new city, new story, every day on the CityOfDay Daily platform.',
+            imageUrl: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit CityOfDay',
+            buttonLink: 'https://daily.citydiscoverer.guide/',
+            note: 'Live at daily.citydiscoverer.guide',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'felitrips',
+            title: 'FeliTrips',
+            description: 'Group travel made easy — plan, book, and manage group tours through the FeliTrips platform at grouptours.citydiscoverer.guide.',
+            imageUrl: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit FeliTrips',
+            buttonLink: 'https://grouptours.citydiscoverer.guide/',
+            note: 'Live at grouptours.citydiscoverer.guide',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'felix-travel-tv',
+            title: 'Felix Travel TV',
+            description: 'Stream travel stories, destination highlights, and video guides from the Felix Travel TV editorial team.',
+            imageUrl: 'https://images.unsplash.com/photo-1530521954074-e64f6810b32d?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit Felix Travel TV',
+            buttonLink: 'https://felix-travel-tv.netlify.app/',
+            note: 'Live at felix-travel-tv.netlify.app',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'adrian-store',
+            title: 'Adrian Store',
+            description: 'Shop curated products and services at Adrian Store — browse, request a quote, and order online at shopwithadrian.com.',
+            imageUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit shopwithadrian.com',
+            buttonLink: 'https://shopwithadrian.com/',
+            note: 'Live at shopwithadrian.com',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'dailyfelix-wordofday',
+            title: 'DailyFelix Word of Day',
+            description: 'Start each day with a word, a reflection, and a purpose — the DailyFelix Word of Day daily faith platform.',
+            imageUrl: 'https://images.unsplash.com/photo-1499728603263-13726abce5fd?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit faithhouse.app',
+            buttonLink: 'https://faithhouse.app/',
+            note: 'Live at faithhouse.app',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'tfcgchat',
+            title: 'TFCG Chat',
+            description: 'The TFCG community chat platform — discussion spaces, messaging, and collaborative engagement for members.',
+            imageUrl: 'https://images.unsplash.com/photo-1611746872915-64382b5c76da?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit TFCG Chat',
+            buttonLink: 'https://tfcgchat.felixconsult.co/',
+            note: 'Live at tfcgchat.felixconsult.co',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'election-predictor',
+            title: 'Election Predictor',
+            description: 'Track, model, and visualize election race outcomes with the Election Predictor analysis and forecasting platform.',
+            imageUrl: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit electionpredictor.net',
+            buttonLink: 'https://electionpredictor.net/',
+            note: 'Live at electionpredictor.net',
+            comingSoon: false,
+            appleBadge: false,
+        },
     ],
 };
 
@@ -116,14 +271,18 @@ const normalizeCard = (card = {}, fallback = {}, index = 0) => ({
 
 const normalizeHomepageContent = (content = {}) => {
     const defaults = cloneDefaults();
-    const incomingCards = Array.isArray(content.cards) && content.cards.length ? content.cards : defaults.cards;
+    // Use incoming cards when present; fall back to full defaults when empty
+    const incoming = Array.isArray(content.cards) && content.cards.length
+        ? content.cards
+        : defaults.cards;
 
     return {
         heroTitle: toText(content.heroTitle, defaults.heroTitle),
         heroText: toText(content.heroText, defaults.heroText),
         sectionTitle: toText(content.sectionTitle, defaults.sectionTitle),
         sectionText: toText(content.sectionText, defaults.sectionText),
-        cards: defaults.cards.map((defaultCard, index) => normalizeCard(incomingCards[index] || defaultCard, defaultCard, index)),
+        // Variable-length: normalise each card against its matching default (or empty) as fallback
+        cards: incoming.map((card, index) => normalizeCard(card, defaults.cards[index] || {}, index)),
     };
 };
 
@@ -175,6 +334,18 @@ const readHomepageRecord = async (allowFallback = false) => {
         }
 
         const row = result.rows[0] || {};
+        const savedCards = Array.isArray(row.content?.cards) ? row.content.cards : [];
+        const defaults = cloneDefaults();
+
+        // Auto-fill: if saved cards exist but are fewer than the current defaults,
+        // append missing defaults so new apps appear without a manual admin reset.
+        if (savedCards.length > 0 && savedCards.length < defaults.cards.length) {
+            row.content = {
+                ...row.content,
+                cards: [...savedCards, ...defaults.cards.slice(savedCards.length)],
+            };
+        }
+
         return {
             content: normalizeHomepageContent(row.content || {}),
             updatedByEmail: row.updated_by_email || null,
