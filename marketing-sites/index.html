@@ -81,6 +81,58 @@
             line-height: 1.7;
         }
 
+        .search-wrap {
+            margin: 22px auto 0;
+            max-width: 760px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: stretch;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-input {
+            flex: 1;
+            background: #0f1b2d;
+            color: #e2e8f0;
+            border: 1px solid #1e3a5f;
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .search-btn {
+            border: 0;
+            border-radius: 10px;
+            padding: 0 18px;
+            min-height: 44px;
+            background: #2563eb;
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .search-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .search-status {
+            min-height: 20px;
+            color: #93c5fd;
+            font-size: 14px;
+            text-align: left;
+        }
+
         .apps {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
@@ -195,6 +247,10 @@
             .intro h2 {
                 font-size: 28px;
             }
+
+            .search-row {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -215,6 +271,13 @@
             <p id="section-text">Explore the full Felix Platforms ecosystem &mdash; Core Platform services, Conservation
                 &amp; Wildlife tools, Travel &amp; Discovery experiences, and Community platforms. Each card links
                 directly to the live site.</p>
+            <div class="search-wrap">
+                <div class="search-row">
+                    <input id="service-search" class="search-input" type="search" placeholder="Search apps and services" aria-label="Search apps and services" />
+                    <button id="service-search-btn" class="search-btn" type="button">Search</button>
+                </div>
+                <div id="service-search-status" class="search-status" aria-live="polite"></div>
+            </div>
         </div>
 
         <div class="apps-section">
@@ -514,6 +577,9 @@
             const heroText = document.getElementById('hero-text');
             const sectionTitle = document.getElementById('section-title');
             const sectionText = document.getElementById('section-text');
+            const searchInput = document.getElementById('service-search');
+            const searchButton = document.getElementById('service-search-btn');
+            const searchStatus = document.getElementById('service-search-status');
             const sectionGrids = {
                 core: document.getElementById('core-grid'),
                 conservation: document.getElementById('conservation-grid'),
@@ -586,6 +652,47 @@
                 `;
             };
 
+            const applySearchFilter = () => {
+                const term = String(searchInput?.value || '').trim().toLowerCase();
+                const sections = Array.from(document.querySelectorAll('.apps-section'));
+                let visibleTotal = 0;
+
+                sections.forEach((section) => {
+                    const cards = Array.from(section.querySelectorAll('.apps .card'));
+                    let sectionVisible = 0;
+
+                    cards.forEach((card) => {
+                        const haystack = [
+                            card.querySelector('h3')?.textContent || '',
+                            card.querySelector('p')?.textContent || '',
+                            card.querySelector('small')?.textContent || '',
+                        ].join(' ').toLowerCase();
+
+                        const isMatch = !term || haystack.includes(term);
+                        card.style.display = isMatch ? '' : 'none';
+                        if (isMatch) {
+                            sectionVisible += 1;
+                        }
+                    });
+
+                    section.style.display = (!term || sectionVisible > 0) ? '' : 'none';
+                    visibleTotal += sectionVisible;
+                });
+
+                if (!searchStatus) {
+                    return;
+                }
+
+                if (!term) {
+                    searchStatus.textContent = '';
+                    return;
+                }
+
+                searchStatus.textContent = visibleTotal > 0
+                    ? `Showing ${visibleTotal} result${visibleTotal === 1 ? '' : 's'} for "${searchInput.value.trim()}"`
+                    : `No apps or services found for "${searchInput.value.trim()}"`;
+            };
+
             const renderCards = (cards) => {
                 if (!Array.isArray(cards) || !cards.length) {
                     return;
@@ -615,6 +722,8 @@
                         communityGrid.insertAdjacentHTML('beforeend', extraCards.map(cardToHtml).join(''));
                     }
                 }
+
+                applySearchFilter();
             };
 
             const applyContent = (content) => {
@@ -640,6 +749,27 @@
 
                 renderCards(content.cards || []);
             };
+
+            if (searchInput) {
+                searchInput.addEventListener('input', applySearchFilter);
+                searchInput.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        searchInput.value = '';
+                        applySearchFilter();
+                    }
+                });
+            }
+
+            if (searchButton) {
+                searchButton.addEventListener('click', () => {
+                    if (searchInput) {
+                        searchInput.focus();
+                    }
+                    applySearchFilter();
+                });
+            }
+
+            applySearchFilter();
 
             (async () => {
                 for (const base of apiBases) {
