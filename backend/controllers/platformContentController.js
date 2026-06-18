@@ -381,12 +381,23 @@ const readHomepageRecord = async (allowFallback = false) => {
         const savedCards = Array.isArray(row.content?.cards) ? row.content.cards : [];
         const defaults = cloneDefaults();
 
-        // Auto-fill: if saved cards exist but are fewer than the current defaults,
-        // append missing defaults so new apps appear without a manual admin reset.
-        if (savedCards.length > 0 && savedCards.length < defaults.cards.length) {
+        // Auto-fill: rebuild cards in default order, substituting any saved version
+        // per id so admin edits are preserved. Any custom cards not in defaults go
+        // at the end. This is id-based so inserting new defaults at any position works.
+        if (savedCards.length > 0) {
+            const savedById = {};
+            savedCards.forEach(c => { savedById[c.id] = c; });
+
+            // Default order first, using saved card data where available
+            const mergedCards = defaults.cards.map(d => savedById[d.id] || d);
+
+            // Preserve any custom cards the admin added that are not in defaults
+            const defaultIds = new Set(defaults.cards.map(c => c.id));
+            const extraCards = savedCards.filter(c => !defaultIds.has(c.id));
+
             row.content = {
                 ...row.content,
-                cards: [...savedCards, ...defaults.cards.slice(savedCards.length)],
+                cards: [...mergedCards, ...extraCards],
             };
         }
 
