@@ -2,8 +2,8 @@ function FelixTravelTV() {
     const links = [
         {
             label: 'Live App',
-            href: 'https://felix-travel-tv.netlify.app',
-            description: 'Frontend (Netlify) — React showcase with AI-generated travel slides, video player, and news reader.',
+            href: 'https://traveltv.citydiscoverer.guide/',
+            description: 'Frontend (Vercel) — React showcase with AI-generated travel slides, video player, and news reader.',
         },
         {
             label: 'API Server',
@@ -12,7 +12,7 @@ function FelixTravelTV() {
         },
         {
             label: 'Admin Panel',
-            href: 'https://felix-travel-tv.netlify.app/admin',
+            href: 'https://traveltv.citydiscoverer.guide/admin',
             description: 'Admin interface for managing content, broadcast queue, and playback.',
         },
     ];
@@ -32,7 +32,7 @@ function FelixTravelTV() {
                 <div className="dashboard-link-grid" style={{ marginTop: 12 }}>
                     <div className="management-link" role="status">
                         <strong>Frontend</strong>
-                        <span>React + Vite SPA deployed on Netlify. Uses <code>VITE_ADMIN_PIN</code> for admin access.</span>
+                        <span>React + Vite SPA deployed on Vercel. Uses <code>VITE_ADMIN_PIN</code> for admin access.</span>
                     </div>
                     <div className="management-link" role="status">
                         <strong>Backend</strong>

@@ -180,8 +180,8 @@ const DEFAULT_HOMEPAGE_CONTENT = {
             description: 'Stream travel stories, destination highlights, and video guides from the Felix Travel TV editorial team.',
             imageUrl: 'https://images.unsplash.com/photo-1530521954074-e64f6810b32d?auto=format&fit=crop&w=900&q=80',
             buttonLabel: 'Visit Felix Travel TV',
-            buttonLink: 'https://felix-travel-tv.netlify.app/',
-            note: 'Live at felix-travel-tv.netlify.app',
+            buttonLink: 'https://traveltv.citydiscoverer.guide/',
+            note: 'Live at traveltv.citydiscoverer.guide',
             comingSoon: false,
             appleBadge: false,
         },
@@ -313,6 +313,21 @@ const normalizeCard = (card = {}, fallback = {}, index = 0) => ({
     appleBadge: toBoolean(card.appleBadge, fallback.appleBadge || false),
 });
 
+const normalizeLegacyCardLinks = (card = {}) => {
+    const normalizedCard = { ...card };
+
+    if (
+        normalizedCard.id === 'felix-travel-tv' &&
+        typeof normalizedCard.buttonLink === 'string' &&
+        normalizedCard.buttonLink.includes('felix-travel-tv.netlify.app')
+    ) {
+        normalizedCard.buttonLink = 'https://traveltv.citydiscoverer.guide/';
+        normalizedCard.note = 'Live at traveltv.citydiscoverer.guide';
+    }
+
+    return normalizedCard;
+};
+
 const normalizeHomepageContent = (content = {}) => {
     const defaults = cloneDefaults();
     // Use incoming cards when present; fall back to full defaults when empty
@@ -378,7 +393,9 @@ const readHomepageRecord = async (allowFallback = false) => {
         }
 
         const row = result.rows[0] || {};
-        const savedCards = Array.isArray(row.content?.cards) ? row.content.cards : [];
+        const savedCards = Array.isArray(row.content?.cards)
+            ? row.content.cards.map(normalizeLegacyCardLinks)
+            : [];
         const defaults = cloneDefaults();
 
         // Auto-fill: rebuild cards in default order, substituting any saved version
