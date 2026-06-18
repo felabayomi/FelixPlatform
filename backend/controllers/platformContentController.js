@@ -4,9 +4,9 @@ const CONTENT_KEY = 'felix_platform_homepage';
 
 const DEFAULT_HOMEPAGE_CONTENT = {
     heroTitle: 'Digital tools, services, and logistics solutions',
-    heroText: 'Felix Platforms powers 20+ digital products across conservation, travel, commerce, and community — from Document Formatter and Felix Store to Wildlife of Africa, Expedition America, and beyond.',
+    heroText: 'Felix Platforms powers 20+ digital products across consulting, productivity, conservation, travel, commerce, and community — from Felix Platform and FelixConsult to Wildlife of Africa, Expedition America, and beyond.',
     sectionTitle: 'Our Apps & Services',
-    sectionText: 'Explore the full Felix Platforms ecosystem — Core Platform services, Conservation & Wildlife tools, Travel & Discovery experiences, and Community platforms.',
+    sectionText: 'Explore the full Felix Platforms ecosystem — Core Platform services, Productivity & Commerce tools, Conservation & Wildlife experiences, Travel & Discovery products, and Community platforms.',
 
     cards: [
         {
@@ -248,6 +248,17 @@ const DEFAULT_HOMEPAGE_CONTENT = {
             buttonLabel: 'Visit Praxis Nexus',
             buttonLink: 'https://praxis-nexus.vercel.app/',
             note: 'Academic portfolio and research platform',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
+            id: 'felix-platform',
+            title: 'Felix Platform',
+            description: 'The flagship Felix Platforms ecosystem hub connecting all apps, services, and public brand experiences in one platform.',
+            imageUrl: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit Felix Platforms',
+            buttonLink: 'https://www.felixplatforms.com/',
+            note: 'Live at www.felixplatforms.com',
             comingSoon: false,
             appleBadge: false,
         },

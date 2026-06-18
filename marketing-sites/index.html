@@ -268,12 +268,13 @@
     <div class="container">
         <div class="intro">
             <h2 id="section-title">Our Apps &amp; Services</h2>
-            <p id="section-text">Explore the full Felix Platforms ecosystem &mdash; Core Platform services, Conservation
-                &amp; Wildlife tools, Travel &amp; Discovery experiences, and Community platforms. Each card links
-                directly to the live site.</p>
+            <p id="section-text">Explore the full Felix Platforms ecosystem &mdash; Core Platform services,
+                Productivity &amp; Commerce tools, Conservation &amp; Wildlife experiences, Travel &amp; Discovery
+                products, and Community platforms. Each card links directly to the live site.</p>
             <div class="search-wrap">
                 <div class="search-row">
-                    <input id="service-search" class="search-input" type="search" placeholder="Search apps and services" aria-label="Search apps and services" />
+                    <input id="service-search" class="search-input" type="search" placeholder="Search apps and services"
+                        aria-label="Search apps and services" />
                     <button id="service-search-btn" class="search-btn" type="button">Search</button>
                 </div>
                 <div id="service-search-status" class="search-status" aria-live="polite"></div>
@@ -283,6 +284,32 @@
         <div class="apps-section">
             <h3 class="section-label">Core Platform</h3>
             <div class="apps" id="core-grid">
+                <div class="card">
+                    <img class="thumb"
+                        src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=900&q=80"
+                        alt="Felix Platform preview" />
+                    <h3>Felix Platform</h3>
+                    <p>The flagship Felix Platforms ecosystem hub connecting all apps, services, and public brand
+                        experiences in one platform.</p>
+                    <a href="https://www.felixplatforms.com/">Visit Felix Platforms</a>
+                    <small>Live at www.felixplatforms.com</small>
+                </div>
+                <div class="card">
+                    <img class="thumb"
+                        src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=900&q=80"
+                        alt="FelixConsult preview" />
+                    <h3>FelixConsult</h3>
+                    <p>Strategic consulting, business advisory, and professional services from Felix Consulting Group
+                        &mdash; helping businesses grow with clarity and purpose.</p>
+                    <a href="https://www.felixconsult.co/">Visit FelixConsult</a>
+                    <small>Live at www.felixconsult.co</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="apps-section">
+            <h3 class="section-label">Productivity &amp; Commerce</h3>
+            <div class="apps" id="productivity-grid">
                 <div class="card">
                     <img class="thumb"
                         src="https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=900&q=80"
@@ -345,16 +372,6 @@
                     <a href="https://apps.apple.com/us/app/aflaundry/id1596646806">Download on App Store <span
                             class="apple-icon">🍎</span></a>
                     <small>Live on iOS App Store</small>
-                </div>
-                <div class="card">
-                    <img class="thumb"
-                        src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=900&q=80"
-                        alt="FelixConsult preview" />
-                    <h3>FelixConsult</h3>
-                    <p>Strategic consulting, business advisory, and professional services from Felix Consulting Group
-                        &mdash; helping businesses grow with clarity and purpose.</p>
-                    <a href="https://www.felixconsult.co/">Visit FelixConsult</a>
-                    <small>Live at www.felixconsult.co</small>
                 </div>
             </div>
         </div>
@@ -582,6 +599,7 @@
             const searchStatus = document.getElementById('service-search-status');
             const sectionGrids = {
                 core: document.getElementById('core-grid'),
+                productivity: document.getElementById('productivity-grid'),
                 conservation: document.getElementById('conservation-grid'),
                 travel: document.getElementById('travel-grid'),
                 community: document.getElementById('community-grid'),
@@ -589,13 +607,16 @@
 
             const sectionCardIds = {
                 core: [
+                    'felix-platform',
+                    'felix-consult',
+                ],
+                productivity: [
                     'document-formatter',
                     'felix-store-web',
                     'felix-store-mobile',
                     'aflaundry-webapp',
                     'aflaundry-site',
                     'aflaundry-mobile',
-                    'felix-consult',
                 ],
                 conservation: [
                     'waci',
