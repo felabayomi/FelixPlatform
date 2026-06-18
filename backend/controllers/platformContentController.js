@@ -21,6 +21,17 @@ const DEFAULT_HOMEPAGE_CONTENT = {
             appleBadge: false,
         },
         {
+            id: 'travelcenterhub',
+            title: 'Travel Center Hub',
+            description: 'Book flights, hotels, car rentals, cruises, and travel products all in one place — the Felix Platforms travel booking hub.',
+            imageUrl: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit travelcenterhub.com',
+            buttonLink: 'https://travelcenterhub.com/',
+            note: 'Live at travelcenterhub.com',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
             id: 'document-formatter',
             title: 'Document Formatter',
             description: 'Turn messy text into polished academic papers, business reports, and export-ready documents with the Felix Platform formatter.',

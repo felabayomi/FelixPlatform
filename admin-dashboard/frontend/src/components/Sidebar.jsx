@@ -15,6 +15,7 @@ const coreLinks = [
 
 const fallbackProjectLinks = [
     { to: 'https://www.felixconsult.co/', label: 'FelixConsult', slug: 'felix-consult', publishedUrl: 'www.felixconsult.co' },
+    { to: 'https://travelcenterhub.com/', label: 'Travel Center Hub', slug: 'travelcenterhub', publishedUrl: 'travelcenterhub.com' },
     { to: '/products', label: 'Felix Store', slug: 'felix-store', publishedUrl: 'storeapp.felixplatforms.com' },
     { to: '/bookings', label: 'A & F Laundry', slug: 'aflaundry', publishedUrl: 'laundryapp.felixplatforms.com' },
     {
