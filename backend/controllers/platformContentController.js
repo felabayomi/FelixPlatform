@@ -67,12 +67,12 @@ const DEFAULT_HOMEPAGE_CONTENT = {
         {
             id: 'aflaundry-mobile',
             title: 'A & F Laundry Mobile App',
-            description: 'The A & F Laundry iOS app will be linked here once it clears App Store review and goes live.',
+            description: 'Download the A & F Laundry iOS app to book services, track appointments, and manage your laundry requests on the go.',
             imageUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&q=80',
-            buttonLabel: 'App Store link coming soon',
-            buttonLink: '',
-            note: 'Apple link will be attached after approval',
-            comingSoon: true,
+            buttonLabel: 'Download on App Store',
+            buttonLink: 'https://apps.apple.com/us/app/aflaundry/id1596646806',
+            note: 'Live on iOS App Store',
+            comingSoon: false,
             appleBadge: true,
         },
         {
