@@ -34,12 +34,12 @@ const DEFAULT_HOMEPAGE_CONTENT = {
         {
             id: 'felix-store-mobile',
             title: 'Felix Store Mobile App',
-            description: 'The iOS version of Felix Store will be linked here once App Store approval is complete.',
+            description: 'Download the Felix Store iOS app to browse products, request quotes, and manage your orders on the go.',
             imageUrl: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=900&q=80',
-            buttonLabel: 'App Store link coming soon',
-            buttonLink: '',
-            note: 'Apple link will be attached after approval',
-            comingSoon: true,
+            buttonLabel: 'Download on App Store',
+            buttonLink: 'https://apps.apple.com/us/app/felix-store/id1567050617',
+            note: 'Live on iOS App Store',
+            comingSoon: false,
             appleBadge: true,
         },
         {
