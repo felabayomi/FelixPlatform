@@ -219,7 +219,7 @@
 
         <div class="apps-section">
             <h3 class="section-label">Core Platform</h3>
-            <div class="apps" id="apps-grid">
+            <div class="apps" id="core-grid">
                 <div class="card">
                     <img class="thumb"
                         src="https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=900&q=80"
@@ -288,7 +288,8 @@
                         src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=900&q=80"
                         alt="FelixConsult preview" />
                     <h3>FelixConsult</h3>
-                    <p>Strategic consulting, business advisory, and professional services from Felix Consulting Group &mdash; helping businesses grow with clarity and purpose.</p>
+                    <p>Strategic consulting, business advisory, and professional services from Felix Consulting Group
+                        &mdash; helping businesses grow with clarity and purpose.</p>
                     <a href="https://www.felixconsult.co/">Visit FelixConsult</a>
                     <small>Live at www.felixconsult.co</small>
                 </div>
@@ -297,7 +298,7 @@
 
         <div class="apps-section">
             <h3 class="section-label">Conservation &amp; Wildlife</h3>
-            <div class="apps">
+            <div class="apps" id="conservation-grid">
                 <div class="card">
                     <img class="thumb"
                         src="https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?auto=format&fit=crop&w=900&q=80"
@@ -333,7 +334,7 @@
 
         <div class="apps-section">
             <h3 class="section-label">Travel &amp; Discovery</h3>
-            <div class="apps">
+            <div class="apps" id="travel-grid">
                 <div class="card">
                     <img class="thumb"
                         src="https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=900&q=80"
@@ -409,7 +410,8 @@
                         src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=900&q=80"
                         alt="Travel Center Hub preview" />
                     <h3>Travel Center Hub</h3>
-                    <p>Book flights, hotels, car rentals, cruises, and travel products all in one place &mdash; the Felix Platforms travel booking hub.</p>
+                    <p>Book flights, hotels, car rentals, cruises, and travel products all in one place &mdash; the
+                        Felix Platforms travel booking hub.</p>
                     <a href="https://travelcenterhub.com/">Visit travelcenterhub.com</a>
                     <small>Live at travelcenterhub.com</small>
                 </div>
@@ -418,7 +420,7 @@
 
         <div class="apps-section">
             <h3 class="section-label">Community &amp; Tools</h3>
-            <div class="apps">
+            <div class="apps" id="community-grid">
                 <div class="card">
                     <img class="thumb"
                         src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=900&q=80"
@@ -512,7 +514,47 @@
             const heroText = document.getElementById('hero-text');
             const sectionTitle = document.getElementById('section-title');
             const sectionText = document.getElementById('section-text');
-            const appsGrid = document.getElementById('apps-grid');
+            const sectionGrids = {
+                core: document.getElementById('core-grid'),
+                conservation: document.getElementById('conservation-grid'),
+                travel: document.getElementById('travel-grid'),
+                community: document.getElementById('community-grid'),
+            };
+
+            const sectionCardIds = {
+                core: [
+                    'document-formatter',
+                    'felix-store-web',
+                    'felix-store-mobile',
+                    'aflaundry-webapp',
+                    'aflaundry-site',
+                    'aflaundry-mobile',
+                    'felix-consult',
+                ],
+                conservation: [
+                    'waci',
+                    'wildlife-pedia',
+                    'waci-project-hub',
+                ],
+                travel: [
+                    'expedition-america',
+                    'expedition-america-standalone',
+                    'city-tour-hub',
+                    'citydayint',
+                    'cityofday',
+                    'felitrips',
+                    'felix-travel-tv',
+                    'travelcenterhub',
+                ],
+                community: [
+                    'adrian-store',
+                    'dailyfelix-wordofday',
+                    'tfcgchat',
+                    'election-predictor',
+                    'wildfilm-tracker',
+                    'praxis-nexus',
+                ],
+            };
 
             const escapeHtml = (value) => String(value || '')
                 .replace(/&/g, '&amp;')
@@ -521,33 +563,58 @@
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
 
+            const cardToHtml = (card) => {
+                const title = escapeHtml(card.title || 'Felix Platforms');
+                const description = escapeHtml(card.description || '');
+                const imageUrl = escapeHtml(card.imageUrl || '');
+                const buttonLabel = escapeHtml(card.buttonLabel || 'Learn more');
+                const buttonLink = escapeHtml(card.buttonLink || '#');
+                const note = escapeHtml(card.note || '');
+                const showLink = Boolean(card.buttonLink);
+                const actionHtml = showLink
+                    ? `<a href="${buttonLink}">${buttonLabel}</a>`
+                    : `<span class="coming-soon">${card.appleBadge ? '<span class="apple-icon">🍎</span> ' : ''}${buttonLabel}</span>`;
+
+                return `
+                    <div class="card">
+                        <img class="thumb" src="${imageUrl}" alt="${title} preview" />
+                        <h3>${title}</h3>
+                        <p>${description}</p>
+                        ${actionHtml}
+                        <small>${note}</small>
+                    </div>
+                `;
+            };
+
             const renderCards = (cards) => {
-                if (!appsGrid || !Array.isArray(cards) || !cards.length) {
+                if (!Array.isArray(cards) || !cards.length) {
                     return;
                 }
 
-                appsGrid.innerHTML = cards.map((card) => {
-                    const title = escapeHtml(card.title || 'Felix Platforms');
-                    const description = escapeHtml(card.description || '');
-                    const imageUrl = escapeHtml(card.imageUrl || '');
-                    const buttonLabel = escapeHtml(card.buttonLabel || 'Learn more');
-                    const buttonLink = escapeHtml(card.buttonLink || '#');
-                    const note = escapeHtml(card.note || '');
-                    const showLink = Boolean(card.buttonLink);
-                    const actionHtml = showLink
-                        ? `<a href="${buttonLink}">${buttonLabel}</a>`
-                        : `<span class="coming-soon">${card.appleBadge ? '<span class="apple-icon">🍎</span> ' : ''}${buttonLabel}</span>`;
+                const cardsById = new Map(cards.map((card) => [String(card.id || ''), card]));
+                const renderedIds = new Set();
 
-                    return `
-                        <div class="card">
-                            <img class="thumb" src="${imageUrl}" alt="${title} preview" />
-                            <h3>${title}</h3>
-                            <p>${description}</p>
-                            ${actionHtml}
-                            <small>${note}</small>
-                        </div>
-                    `;
-                }).join('');
+                Object.entries(sectionCardIds).forEach(([sectionKey, ids]) => {
+                    const grid = sectionGrids[sectionKey];
+                    if (!grid) {
+                        return;
+                    }
+
+                    const sectionCards = ids
+                        .map((id) => cardsById.get(id))
+                        .filter(Boolean);
+
+                    sectionCards.forEach((card) => renderedIds.add(String(card.id || '')));
+                    grid.innerHTML = sectionCards.map(cardToHtml).join('');
+                });
+
+                const communityGrid = sectionGrids.community;
+                if (communityGrid) {
+                    const extraCards = cards.filter((card) => !renderedIds.has(String(card.id || '')));
+                    if (extraCards.length) {
+                        communityGrid.insertAdjacentHTML('beforeend', extraCards.map(cardToHtml).join(''));
+                    }
+                }
             };
 
             const applyContent = (content) => {
