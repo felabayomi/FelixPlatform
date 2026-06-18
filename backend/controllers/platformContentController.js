@@ -10,6 +10,17 @@ const DEFAULT_HOMEPAGE_CONTENT = {
 
     cards: [
         {
+            id: 'felix-consult',
+            title: 'FelixConsult',
+            description: 'Strategic consulting, business advisory, and professional services from Felix Consulting Group — helping businesses grow with clarity and purpose.',
+            imageUrl: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=900&q=80',
+            buttonLabel: 'Visit FelixConsult',
+            buttonLink: 'https://felix-consult.vercel.app/',
+            note: 'Live at felix-consult.vercel.app',
+            comingSoon: false,
+            appleBadge: false,
+        },
+        {
             id: 'document-formatter',
             title: 'Document Formatter',
             description: 'Turn messy text into polished academic papers, business reports, and export-ready documents with the Felix Platform formatter.',
