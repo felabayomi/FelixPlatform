@@ -16,6 +16,13 @@ const coreLinks = [
 const fallbackProjectLinks = [
     { to: 'https://www.felixconsult.co/', label: 'FelixConsult', slug: 'felix-consult', publishedUrl: 'www.felixconsult.co' },
     { to: 'https://travelcenterhub.com/', label: 'Travel Center Hub', slug: 'travelcenterhub', publishedUrl: 'travelcenterhub.com' },
+    { to: 'https://web.live-loop.live/', label: 'EventLoop', slug: 'eventloop-web', publishedUrl: 'web.live-loop.live' },
+    { to: 'https://apps.apple.com/us/app/live-loop/id6760877693', label: 'Live Loop (iOS)', slug: 'live-loop-ios', publishedUrl: 'apps.apple.com' },
+    { to: 'https://apps.apple.com/us/app/streampilot/id6757970417', label: 'StreamPilot (iOS)', slug: 'streampilot-ios', publishedUrl: 'apps.apple.com' },
+    { to: 'https://citydiscoverer.app/', label: 'CityDiscoverer', slug: 'citydiscoverer-web', publishedUrl: 'citydiscoverer.app' },
+    { to: 'https://apps.apple.com/us/app/city-discoverer-companion/id6759014495', label: 'City Discoverer Companion (iOS)', slug: 'city-discoverer-ios', publishedUrl: 'apps.apple.com' },
+    { to: 'https://apps.apple.com/us/app/fanlore/id6760257973', label: 'FanLore (iOS)', slug: 'fanlore-ios', publishedUrl: 'apps.apple.com' },
+    { to: 'https://apps.apple.com/us/app/debt-to-legacy/id6760262157', label: 'FinancialReadiness (iOS)', slug: 'financial-readiness-ios', publishedUrl: 'apps.apple.com' },
     { to: '/products', label: 'Felix Store', slug: 'felix-store', publishedUrl: 'storeapp.felixplatforms.com' },
     { to: '/bookings', label: 'A & F Laundry', slug: 'aflaundry', publishedUrl: 'laundryapp.felixplatforms.com' },
     {
