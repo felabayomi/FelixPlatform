@@ -288,7 +288,7 @@ const DEFAULT_HOMEPAGE_CONTENT = {
             id: 'financial-readiness-ios',
             title: 'FinancialReadiness (Debt to Legacy)',
             description: 'FinancialReadiness for iOS provides debt planning and legacy-focused financial guidance to support healthier money decisions.',
-            imageUrl: 'https://images.unsplash.com/photo-1565514020179-026b92b2d2d1?auto=format&fit=crop&w=900&q=80',
+            imageUrl: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=900&q=80',
             buttonLabel: 'Download on App Store',
             buttonLink: 'https://apps.apple.com/us/app/debt-to-legacy/id6760262157',
             note: 'Live on iOS App Store',
