@@ -277,7 +277,7 @@ const DEFAULT_HOMEPAGE_CONTENT = {
             id: 'fanlore-ios',
             title: 'FanLore',
             description: 'FanLore for iOS helps communities discover, organize, and engage with fan knowledge, stories, and content collections.',
-            imageUrl: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=900&q=80',
+            imageUrl: 'https://marketing-sites-five.vercel.app/assets/fanlore-sports-preview.svg',
             buttonLabel: 'Download on App Store',
             buttonLink: 'https://apps.apple.com/us/app/fanlore/id6760257973',
             note: 'Live on iOS App Store',
