@@ -128,12 +128,31 @@ async function createRaceWithCandidates(race, candidates, predictions) {
 
 router.get('/races', async (_req, res) => {
     try {
-        const races = (await pool.query(`SELECT * FROM ep_races ORDER BY election_date`)).rows;
+        const races = (await pool.query(`SELECT * FROM ep_races`)).rows;
         const racesWithData = await Promise.all(races.map(async (r) => ({
             race: mapRace(r),
             candidates: await getCandidatesByRace(r.id),
             predictions: await getPredictionsByRace(r.id),
         })));
+
+        racesWithData.sort((a, b) => {
+            const latestA = a.predictions.reduce((max, p) => {
+                const t = Date.parse(p.lastUpdated);
+                return Number.isNaN(t) ? max : Math.max(max, t);
+            }, 0);
+
+            const latestB = b.predictions.reduce((max, p) => {
+                const t = Date.parse(p.lastUpdated);
+                return Number.isNaN(t) ? max : Math.max(max, t);
+            }, 0);
+
+            if (latestA !== latestB) return latestB - latestA;
+
+            const electionA = Date.parse(a.race.electionDate);
+            const electionB = Date.parse(b.race.electionDate);
+            return (Number.isNaN(electionB) ? 0 : electionB) - (Number.isNaN(electionA) ? 0 : electionA);
+        });
+
         res.json(racesWithData);
     } catch (err) { res.status(500).json({ error: 'Failed to fetch races' }); }
 });
