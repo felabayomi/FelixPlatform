@@ -326,6 +326,18 @@ function inferRaceTypeFromText(input) {
     return 'Local';
 }
 
+function inferElectionDateFromText(input) {
+    const text = String(input || '');
+    const yearMatch = text.match(/\b(20\d{2})\b/);
+    if (yearMatch) {
+        const inferredYear = Number(yearMatch[1]);
+        // Use a stable default election season date when only the year is known.
+        return `${inferredYear}-11-05T00:00:00.000Z`;
+    }
+
+    return new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+}
+
 async function getCandidatesByRace(raceId) {
     const res = await pool.query(
         `SELECT c.* FROM ep_candidates c JOIN ep_race_candidates rc ON rc.candidate_id = c.id WHERE rc.race_id = $1`,
@@ -532,7 +544,7 @@ router.post('/custom-prediction',
             const raceId = randomUUID();
             const race = {
                 id: raceId, type: selectedRaceType, title: raceTitle?.trim() || 'Custom Race Analysis',
-                electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), description: 'Custom race via manual entry'
+                electionDate: inferElectionDateFromText(raceTitle), description: 'Custom race via manual entry'
             };
 
             const newCandidates = normalized.map(c => ({ id: randomUUID(), name: c.name, party: c.party }));
@@ -578,7 +590,7 @@ router.post('/natural-language-analysis',
             const inferredRaceType = inferRaceTypeFromText(`${query} ${result.raceTitle}`);
             const race = {
                 id: raceId, type: inferredRaceType, title: result.raceTitle,
-                electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                electionDate: inferElectionDateFromText(`${query} ${result.raceTitle}`),
                 description: `AI analysis from query: "${query.substring(0, 100)}"`
             };
 
