@@ -52,6 +52,16 @@ function mapPrediction(r) {
     };
 }
 
+function inferRaceTypeFromText(input) {
+    const text = String(input || '').toLowerCase();
+    if (/president|presidential|white\s+house/.test(text)) return 'Presidential';
+    if (/senate|senator/.test(text)) return 'Senate';
+    if (/house|congressional|representative\b/.test(text)) return 'House';
+    if (/governor|gubernatorial/.test(text)) return 'Governor';
+    if (/mayor|city\s+council|county|school\s+board|local/.test(text)) return 'Local';
+    return 'Local';
+}
+
 async function getCandidatesByRace(raceId) {
     const res = await pool.query(
         `SELECT c.* FROM ep_candidates c JOIN ep_race_candidates rc ON rc.candidate_id = c.id WHERE rc.race_id = $1`,
@@ -73,9 +83,9 @@ async function upsertPrediction(p) {
            win_probability=$3, confidence_interval_low=$4, confidence_interval_high=$5,
            factors=$6, last_updated=$7, methodology=$8, ai_analysis=$9`,
         [p.raceId, p.candidateId, p.winProbability,
-         p.confidenceInterval.low, p.confidenceInterval.high,
-         JSON.stringify(p.factors), p.lastUpdated || new Date().toISOString(),
-         p.methodology, p.aiAnalysis || null]
+        p.confidenceInterval.low, p.confidenceInterval.high,
+        JSON.stringify(p.factors), p.lastUpdated || new Date().toISOString(),
+        p.methodology, p.aiAnalysis || null]
     );
 }
 
@@ -102,7 +112,7 @@ async function createRaceWithCandidates(race, candidates, predictions) {
                 `INSERT INTO ep_predictions (race_id, candidate_id, win_probability, confidence_interval_low, confidence_interval_high, factors, last_updated, methodology)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
                 [p.raceId, p.candidateId, p.winProbability, p.confidenceInterval.low, p.confidenceInterval.high,
-                 JSON.stringify(p.factors), p.lastUpdated || new Date().toISOString(), p.methodology]
+                JSON.stringify(p.factors), p.lastUpdated || new Date().toISOString(), p.methodology]
             );
         }
         await client.query('COMMIT');
@@ -184,7 +194,7 @@ router.post('/compare', async (req, res) => {
         const prediction1 = mapPrediction(p1Row);
         const prediction2 = mapPrediction(p2Row);
 
-        const factorKeys = ['partisanLean','polling','candidateExperience','fundraising','nameRecognition','endorsements','issueAlignment','momentum'];
+        const factorKeys = ['partisanLean', 'polling', 'candidateExperience', 'fundraising', 'nameRecognition', 'endorsements', 'issueAlignment', 'momentum'];
         const factorLabels = {
             partisanLean: 'Partisan Lean / Demographics', polling: 'Polling Average',
             candidateExperience: 'Candidate Experience / Incumbency', fundraising: 'Fundraising / Campaign Resources',
@@ -206,28 +216,39 @@ router.post('/compare', async (req, res) => {
 
 router.post('/custom-prediction', async (req, res) => {
     try {
-        const { candidates, raceTitle } = req.body;
+        const { candidates, raceTitle, raceType } = req.body;
         if (!Array.isArray(candidates) || candidates.length < 2) return res.status(400).json({ error: 'At least 2 candidates required' });
 
         const normalized = candidates.map(c => ({ name: c.name?.trim(), party: c.party })).filter(c => c.name && c.party);
         const names = normalized.map(c => c.name.toLowerCase());
         if (new Set(names).size !== names.length) return res.status(400).json({ error: 'All candidates must be different' });
 
+        const allowedRaceTypes = ['Presidential', 'Senate', 'House', 'Governor', 'Local'];
+        const selectedRaceType = allowedRaceTypes.includes(raceType)
+            ? raceType
+            : inferRaceTypeFromText(raceTitle);
+
         const result = await generateCustomPrediction(normalized, raceTitle?.trim() || 'Custom Race');
         const raceId = randomUUID();
-        const race = { id: raceId, type: 'Senate', title: raceTitle?.trim() || 'Custom Race Analysis',
-            electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), description: 'Custom race via manual entry' };
+        const race = {
+            id: raceId, type: selectedRaceType, title: raceTitle?.trim() || 'Custom Race Analysis',
+            electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), description: 'Custom race via manual entry'
+        };
 
         const newCandidates = normalized.map(c => ({ id: randomUUID(), name: c.name, party: c.party }));
         const predictions = newCandidates.map(c => {
             const predData = result.predictions[c.name];
-            if (!predData) return { raceId, candidateId: c.id, winProbability: 50,
+            if (!predData) return {
+                raceId, candidateId: c.id, winProbability: 50,
                 confidenceInterval: { low: 40, high: 60 },
-                factors: { partisanLean:50,polling:50,candidateExperience:50,fundraising:50,nameRecognition:50,endorsements:50,issueAlignment:50,momentum:50 },
-                lastUpdated: new Date().toISOString(), methodology: 'AI-powered custom prediction (default)' };
-            return { raceId, candidateId: c.id, winProbability: predData.probability,
+                factors: { partisanLean: 50, polling: 50, candidateExperience: 50, fundraising: 50, nameRecognition: 50, endorsements: 50, issueAlignment: 50, momentum: 50 },
+                lastUpdated: new Date().toISOString(), methodology: 'AI-powered custom prediction (default)'
+            };
+            return {
+                raceId, candidateId: c.id, winProbability: predData.probability,
                 confidenceInterval: { low: Math.max(0, predData.probability - 10), high: Math.min(100, predData.probability + 10) },
-                factors: predData.factors, lastUpdated: new Date().toISOString(), methodology: 'AI-powered custom prediction' };
+                factors: predData.factors, lastUpdated: new Date().toISOString(), methodology: 'AI-powered custom prediction'
+            };
         });
 
         await createRaceWithCandidates(race, newCandidates, predictions);
@@ -244,20 +265,27 @@ router.post('/natural-language-analysis', async (req, res) => {
         if (!result.candidates || result.candidates.length === 0) return res.status(400).json({ error: 'Could not extract candidates from query.' });
 
         const raceId = randomUUID();
-        const race = { id: raceId, type: 'Senate', title: result.raceTitle,
+        const inferredRaceType = inferRaceTypeFromText(`${query} ${result.raceTitle}`);
+        const race = {
+            id: raceId, type: inferredRaceType, title: result.raceTitle,
             electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            description: `AI analysis from query: "${query.substring(0, 100)}"` };
+            description: `AI analysis from query: "${query.substring(0, 100)}"`
+        };
 
         const newCandidates = result.candidates.map(c => ({ id: randomUUID(), name: c.name.trim(), party: c.party }));
         const predictions = newCandidates.map(c => {
             const predData = result.predictions?.[c.name];
-            if (!predData) return { raceId, candidateId: c.id, winProbability: 50,
+            if (!predData) return {
+                raceId, candidateId: c.id, winProbability: 50,
                 confidenceInterval: { low: 40, high: 60 },
-                factors: { partisanLean:50,polling:50,candidateExperience:50,fundraising:50,nameRecognition:50,endorsements:50,issueAlignment:50,momentum:50 },
-                lastUpdated: new Date().toISOString(), methodology: 'AI natural language analysis (default)' };
-            return { raceId, candidateId: c.id, winProbability: predData.probability,
+                factors: { partisanLean: 50, polling: 50, candidateExperience: 50, fundraising: 50, nameRecognition: 50, endorsements: 50, issueAlignment: 50, momentum: 50 },
+                lastUpdated: new Date().toISOString(), methodology: 'AI natural language analysis (default)'
+            };
+            return {
+                raceId, candidateId: c.id, winProbability: predData.probability,
                 confidenceInterval: { low: Math.max(0, predData.probability - 8), high: Math.min(100, predData.probability + 8) },
-                factors: predData.factors, lastUpdated: new Date().toISOString(), methodology: 'AI natural language analysis' };
+                factors: predData.factors, lastUpdated: new Date().toISOString(), methodology: 'AI natural language analysis'
+            };
         });
 
         await createRaceWithCandidates(race, newCandidates, predictions);
@@ -290,7 +318,7 @@ router.put('/admin/races/:id', async (req, res) => {
         const row = (await pool.query(
             `UPDATE ep_races SET type=COALESCE($2,type), title=COALESCE($3,title), state=$4, district=$5,
              election_date=COALESCE($6,election_date), description=$7 WHERE id=$1 RETURNING *`,
-            [req.params.id, type||null, title||null, state||null, district||null, electionDate||null, description||null]
+            [req.params.id, type || null, title || null, state || null, district || null, electionDate || null, description || null]
         )).rows[0];
         if (!row) return res.status(404).json({ error: 'Race not found' });
         res.json(mapRace(row));
@@ -342,8 +370,8 @@ router.post('/admin/races/:raceId/candidates', async (req, res) => {
         await pool.query(
             `INSERT INTO ep_candidates (id, name, party, photo_url, position, district, state, polling_average, fundraising_total, is_incumbent, years_experience, major_endorsements)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-            [id, name, party, photoUrl||null, position||null, district||null, state||null,
-             pollingAverage??null, fundraisingTotal??null, isIncumbent?1:0, yearsExperience??null, majorEndorsements??null]
+            [id, name, party, photoUrl || null, position || null, district || null, state || null,
+                pollingAverage ?? null, fundraisingTotal ?? null, isIncumbent ? 1 : 0, yearsExperience ?? null, majorEndorsements ?? null]
         );
         await pool.query(`INSERT INTO ep_race_candidates (race_id, candidate_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [req.params.raceId, id]);
         const row = (await pool.query(`SELECT * FROM ep_candidates WHERE id=$1`, [id])).rows[0];
@@ -363,8 +391,8 @@ router.put('/admin/candidates/:id', async (req, res) => {
             `UPDATE ep_candidates SET name=COALESCE($2,name), party=COALESCE($3,party), photo_url=$4, position=$5,
              district=$6, state=$7, polling_average=$8, fundraising_total=$9, is_incumbent=$10, years_experience=$11, major_endorsements=$12
              WHERE id=$1 RETURNING *`,
-            [req.params.id, name||null, party||null, photoUrl||null, position||null, district||null, state||null,
-             pollingAverage??null, fundraisingTotal??null, isIncumbent!==undefined?isIncumbent?1:0:null, yearsExperience??null, majorEndorsements??null]
+            [req.params.id, name || null, party || null, photoUrl || null, position || null, district || null, state || null,
+            pollingAverage ?? null, fundraisingTotal ?? null, isIncumbent !== undefined ? isIncumbent ? 1 : 0 : null, yearsExperience ?? null, majorEndorsements ?? null]
         )).rows[0];
         if (!row) return res.status(404).json({ error: 'Candidate not found' });
         res.json(mapCandidate(row));
@@ -396,7 +424,7 @@ router.put('/admin/featured-matchups/:id', async (req, res) => {
         const { title, description, url, displayOrder } = req.body;
         const row = (await pool.query(
             `UPDATE ep_featured_matchups SET title=COALESCE($2,title), description=COALESCE($3,description), url=COALESCE($4,url), display_order=COALESCE($5,display_order) WHERE id=$1 RETURNING *`,
-            [req.params.id, title||null, description||null, url||null, displayOrder??null]
+            [req.params.id, title || null, description || null, url || null, displayOrder ?? null]
         )).rows[0];
         if (!row) return res.status(404).json({ error: 'Matchup not found' });
         res.json({ id: row.id, title: row.title, description: row.description, url: row.url, displayOrder: row.display_order, createdAt: row.created_at });
