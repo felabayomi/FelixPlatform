@@ -72,6 +72,33 @@ async function _run() {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ep_subscriber_subscriptions (
+            email TEXT PRIMARY KEY,
+            status TEXT NOT NULL DEFAULT 'inactive',
+            plan_key TEXT,
+            daily_prediction_quota INTEGER NOT NULL DEFAULT 40,
+            current_period_end TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS ep_prediction_usage_daily (
+            email TEXT NOT NULL REFERENCES ep_subscriber_subscriptions(email) ON DELETE CASCADE,
+            usage_date DATE NOT NULL DEFAULT CURRENT_DATE,
+            request_count INTEGER NOT NULL DEFAULT 0,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (email, usage_date)
+        )
+    `);
+
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_ep_subscriber_status
+        ON ep_subscriber_subscriptions(status)
+    `);
 }
 
 module.exports = ensureElectionPredictorSchema;

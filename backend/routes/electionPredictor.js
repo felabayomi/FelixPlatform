@@ -9,6 +9,7 @@ const FACTOR_KEYS = ['partisanLean', 'polling', 'candidateExperience', 'fundrais
 const rateLimitBuckets = new Map();
 const abuseStrikes = new Map();
 const temporaryBlocks = new Map();
+const ACTIVE_SUBSCRIPTION_STATUSES = ['active', 'paid', 'trialing', 'approved', 'current'];
 
 function nowMs() {
     return Date.now();
@@ -18,6 +19,122 @@ function identifyClient(req) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const subscriber = String(req.headers['x-subscriber-email'] || '').toLowerCase().trim();
     return `${ip}|${subscriber}`;
+}
+
+function normalizeEmail(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+async function getActiveSubscriberByEmail(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) return null;
+
+    const result = await pool.query(
+        `SELECT email, status, plan_key, daily_prediction_quota, current_period_end
+         FROM ep_subscriber_subscriptions
+         WHERE email = $1
+           AND LOWER(COALESCE(status, '')) = ANY($2::text[])
+           AND (current_period_end IS NULL OR current_period_end >= NOW())
+         LIMIT 1`,
+        [normalizedEmail, ACTIVE_SUBSCRIPTION_STATUSES],
+    );
+
+    return result.rows[0] || null;
+}
+
+async function consumeSubscriberDailyQuota(email, quotaCost = 1) {
+    const normalizedEmail = normalizeEmail(email);
+    const defaultQuota = Number(process.env.EP_DEFAULT_DAILY_QUOTA || 40);
+
+    const subscriber = await getActiveSubscriberByEmail(normalizedEmail);
+    if (!subscriber) {
+        return { allowed: false, reason: 'subscription_required' };
+    }
+
+    const dailyQuota = Number(subscriber.daily_prediction_quota) > 0
+        ? Number(subscriber.daily_prediction_quota)
+        : defaultQuota;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const usageResult = await client.query(
+            `SELECT request_count
+             FROM ep_prediction_usage_daily
+             WHERE email = $1 AND usage_date = CURRENT_DATE
+             FOR UPDATE`,
+            [normalizedEmail],
+        );
+
+        const currentCount = Number(usageResult.rows[0]?.request_count || 0);
+        const projected = currentCount + quotaCost;
+
+        if (projected > dailyQuota) {
+            await client.query('ROLLBACK');
+            return {
+                allowed: false,
+                reason: 'quota_exceeded',
+                quota: dailyQuota,
+                remaining: Math.max(0, dailyQuota - currentCount),
+            };
+        }
+
+        await client.query(
+            `INSERT INTO ep_prediction_usage_daily (email, usage_date, request_count, updated_at)
+             VALUES ($1, CURRENT_DATE, $2, NOW())
+             ON CONFLICT (email, usage_date)
+             DO UPDATE SET
+               request_count = ep_prediction_usage_daily.request_count + EXCLUDED.request_count,
+               updated_at = NOW()`,
+            [normalizedEmail, quotaCost],
+        );
+
+        await client.query('COMMIT');
+        return {
+            allowed: true,
+            quota: dailyQuota,
+            remaining: Math.max(0, dailyQuota - projected),
+            email: normalizedEmail,
+            plan: subscriber.plan_key || 'default',
+        };
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+function requireSubscriberQuota(quotaCost = 1) {
+    return async (req, res, next) => {
+        try {
+            const email = normalizeEmail(req.headers['x-subscriber-email']);
+            if (!email) {
+                return res.status(401).json({ error: 'Subscriber email is required.' });
+            }
+
+            const quota = await consumeSubscriberDailyQuota(email, quotaCost);
+            if (!quota.allowed) {
+                if (quota.reason === 'subscription_required') {
+                    return res.status(402).json({ error: 'Active subscription required.' });
+                }
+
+                return res.status(429).json({
+                    error: 'Daily subscriber quota exceeded.',
+                    quota: quota.quota,
+                    remaining: quota.remaining,
+                });
+            }
+
+            res.setHeader('x-ep-quota-limit', String(quota.quota));
+            res.setHeader('x-ep-quota-remaining', String(quota.remaining));
+            next();
+        } catch (error) {
+            console.error('Failed subscriber quota check:', error);
+            res.status(500).json({ error: 'Failed to validate subscriber quota.' });
+        }
+    };
 }
 
 function createPredictionRateLimit({ keyPrefix, windowMs, maxRequests }) {
@@ -288,165 +405,167 @@ router.post('/compare',
     createPredictionRateLimit({ keyPrefix: 'ep:compare', windowMs: 60 * 1000, maxRequests: 20 }),
     validatePredictionInput,
     async (req, res) => {
-    try {
-        const { candidate1Id, candidate2Id } = req.body;
-        if (!candidate1Id || !candidate2Id) return res.status(400).json({ error: 'Both candidate IDs are required' });
+        try {
+            const { candidate1Id, candidate2Id } = req.body;
+            if (!candidate1Id || !candidate2Id) return res.status(400).json({ error: 'Both candidate IDs are required' });
 
-        const c1Row = (await pool.query(`SELECT * FROM ep_candidates WHERE id=$1`, [candidate1Id])).rows[0];
-        const c2Row = (await pool.query(`SELECT * FROM ep_candidates WHERE id=$1`, [candidate2Id])).rows[0];
-        if (!c1Row || !c2Row) return res.status(404).json({ error: 'One or both candidates not found' });
+            const c1Row = (await pool.query(`SELECT * FROM ep_candidates WHERE id=$1`, [candidate1Id])).rows[0];
+            const c2Row = (await pool.query(`SELECT * FROM ep_candidates WHERE id=$1`, [candidate2Id])).rows[0];
+            if (!c1Row || !c2Row) return res.status(404).json({ error: 'One or both candidates not found' });
 
-        // Find shared race
-        const raceRes = await pool.query(
-            `SELECT rc1.race_id FROM ep_race_candidates rc1 JOIN ep_race_candidates rc2 ON rc1.race_id=rc2.race_id WHERE rc1.candidate_id=$1 AND rc2.candidate_id=$2 LIMIT 1`,
-            [candidate1Id, candidate2Id]
-        );
-        if (!raceRes.rows[0]) return res.status(400).json({ error: 'Candidates are not in the same race' });
+            // Find shared race
+            const raceRes = await pool.query(
+                `SELECT rc1.race_id FROM ep_race_candidates rc1 JOIN ep_race_candidates rc2 ON rc1.race_id=rc2.race_id WHERE rc1.candidate_id=$1 AND rc2.candidate_id=$2 LIMIT 1`,
+                [candidate1Id, candidate2Id]
+            );
+            if (!raceRes.rows[0]) return res.status(400).json({ error: 'Candidates are not in the same race' });
 
-        const raceId = raceRes.rows[0].race_id;
-        const raceRow = (await pool.query(`SELECT * FROM ep_races WHERE id=$1`, [raceId])).rows[0];
-        const p1Row = (await pool.query(`SELECT * FROM ep_predictions WHERE race_id=$1 AND candidate_id=$2`, [raceId, candidate1Id])).rows[0];
-        const p2Row = (await pool.query(`SELECT * FROM ep_predictions WHERE race_id=$1 AND candidate_id=$2`, [raceId, candidate2Id])).rows[0];
-        if (!raceRow || !p1Row || !p2Row) return res.status(404).json({ error: 'Prediction data not found' });
+            const raceId = raceRes.rows[0].race_id;
+            const raceRow = (await pool.query(`SELECT * FROM ep_races WHERE id=$1`, [raceId])).rows[0];
+            const p1Row = (await pool.query(`SELECT * FROM ep_predictions WHERE race_id=$1 AND candidate_id=$2`, [raceId, candidate1Id])).rows[0];
+            const p2Row = (await pool.query(`SELECT * FROM ep_predictions WHERE race_id=$1 AND candidate_id=$2`, [raceId, candidate2Id])).rows[0];
+            if (!raceRow || !p1Row || !p2Row) return res.status(404).json({ error: 'Prediction data not found' });
 
-        const candidate1 = mapCandidate(c1Row);
-        const candidate2 = mapCandidate(c2Row);
-        const prediction1 = mapPrediction(p1Row);
-        const prediction2 = mapPrediction(p2Row);
+            const candidate1 = mapCandidate(c1Row);
+            const candidate2 = mapCandidate(c2Row);
+            const prediction1 = mapPrediction(p1Row);
+            const prediction2 = mapPrediction(p2Row);
 
-        const factorKeys = ['partisanLean', 'polling', 'candidateExperience', 'fundraising', 'nameRecognition', 'endorsements', 'issueAlignment', 'momentum'];
-        const factorLabels = {
-            partisanLean: 'Partisan Lean / Demographics', polling: 'Polling Average',
-            candidateExperience: 'Candidate Experience / Incumbency', fundraising: 'Fundraising / Campaign Resources',
-            nameRecognition: 'Name Recognition / Public Visibility', endorsements: 'Endorsements / Party Support',
-            issueAlignment: 'Issue Alignment / Ideology Fit', momentum: 'Momentum / Public Engagement',
-        };
+            const factorKeys = ['partisanLean', 'polling', 'candidateExperience', 'fundraising', 'nameRecognition', 'endorsements', 'issueAlignment', 'momentum'];
+            const factorLabels = {
+                partisanLean: 'Partisan Lean / Demographics', polling: 'Polling Average',
+                candidateExperience: 'Candidate Experience / Incumbency', fundraising: 'Fundraising / Campaign Resources',
+                nameRecognition: 'Name Recognition / Public Visibility', endorsements: 'Endorsements / Party Support',
+                issueAlignment: 'Issue Alignment / Ideology Fit', momentum: 'Momentum / Public Engagement',
+            };
 
-        const factorComparison = factorKeys.map(factor => ({
-            factor, label: factorLabels[factor],
-            candidate1Score: prediction1.factors[factor],
-            candidate2Score: prediction2.factors[factor],
-            advantage: prediction1.factors[factor] > prediction2.factors[factor] ? candidate1.name : candidate2.name,
-        }));
+            const factorComparison = factorKeys.map(factor => ({
+                factor, label: factorLabels[factor],
+                candidate1Score: prediction1.factors[factor],
+                candidate2Score: prediction2.factors[factor],
+                advantage: prediction1.factors[factor] > prediction2.factors[factor] ? candidate1.name : candidate2.name,
+            }));
 
-        const aiInsights = await generateComparisonInsights(candidate1.name, candidate2.name, mapRace(raceRow).title, factorComparison);
-        res.json({
-            candidate1,
-            candidate2,
-            race: mapRace(raceRow),
-            prediction1: sanitizePredictionForClient(prediction1),
-            prediction2: sanitizePredictionForClient(prediction2),
-            factorComparison: factorComparison.map((f) => ({
-                ...f,
-                candidate1Score: roundTo(f.candidate1Score, 1),
-                candidate2Score: roundTo(f.candidate2Score, 1),
-            })),
-            aiInsights,
-        });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate comparison' }); }
-});
+            const aiInsights = await generateComparisonInsights(candidate1.name, candidate2.name, mapRace(raceRow).title, factorComparison);
+            res.json({
+                candidate1,
+                candidate2,
+                race: mapRace(raceRow),
+                prediction1: sanitizePredictionForClient(prediction1),
+                prediction2: sanitizePredictionForClient(prediction2),
+                factorComparison: factorComparison.map((f) => ({
+                    ...f,
+                    candidate1Score: roundTo(f.candidate1Score, 1),
+                    candidate2Score: roundTo(f.candidate2Score, 1),
+                })),
+                aiInsights,
+            });
+        } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate comparison' }); }
+    });
 
 router.post('/custom-prediction',
     createPredictionRateLimit({ keyPrefix: 'ep:custom', windowMs: 60 * 1000, maxRequests: 12 }),
+    requireSubscriberQuota(1),
     validatePredictionInput,
     async (req, res) => {
-    try {
-        const { candidates, raceTitle, raceType } = req.body;
-        if (!Array.isArray(candidates) || candidates.length < 2) return res.status(400).json({ error: 'At least 2 candidates required' });
+        try {
+            const { candidates, raceTitle, raceType } = req.body;
+            if (!Array.isArray(candidates) || candidates.length < 2) return res.status(400).json({ error: 'At least 2 candidates required' });
 
-        const normalized = candidates.map(c => ({ name: c.name?.trim(), party: c.party })).filter(c => c.name && c.party);
-        const names = normalized.map(c => c.name.toLowerCase());
-        if (new Set(names).size !== names.length) return res.status(400).json({ error: 'All candidates must be different' });
+            const normalized = candidates.map(c => ({ name: c.name?.trim(), party: c.party })).filter(c => c.name && c.party);
+            const names = normalized.map(c => c.name.toLowerCase());
+            if (new Set(names).size !== names.length) return res.status(400).json({ error: 'All candidates must be different' });
 
-        const allowedRaceTypes = ['Presidential', 'Senate', 'House', 'Governor', 'Local'];
-        const selectedRaceType = allowedRaceTypes.includes(raceType)
-            ? raceType
-            : inferRaceTypeFromText(raceTitle);
+            const allowedRaceTypes = ['Presidential', 'Senate', 'House', 'Governor', 'Local'];
+            const selectedRaceType = allowedRaceTypes.includes(raceType)
+                ? raceType
+                : inferRaceTypeFromText(raceTitle);
 
-        const result = await generateCustomPrediction(normalized, raceTitle?.trim() || 'Custom Race');
-        const raceId = randomUUID();
-        const race = {
-            id: raceId, type: selectedRaceType, title: raceTitle?.trim() || 'Custom Race Analysis',
-            electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), description: 'Custom race via manual entry'
-        };
-
-        const newCandidates = normalized.map(c => ({ id: randomUUID(), name: c.name, party: c.party }));
-        const predictions = newCandidates.map(c => {
-            const predData = result.predictions[c.name];
-            if (!predData) return {
-                raceId, candidateId: c.id, winProbability: 50,
-                confidenceInterval: { low: 40, high: 60 },
-                factors: { partisanLean: 50, polling: 50, candidateExperience: 50, fundraising: 50, nameRecognition: 50, endorsements: 50, issueAlignment: 50, momentum: 50 },
-                lastUpdated: new Date().toISOString(), methodology: 'AI-powered custom prediction (default)'
+            const result = await generateCustomPrediction(normalized, raceTitle?.trim() || 'Custom Race');
+            const raceId = randomUUID();
+            const race = {
+                id: raceId, type: selectedRaceType, title: raceTitle?.trim() || 'Custom Race Analysis',
+                electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), description: 'Custom race via manual entry'
             };
-            return {
-                raceId, candidateId: c.id, winProbability: predData.probability,
-                confidenceInterval: { low: Math.max(0, predData.probability - 10), high: Math.min(100, predData.probability + 10) },
-                factors: predData.factors, lastUpdated: new Date().toISOString(), methodology: 'AI-powered custom prediction'
-            };
-        });
 
-        await createRaceWithCandidates(race, newCandidates, predictions);
-        res.json({
-            raceId,
-            title: race.title,
-            candidates: newCandidates,
-            predictions: sanitizePredictionsForClient(predictions),
-            analysis: result.analysis,
-        });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate prediction' }); }
-});
+            const newCandidates = normalized.map(c => ({ id: randomUUID(), name: c.name, party: c.party }));
+            const predictions = newCandidates.map(c => {
+                const predData = result.predictions[c.name];
+                if (!predData) return {
+                    raceId, candidateId: c.id, winProbability: 50,
+                    confidenceInterval: { low: 40, high: 60 },
+                    factors: { partisanLean: 50, polling: 50, candidateExperience: 50, fundraising: 50, nameRecognition: 50, endorsements: 50, issueAlignment: 50, momentum: 50 },
+                    lastUpdated: new Date().toISOString(), methodology: 'AI-powered custom prediction (default)'
+                };
+                return {
+                    raceId, candidateId: c.id, winProbability: predData.probability,
+                    confidenceInterval: { low: Math.max(0, predData.probability - 10), high: Math.min(100, predData.probability + 10) },
+                    factors: predData.factors, lastUpdated: new Date().toISOString(), methodology: 'AI-powered custom prediction'
+                };
+            });
+
+            await createRaceWithCandidates(race, newCandidates, predictions);
+            res.json({
+                raceId,
+                title: race.title,
+                candidates: newCandidates,
+                predictions: sanitizePredictionsForClient(predictions),
+                analysis: result.analysis,
+            });
+        } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate prediction' }); }
+    });
 
 router.post('/natural-language-analysis',
     createPredictionRateLimit({ keyPrefix: 'ep:nl', windowMs: 60 * 1000, maxRequests: 10 }),
+    requireSubscriberQuota(1),
     validatePredictionInput,
     async (req, res) => {
-    try {
-        const { query } = req.body;
-        if (!query || typeof query !== 'string' || !query.trim()) return res.status(400).json({ error: 'Query is required' });
+        try {
+            const { query } = req.body;
+            if (!query || typeof query !== 'string' || !query.trim()) return res.status(400).json({ error: 'Query is required' });
 
-        const result = await analyzeNaturalLanguageQuery(query.trim());
-        if (!result.candidates || result.candidates.length === 0) return res.status(400).json({ error: 'Could not extract candidates from query.' });
+            const result = await analyzeNaturalLanguageQuery(query.trim());
+            if (!result.candidates || result.candidates.length === 0) return res.status(400).json({ error: 'Could not extract candidates from query.' });
 
-        const raceId = randomUUID();
-        const inferredRaceType = inferRaceTypeFromText(`${query} ${result.raceTitle}`);
-        const race = {
-            id: raceId, type: inferredRaceType, title: result.raceTitle,
-            electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            description: `AI analysis from query: "${query.substring(0, 100)}"`
-        };
-
-        const newCandidates = result.candidates.map(c => ({ id: randomUUID(), name: c.name.trim(), party: c.party }));
-        const predictions = newCandidates.map(c => {
-            const predData = result.predictions?.[c.name];
-            if (!predData) return {
-                raceId, candidateId: c.id, winProbability: 50,
-                confidenceInterval: { low: 40, high: 60 },
-                factors: { partisanLean: 50, polling: 50, candidateExperience: 50, fundraising: 50, nameRecognition: 50, endorsements: 50, issueAlignment: 50, momentum: 50 },
-                lastUpdated: new Date().toISOString(), methodology: 'AI natural language analysis (default)'
+            const raceId = randomUUID();
+            const inferredRaceType = inferRaceTypeFromText(`${query} ${result.raceTitle}`);
+            const race = {
+                id: raceId, type: inferredRaceType, title: result.raceTitle,
+                electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                description: `AI analysis from query: "${query.substring(0, 100)}"`
             };
-            return {
-                raceId, candidateId: c.id, winProbability: predData.probability,
-                confidenceInterval: { low: Math.max(0, predData.probability - 8), high: Math.min(100, predData.probability + 8) },
-                factors: predData.factors, lastUpdated: new Date().toISOString(), methodology: 'AI natural language analysis'
-            };
-        });
 
-        await createRaceWithCandidates(race, newCandidates, predictions);
-        res.json({
-            raceId,
-            query,
-            raceTitle: result.raceTitle,
-            candidates: newCandidates,
-            predictions: sanitizePredictionsForClient(predictions),
-            analysis: result.analysis,
-        });
-    } catch (err) {
-        console.error(err);
-        if (err.message?.startsWith('FACT_FINDING_QUESTION:')) return res.status(400).json({ error: err.message });
-        res.status(500).json({ error: 'Failed to analyze query' });
-    }
-});
+            const newCandidates = result.candidates.map(c => ({ id: randomUUID(), name: c.name.trim(), party: c.party }));
+            const predictions = newCandidates.map(c => {
+                const predData = result.predictions?.[c.name];
+                if (!predData) return {
+                    raceId, candidateId: c.id, winProbability: 50,
+                    confidenceInterval: { low: 40, high: 60 },
+                    factors: { partisanLean: 50, polling: 50, candidateExperience: 50, fundraising: 50, nameRecognition: 50, endorsements: 50, issueAlignment: 50, momentum: 50 },
+                    lastUpdated: new Date().toISOString(), methodology: 'AI natural language analysis (default)'
+                };
+                return {
+                    raceId, candidateId: c.id, winProbability: predData.probability,
+                    confidenceInterval: { low: Math.max(0, predData.probability - 8), high: Math.min(100, predData.probability + 8) },
+                    factors: predData.factors, lastUpdated: new Date().toISOString(), methodology: 'AI natural language analysis'
+                };
+            });
+
+            await createRaceWithCandidates(race, newCandidates, predictions);
+            res.json({
+                raceId,
+                query,
+                raceTitle: result.raceTitle,
+                candidates: newCandidates,
+                predictions: sanitizePredictionsForClient(predictions),
+                analysis: result.analysis,
+            });
+        } catch (err) {
+            console.error(err);
+            if (err.message?.startsWith('FACT_FINDING_QUESTION:')) return res.status(400).json({ error: err.message });
+            res.status(500).json({ error: 'Failed to analyze query' });
+        }
+    });
 
 // ─── Admin Routes ─────────────────────────────────────────────────────────────
 
