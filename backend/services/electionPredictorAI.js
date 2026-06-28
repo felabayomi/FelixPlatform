@@ -4,6 +4,8 @@ const openai = new OpenAI({
     apiKey: process.env.ELECTION_PREDICTOR_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
 });
 
+const REANALYSIS_MODEL = process.env.ELECTION_PREDICTOR_REANALYSIS_MODEL || 'gpt-4.1-mini';
+
 function normalizeUniqueProbabilities(weightedScores) {
     const SCALE = 10;
     const MIN_PROB = 1;
@@ -238,7 +240,7 @@ CRITICAL: Each candidate MUST have a UNIQUE probability. Sum to ~100.`;
 
     try {
         const response = await openai.chat.completions.create({
-            model: 'gpt-4.1-mini',
+            model: REANALYSIS_MODEL,
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 2000,
         });
@@ -248,6 +250,7 @@ CRITICAL: Each candidate MUST have a UNIQUE probability. Sum to ~100.`;
                 predictions: generateDeterministicPredictions(candidates),
                 mode: 'fallback',
                 fallbackReason: 'empty_ai_response',
+                model: REANALYSIS_MODEL,
             };
         }
         if (content.trim().startsWith('```')) content = content.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
@@ -257,12 +260,14 @@ CRITICAL: Each candidate MUST have a UNIQUE probability. Sum to ~100.`;
                 predictions: generateDeterministicPredictions(candidates),
                 mode: 'fallback',
                 fallbackReason: 'missing_predictions',
+                model: REANALYSIS_MODEL,
             };
         }
 
         return {
             predictions: result.predictions,
             mode: 'ai',
+            model: REANALYSIS_MODEL,
         };
     } catch (error) {
         console.error('[EP] reanalyzeRace error:', error);
@@ -270,6 +275,7 @@ CRITICAL: Each candidate MUST have a UNIQUE probability. Sum to ~100.`;
             predictions: generateDeterministicPredictions(candidates),
             mode: 'fallback',
             fallbackReason: 'openai_error',
+            model: REANALYSIS_MODEL,
         };
     }
 }

@@ -843,17 +843,55 @@ router.post('/admin/races/:id/reanalyze', async (req, res) => {
         const unchangedCandidates = deltas.filter((item) => item.previousWinProbability != null && item.delta < 0.1).length;
         const maxDelta = deltas.length > 0 ? Math.max(...deltas.map((item) => item.delta)) : 0;
 
+        const factorChecks = updatedPredictions.map((prediction) => {
+            const factors = prediction.factors || {};
+            const missingFactors = FACTOR_KEYS.filter((key) => !Number.isFinite(Number(factors[key])));
+            const outOfRangeFactors = FACTOR_KEYS.filter((key) => {
+                const value = Number(factors[key]);
+                return Number.isFinite(value) && (value < 0 || value > 100);
+            });
+
+            return {
+                candidateId: prediction.candidateId,
+                missingFactors,
+                outOfRangeFactors,
+                hasAllFactors: missingFactors.length === 0,
+            };
+        });
+
+        const probabilities = updatedPredictions.map((prediction) => Number(prediction.winProbability));
+        const probabilitySum = probabilities.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+        const roundedProbs = probabilities.map((value) => Number(value.toFixed(1)));
+        const uniqueProbabilities = new Set(roundedProbs).size === roundedProbs.length;
+        const probabilitiesApproximately100 = Math.abs(probabilitySum - 100) <= 0.5;
+        const candidatesWithAllFactors = factorChecks.filter((check) => check.hasAllFactors).length;
+        const allFactorsPresent = candidatesWithAllFactors === updatedPredictions.length;
+
         res.json({
             success: true,
             predictions: updatedPredictions,
             message: 'Race reanalyzed successfully',
             mode: reanalysisResult.mode || 'unknown',
+            model: reanalysisResult.model || null,
             fallbackReason: reanalysisResult.fallbackReason || null,
             changeSummary: {
                 changedCandidates,
                 unchangedCandidates,
                 maxDelta,
                 deltas,
+            },
+            aiVerification: {
+                model: reanalysisResult.model || null,
+                mode: reanalysisResult.mode || 'unknown',
+                fallbackReason: reanalysisResult.fallbackReason || null,
+                allCandidatesScored: updatedPredictions.length === candidates.length,
+                allFactorsPresent,
+                candidatesWithAllFactors,
+                factorsRequiredPerCandidate: FACTOR_KEYS.length,
+                probabilitiesUnique: uniqueProbabilities,
+                probabilitiesApproximately100,
+                probabilitySum: Number(probabilitySum.toFixed(2)),
+                factorChecks,
             },
         });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to reanalyze race' }); }
