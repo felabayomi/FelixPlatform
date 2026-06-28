@@ -5,6 +5,106 @@ const pool = require('../db');
 const ensureSchema = require('../services/ensureElectionPredictorSchema');
 const { generateComparisonInsights, generateCustomPrediction, analyzeNaturalLanguageQuery, reanalyzeRace } = require('../services/electionPredictorAI');
 
+const FACTOR_KEYS = ['partisanLean', 'polling', 'candidateExperience', 'fundraising', 'nameRecognition', 'endorsements', 'issueAlignment', 'momentum'];
+const rateLimitBuckets = new Map();
+const abuseStrikes = new Map();
+const temporaryBlocks = new Map();
+
+function nowMs() {
+    return Date.now();
+}
+
+function identifyClient(req) {
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const subscriber = String(req.headers['x-subscriber-email'] || '').toLowerCase().trim();
+    return `${ip}|${subscriber}`;
+}
+
+function createPredictionRateLimit({ keyPrefix, windowMs, maxRequests }) {
+    return (req, res, next) => {
+        const clientId = identifyClient(req);
+        const blockKey = `${keyPrefix}:block:${clientId}`;
+        const bucketKey = `${keyPrefix}:bucket:${clientId}`;
+        const strikeKey = `${keyPrefix}:strikes:${clientId}`;
+        const now = nowMs();
+
+        const blockedUntil = temporaryBlocks.get(blockKey);
+        if (blockedUntil && blockedUntil > now) {
+            return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+        }
+        if (blockedUntil && blockedUntil <= now) {
+            temporaryBlocks.delete(blockKey);
+        }
+
+        const timestamps = rateLimitBuckets.get(bucketKey) || [];
+        const recent = timestamps.filter((ts) => now - ts <= windowMs);
+        recent.push(now);
+        rateLimitBuckets.set(bucketKey, recent);
+
+        if (recent.length > maxRequests) {
+            const strikes = (abuseStrikes.get(strikeKey) || 0) + 1;
+            abuseStrikes.set(strikeKey, strikes);
+
+            // Escalate cooldown for repeated burst abuse.
+            if (strikes >= 3) {
+                temporaryBlocks.set(blockKey, now + 15 * 60 * 1000);
+            }
+
+            return res.status(429).json({ error: 'Rate limit exceeded for prediction endpoints.' });
+        }
+
+        next();
+    };
+}
+
+function roundTo(value, precision = 1) {
+    const n = Number(value);
+    if (Number.isNaN(n)) return 0;
+    const factor = Math.pow(10, precision);
+    return Math.round(n * factor) / factor;
+}
+
+function sanitizePredictionForClient(prediction) {
+    const safeFactors = {};
+    for (const key of FACTOR_KEYS) {
+        safeFactors[key] = roundTo(prediction?.factors?.[key] ?? 0, 1);
+    }
+
+    return {
+        raceId: prediction.raceId,
+        candidateId: prediction.candidateId,
+        winProbability: roundTo(prediction.winProbability, 1),
+        confidenceInterval: {
+            low: roundTo(prediction?.confidenceInterval?.low ?? 0, 1),
+            high: roundTo(prediction?.confidenceInterval?.high ?? 0, 1),
+        },
+        factors: safeFactors,
+        lastUpdated: prediction.lastUpdated,
+    };
+}
+
+function sanitizePredictionsForClient(predictions) {
+    return (predictions || []).map(sanitizePredictionForClient);
+}
+
+function validatePredictionInput(req, res, next) {
+    const { candidates, raceTitle, query } = req.body || {};
+
+    if (Array.isArray(candidates) && candidates.length > 10) {
+        return res.status(400).json({ error: 'Too many candidates in one request.' });
+    }
+
+    if (typeof raceTitle === 'string' && raceTitle.length > 180) {
+        return res.status(400).json({ error: 'Race title is too long.' });
+    }
+
+    if (typeof query === 'string' && query.length > 2200) {
+        return res.status(400).json({ error: 'Query is too long.' });
+    }
+
+    next();
+}
+
 // Ensure tables exist before any request
 router.use(async (_req, _res, next) => {
     try { await ensureSchema(); next(); } catch (err) { next(err); }
@@ -144,7 +244,10 @@ router.get('/races', async (_req, res) => {
             return a.race.title.localeCompare(b.race.title);
         });
 
-        res.json(racesWithData);
+        res.json(racesWithData.map((item) => ({
+            ...item,
+            predictions: sanitizePredictionsForClient(item.predictions),
+        })));
     } catch (err) { res.status(500).json({ error: 'Failed to fetch races' }); }
 });
 
@@ -152,7 +255,11 @@ router.get('/races/:id', async (req, res) => {
     try {
         const r = (await pool.query(`SELECT * FROM ep_races WHERE id=$1`, [req.params.id])).rows[0];
         if (!r) return res.status(404).json({ error: 'Race not found' });
-        res.json({ race: mapRace(r), candidates: await getCandidatesByRace(r.id), predictions: await getPredictionsByRace(r.id) });
+        res.json({
+            race: mapRace(r),
+            candidates: await getCandidatesByRace(r.id),
+            predictions: sanitizePredictionsForClient(await getPredictionsByRace(r.id)),
+        });
     } catch (err) { res.status(500).json({ error: 'Failed to fetch race' }); }
 });
 
@@ -177,7 +284,10 @@ router.get('/featured-matchups', async (_req, res) => {
     } catch (err) { res.status(500).json({ error: 'Failed to fetch featured matchups' }); }
 });
 
-router.post('/compare', async (req, res) => {
+router.post('/compare',
+    createPredictionRateLimit({ keyPrefix: 'ep:compare', windowMs: 60 * 1000, maxRequests: 20 }),
+    validatePredictionInput,
+    async (req, res) => {
     try {
         const { candidate1Id, candidate2Id } = req.body;
         if (!candidate1Id || !candidate2Id) return res.status(400).json({ error: 'Both candidate IDs are required' });
@@ -220,11 +330,26 @@ router.post('/compare', async (req, res) => {
         }));
 
         const aiInsights = await generateComparisonInsights(candidate1.name, candidate2.name, mapRace(raceRow).title, factorComparison);
-        res.json({ candidate1, candidate2, race: mapRace(raceRow), prediction1, prediction2, factorComparison, aiInsights });
+        res.json({
+            candidate1,
+            candidate2,
+            race: mapRace(raceRow),
+            prediction1: sanitizePredictionForClient(prediction1),
+            prediction2: sanitizePredictionForClient(prediction2),
+            factorComparison: factorComparison.map((f) => ({
+                ...f,
+                candidate1Score: roundTo(f.candidate1Score, 1),
+                candidate2Score: roundTo(f.candidate2Score, 1),
+            })),
+            aiInsights,
+        });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate comparison' }); }
 });
 
-router.post('/custom-prediction', async (req, res) => {
+router.post('/custom-prediction',
+    createPredictionRateLimit({ keyPrefix: 'ep:custom', windowMs: 60 * 1000, maxRequests: 12 }),
+    validatePredictionInput,
+    async (req, res) => {
     try {
         const { candidates, raceTitle, raceType } = req.body;
         if (!Array.isArray(candidates) || candidates.length < 2) return res.status(400).json({ error: 'At least 2 candidates required' });
@@ -262,11 +387,20 @@ router.post('/custom-prediction', async (req, res) => {
         });
 
         await createRaceWithCandidates(race, newCandidates, predictions);
-        res.json({ raceId, title: race.title, candidates: newCandidates, predictions, analysis: result.analysis });
+        res.json({
+            raceId,
+            title: race.title,
+            candidates: newCandidates,
+            predictions: sanitizePredictionsForClient(predictions),
+            analysis: result.analysis,
+        });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate prediction' }); }
 });
 
-router.post('/natural-language-analysis', async (req, res) => {
+router.post('/natural-language-analysis',
+    createPredictionRateLimit({ keyPrefix: 'ep:nl', windowMs: 60 * 1000, maxRequests: 10 }),
+    validatePredictionInput,
+    async (req, res) => {
     try {
         const { query } = req.body;
         if (!query || typeof query !== 'string' || !query.trim()) return res.status(400).json({ error: 'Query is required' });
@@ -299,7 +433,14 @@ router.post('/natural-language-analysis', async (req, res) => {
         });
 
         await createRaceWithCandidates(race, newCandidates, predictions);
-        res.json({ raceId, query, raceTitle: result.raceTitle, candidates: newCandidates, predictions, analysis: result.analysis });
+        res.json({
+            raceId,
+            query,
+            raceTitle: result.raceTitle,
+            candidates: newCandidates,
+            predictions: sanitizePredictionsForClient(predictions),
+            analysis: result.analysis,
+        });
     } catch (err) {
         console.error(err);
         if (err.message?.startsWith('FACT_FINDING_QUESTION:')) return res.status(400).json({ error: err.message });
