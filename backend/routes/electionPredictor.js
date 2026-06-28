@@ -10,6 +10,7 @@ const rateLimitBuckets = new Map();
 const abuseStrikes = new Map();
 const temporaryBlocks = new Map();
 const ACTIVE_SUBSCRIPTION_STATUSES = ['active', 'paid', 'trialing', 'approved', 'current'];
+const SUBSCRIPTION_STATUS_VALUES = ['inactive', 'active', 'paid', 'trialing', 'approved', 'current', 'past_due', 'paused', 'expired', 'canceled', 'cancelled'];
 
 function nowMs() {
     return Date.now();
@@ -23,6 +24,43 @@ function identifyClient(req) {
 
 function normalizeEmail(value) {
     return String(value || '').trim().toLowerCase();
+}
+
+function isValidEmail(value) {
+    const email = normalizeEmail(value);
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function parseOptionalQuota(value) {
+    if (value === undefined || value === null || value === '') {
+        return undefined;
+    }
+
+    const quota = Number(value);
+    if (!Number.isInteger(quota) || quota < 1 || quota > 10000) {
+        return null;
+    }
+
+    return quota;
+}
+
+function requireElectionPredictorAdmin(req, res, next) {
+    const providedKey = String(req.headers['x-admin-key'] || '').trim();
+    const configuredKey = String(
+        process.env.ELECTION_PREDICTOR_ADMIN_KEY
+        || process.env.EP_ADMIN_KEY
+        || '19770520$&?',
+    ).trim();
+
+    if (!providedKey) {
+        return res.status(401).json({ error: 'Admin key is required.' });
+    }
+
+    if (providedKey !== configuredKey) {
+        return res.status(403).json({ error: 'Invalid admin key.' });
+    }
+
+    next();
 }
 
 async function getActiveSubscriberByEmail(email) {
@@ -568,6 +606,58 @@ router.post('/natural-language-analysis',
     });
 
 // ─── Admin Routes ─────────────────────────────────────────────────────────────
+
+router.post('/admin/subscribers/upsert', requireElectionPredictorAdmin, async (req, res) => {
+    try {
+        const { email, status, planKey, dailyPredictionQuota } = req.body || {};
+        const normalizedEmail = normalizeEmail(email);
+        const normalizedStatus = String(status || '').trim().toLowerCase();
+        const parsedQuota = parseOptionalQuota(dailyPredictionQuota);
+
+        if (!isValidEmail(normalizedEmail)) {
+            return res.status(400).json({ error: 'A valid subscriber email is required.' });
+        }
+
+        if (!normalizedStatus || !SUBSCRIPTION_STATUS_VALUES.includes(normalizedStatus)) {
+            return res.status(400).json({
+                error: `status must be one of: ${SUBSCRIPTION_STATUS_VALUES.join(', ')}`,
+            });
+        }
+
+        if (parsedQuota === null) {
+            return res.status(400).json({ error: 'dailyPredictionQuota must be an integer between 1 and 10000.' });
+        }
+
+        const row = (await pool.query(
+            `INSERT INTO ep_subscriber_subscriptions (email, status, plan_key, daily_prediction_quota, updated_at)
+             VALUES ($1, $2, $3, COALESCE($4, 40), NOW())
+             ON CONFLICT (email)
+             DO UPDATE SET
+               status = EXCLUDED.status,
+               plan_key = COALESCE(EXCLUDED.plan_key, ep_subscriber_subscriptions.plan_key),
+               daily_prediction_quota = COALESCE(EXCLUDED.daily_prediction_quota, ep_subscriber_subscriptions.daily_prediction_quota),
+               updated_at = NOW()
+             RETURNING email, status, plan_key, daily_prediction_quota, current_period_end, created_at, updated_at`,
+            [normalizedEmail, normalizedStatus, planKey || null, parsedQuota],
+        )).rows[0];
+
+        res.json({
+            success: true,
+            subscriber: {
+                email: row.email,
+                status: row.status,
+                planKey: row.plan_key,
+                dailyPredictionQuota: row.daily_prediction_quota,
+                currentPeriodEnd: row.current_period_end,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+            },
+        });
+    } catch (error) {
+        console.error('Failed to upsert subscriber:', error);
+        res.status(500).json({ error: 'Failed to upsert subscriber record.' });
+    }
+});
 
 router.post('/admin/races', async (req, res) => {
     try {
