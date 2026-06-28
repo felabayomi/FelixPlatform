@@ -338,6 +338,37 @@ function inferElectionDateFromText(input) {
     return new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 }
 
+function getYearFromTitle(title) {
+    const text = String(title || '');
+    const yearMatch = text.match(/\b(20\d{2})\b/);
+    return yearMatch ? Number(yearMatch[1]) : null;
+}
+
+function getYearFromElectionDate(electionDate) {
+    const text = String(electionDate || '');
+    const yearPrefix = text.match(/^(20\d{2})/);
+    if (yearPrefix) return Number(yearPrefix[1]);
+
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.getUTCFullYear();
+}
+
+function getRaceYearConflict(title, electionDate) {
+    const titleYear = getYearFromTitle(title);
+    const dateYear = getYearFromElectionDate(electionDate);
+
+    if (!titleYear || !dateYear) {
+        return null;
+    }
+
+    if (titleYear === dateYear) {
+        return null;
+    }
+
+    return { titleYear, dateYear };
+}
+
 async function getCandidatesByRace(raceId) {
     const res = await pool.query(
         `SELECT c.* FROM ep_candidates c JOIN ep_race_candidates rc ON rc.candidate_id = c.id WHERE rc.race_id = $1`,
@@ -366,6 +397,13 @@ async function upsertPrediction(p) {
 }
 
 async function createRaceWithCandidates(race, candidates, predictions) {
+    const conflict = getRaceYearConflict(race?.title, race?.electionDate);
+    if (conflict) {
+        const error = new Error(`Race title year (${conflict.titleYear}) conflicts with election date year (${conflict.dateYear}).`);
+        error.status = 400;
+        throw error;
+    }
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -571,7 +609,11 @@ router.post('/custom-prediction',
                 predictions: sanitizePredictionsForClient(predictions),
                 analysis: result.analysis,
             });
-        } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate prediction' }); }
+        } catch (err) {
+            console.error(err);
+            if (err?.status === 400) return res.status(400).json({ error: err.message });
+            res.status(500).json({ error: 'Failed to generate prediction' });
+        }
     });
 
 router.post('/natural-language-analysis',
@@ -622,6 +664,7 @@ router.post('/natural-language-analysis',
         } catch (err) {
             console.error(err);
             if (err.message?.startsWith('FACT_FINDING_QUESTION:')) return res.status(400).json({ error: err.message });
+            if (err?.status === 400) return res.status(400).json({ error: err.message });
             res.status(500).json({ error: 'Failed to analyze query' });
         }
     });
@@ -779,6 +822,14 @@ router.post('/admin/races', async (req, res) => {
     try {
         const { type, title, state, district, electionDate, description } = req.body;
         if (!type || !title || !electionDate) return res.status(400).json({ error: 'type, title, electionDate required' });
+
+        const conflict = getRaceYearConflict(title, electionDate);
+        if (conflict) {
+            return res.status(400).json({
+                error: `Race title year (${conflict.titleYear}) must match election date year (${conflict.dateYear}).`,
+            });
+        }
+
         const id = randomUUID();
         const row = (await pool.query(
             `INSERT INTO ep_races (id, type, title, state, district, election_date, description) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
@@ -791,12 +842,24 @@ router.post('/admin/races', async (req, res) => {
 router.put('/admin/races/:id', async (req, res) => {
     try {
         const { type, title, state, district, electionDate, description } = req.body;
+
+        const current = (await pool.query(`SELECT title, election_date FROM ep_races WHERE id=$1`, [req.params.id])).rows[0];
+        if (!current) return res.status(404).json({ error: 'Race not found' });
+
+        const effectiveTitle = title || current.title;
+        const effectiveElectionDate = electionDate || current.election_date;
+        const conflict = getRaceYearConflict(effectiveTitle, effectiveElectionDate);
+        if (conflict) {
+            return res.status(400).json({
+                error: `Race title year (${conflict.titleYear}) must match election date year (${conflict.dateYear}).`,
+            });
+        }
+
         const row = (await pool.query(
             `UPDATE ep_races SET type=COALESCE($2,type), title=COALESCE($3,title), state=$4, district=$5,
              election_date=COALESCE($6,election_date), description=$7 WHERE id=$1 RETURNING *`,
             [req.params.id, type || null, title || null, state || null, district || null, electionDate || null, description || null]
         )).rows[0];
-        if (!row) return res.status(404).json({ error: 'Race not found' });
         res.json(mapRace(row));
     } catch (err) { res.status(500).json({ error: 'Failed to update race' }); }
 });
