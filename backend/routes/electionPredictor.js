@@ -136,21 +136,12 @@ router.get('/races', async (_req, res) => {
         })));
 
         racesWithData.sort((a, b) => {
-            const latestA = a.predictions.reduce((max, p) => {
-                const t = Date.parse(p.lastUpdated);
-                return Number.isNaN(t) ? max : Math.max(max, t);
-            }, 0);
-
-            const latestB = b.predictions.reduce((max, p) => {
-                const t = Date.parse(p.lastUpdated);
-                return Number.isNaN(t) ? max : Math.max(max, t);
-            }, 0);
-
-            if (latestA !== latestB) return latestB - latestA;
-
             const electionA = Date.parse(a.race.electionDate);
             const electionB = Date.parse(b.race.electionDate);
-            return (Number.isNaN(electionB) ? 0 : electionB) - (Number.isNaN(electionA) ? 0 : electionA);
+            const dateDiff = (Number.isNaN(electionB) ? 0 : electionB) - (Number.isNaN(electionA) ? 0 : electionA);
+            if (dateDiff !== 0) return dateDiff;
+
+            return a.race.title.localeCompare(b.race.title);
         });
 
         res.json(racesWithData);
