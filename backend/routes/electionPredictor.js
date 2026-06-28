@@ -44,6 +44,15 @@ function parseOptionalQuota(value) {
     return quota;
 }
 
+function parseOptionalPagination(value, fallback, min, max) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    const normalized = Math.trunc(parsed);
+    if (normalized < min) return min;
+    if (normalized > max) return max;
+    return normalized;
+}
+
 function requireElectionPredictorAdmin(req, res, next) {
     const providedKey = String(req.headers['x-admin-key'] || '').trim();
     const configuredKey = String(
@@ -656,6 +665,101 @@ router.post('/admin/subscribers/upsert', requireElectionPredictorAdmin, async (r
     } catch (error) {
         console.error('Failed to upsert subscriber:', error);
         res.status(500).json({ error: 'Failed to upsert subscriber record.' });
+    }
+});
+
+router.get('/admin/subscribers/:email', requireElectionPredictorAdmin, async (req, res) => {
+    try {
+        const normalizedEmail = normalizeEmail(req.params.email);
+        if (!isValidEmail(normalizedEmail)) {
+            return res.status(400).json({ error: 'A valid subscriber email is required.' });
+        }
+
+        const row = (await pool.query(
+            `SELECT email, status, plan_key, daily_prediction_quota, current_period_end, created_at, updated_at
+             FROM ep_subscriber_subscriptions
+             WHERE email = $1
+             LIMIT 1`,
+            [normalizedEmail],
+        )).rows[0];
+
+        if (!row) {
+            return res.status(404).json({ error: 'Subscriber not found.' });
+        }
+
+        return res.json({
+            subscriber: {
+                email: row.email,
+                status: row.status,
+                planKey: row.plan_key,
+                dailyPredictionQuota: row.daily_prediction_quota,
+                currentPeriodEnd: row.current_period_end,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+            },
+        });
+    } catch (error) {
+        console.error('Failed to fetch subscriber:', error);
+        return res.status(500).json({ error: 'Failed to fetch subscriber.' });
+    }
+});
+
+router.get('/admin/subscribers', requireElectionPredictorAdmin, async (req, res) => {
+    try {
+        const page = parseOptionalPagination(req.query.page, 1, 1, 1000000);
+        const pageSize = parseOptionalPagination(req.query.pageSize, 25, 1, 100);
+        const offset = (page - 1) * pageSize;
+        const statusFilterRaw = String(req.query.status || '').trim().toLowerCase();
+        const statusFilter = statusFilterRaw && SUBSCRIPTION_STATUS_VALUES.includes(statusFilterRaw)
+            ? statusFilterRaw
+            : '';
+
+        if (statusFilterRaw && !statusFilter) {
+            return res.status(400).json({
+                error: `status must be one of: ${SUBSCRIPTION_STATUS_VALUES.join(', ')}`,
+            });
+        }
+
+        const whereClause = statusFilter ? 'WHERE LOWER(COALESCE(status, \'\')) = $1' : '';
+        const countParams = statusFilter ? [statusFilter] : [];
+        const listParams = statusFilter ? [statusFilter, pageSize, offset] : [pageSize, offset];
+
+        const countSql = `SELECT COUNT(*)::int AS total FROM ep_subscriber_subscriptions ${whereClause}`;
+        const listSql = `
+            SELECT email, status, plan_key, daily_prediction_quota, current_period_end, created_at, updated_at
+            FROM ep_subscriber_subscriptions
+            ${whereClause}
+            ORDER BY updated_at DESC, email ASC
+            LIMIT $${statusFilter ? 2 : 1}
+            OFFSET $${statusFilter ? 3 : 2}
+        `;
+
+        const total = (await pool.query(countSql, countParams)).rows[0]?.total || 0;
+        const rows = (await pool.query(listSql, listParams)).rows;
+
+        return res.json({
+            pagination: {
+                page,
+                pageSize,
+                total,
+                totalPages: Math.max(1, Math.ceil(total / pageSize)),
+            },
+            filters: {
+                status: statusFilter || null,
+            },
+            subscribers: rows.map((row) => ({
+                email: row.email,
+                status: row.status,
+                planKey: row.plan_key,
+                dailyPredictionQuota: row.daily_prediction_quota,
+                currentPeriodEnd: row.current_period_end,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+            })),
+        });
+    } catch (error) {
+        console.error('Failed to list subscribers:', error);
+        return res.status(500).json({ error: 'Failed to list subscribers.' });
     }
 });
 
