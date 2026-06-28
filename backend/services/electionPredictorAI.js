@@ -243,14 +243,34 @@ CRITICAL: Each candidate MUST have a UNIQUE probability. Sum to ~100.`;
             max_tokens: 2000,
         });
         let content = response.choices[0]?.message?.content;
-        if (!content || !content.trim()) return generateDeterministicPredictions(candidates);
+        if (!content || !content.trim()) {
+            return {
+                predictions: generateDeterministicPredictions(candidates),
+                mode: 'fallback',
+                fallbackReason: 'empty_ai_response',
+            };
+        }
         if (content.trim().startsWith('```')) content = content.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
         const result = JSON.parse(content);
-        if (!result.predictions || Object.keys(result.predictions).length === 0) return generateDeterministicPredictions(candidates);
-        return result.predictions;
+        if (!result.predictions || Object.keys(result.predictions).length === 0) {
+            return {
+                predictions: generateDeterministicPredictions(candidates),
+                mode: 'fallback',
+                fallbackReason: 'missing_predictions',
+            };
+        }
+
+        return {
+            predictions: result.predictions,
+            mode: 'ai',
+        };
     } catch (error) {
         console.error('[EP] reanalyzeRace error:', error);
-        return generateDeterministicPredictions(candidates);
+        return {
+            predictions: generateDeterministicPredictions(candidates),
+            mode: 'fallback',
+            fallbackReason: 'openai_error',
+        };
     }
 }
 

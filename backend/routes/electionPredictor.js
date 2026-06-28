@@ -804,7 +804,11 @@ router.post('/admin/races/:id/reanalyze', async (req, res) => {
         const candidates = await getCandidatesByRace(req.params.id);
         if (candidates.length === 0) return res.status(400).json({ error: 'Race must have candidates to reanalyze' });
 
-        const newPredictions = await reanalyzeRace(raceRow.title, candidates);
+        const previousPredictions = await getPredictionsByRace(raceRow.id);
+        const previousByCandidateId = new Map(previousPredictions.map((p) => [p.candidateId, p.winProbability]));
+
+        const reanalysisResult = await reanalyzeRace(raceRow.title, candidates);
+        const newPredictions = reanalysisResult.predictions || {};
 
         for (const candidate of candidates) {
             const predData = newPredictions[candidate.name];
@@ -822,7 +826,36 @@ router.post('/admin/races/:id/reanalyze', async (req, res) => {
         }
 
         const updatedPredictions = await getPredictionsByRace(raceRow.id);
-        res.json({ success: true, predictions: updatedPredictions, message: 'Race reanalyzed successfully' });
+        const deltas = updatedPredictions.map((prediction) => {
+            const previous = Number(previousByCandidateId.get(prediction.candidateId));
+            const current = Number(prediction.winProbability);
+            const delta = Number.isFinite(previous) ? Math.abs(current - previous) : current;
+
+            return {
+                candidateId: prediction.candidateId,
+                previousWinProbability: Number.isFinite(previous) ? previous : null,
+                currentWinProbability: current,
+                delta,
+            };
+        });
+
+        const changedCandidates = deltas.filter((item) => item.previousWinProbability != null && item.delta >= 0.1).length;
+        const unchangedCandidates = deltas.filter((item) => item.previousWinProbability != null && item.delta < 0.1).length;
+        const maxDelta = deltas.length > 0 ? Math.max(...deltas.map((item) => item.delta)) : 0;
+
+        res.json({
+            success: true,
+            predictions: updatedPredictions,
+            message: 'Race reanalyzed successfully',
+            mode: reanalysisResult.mode || 'unknown',
+            fallbackReason: reanalysisResult.fallbackReason || null,
+            changeSummary: {
+                changedCandidates,
+                unchangedCandidates,
+                maxDelta,
+                deltas,
+            },
+        });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to reanalyze race' }); }
 });
 
