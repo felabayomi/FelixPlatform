@@ -179,8 +179,28 @@ async function mountCampaignSignalRoutes() {
         throw new Error('Campaign Signal app export is invalid. Expected an Express app instance.');
     }
 
+    const forwardWithPrefix = (prefix) => (req, res, next) => {
+        const originalUrl = req.url;
+        req.url = `${prefix}${req.url}`;
+
+        campaignSignalApp(req, res, (error) => {
+            req.url = originalUrl;
+            next(error);
+        });
+    };
+
+    // Canonical production aliases for Campaign Signal Studio routes.
+    app.use('/api/auth', forwardWithPrefix('/api/auth'));
+    app.use('/api/organization', forwardWithPrefix('/api/organization'));
+    app.use('/api/campaigns', forwardWithPrefix('/api/campaigns'));
+    app.use('/api/reports', forwardWithPrefix('/api/reports'));
+    app.use('/api/team', forwardWithPrefix('/api/team'));
+    app.use('/api/billing', forwardWithPrefix('/api/billing'));
+    app.post('/api/campaign-signal', forwardWithPrefix('/api/reports/generate'));
+
+    // Legacy compatibility path for older proxied calls.
     app.use('/api/campaign-signal', campaignSignalApp);
-    console.log('Mounted Campaign Signal routes at /api/campaign-signal');
+    console.log('Mounted Campaign Signal routes at /api/* aliases and /api/campaign-signal compatibility path');
 }
 
 async function startServer() {
