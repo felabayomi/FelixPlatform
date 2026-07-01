@@ -168,7 +168,7 @@ registerInquiryHubRoutes(inquiryHubApp).catch(err => console.error('Inquiry Hub 
 app.use('/iq', inquiryHubApp);
 
 async function mountCampaignSignalRoutes() {
-    const campaignSignalServerPath = path.join(__dirname, '..', 'Campaign Signal Studio', 'app', 'backend', 'server.js');
+    const campaignSignalServerPath = path.join(__dirname, 'campaign-signal', 'server.js');
     const campaignSignalModuleUrl = pathToFileURL(campaignSignalServerPath).href;
     const campaignSignalModule = await import(campaignSignalModuleUrl);
     const campaignSignalApp = campaignSignalModule.createCampaignSignalApp
