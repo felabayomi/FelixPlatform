@@ -72,6 +72,17 @@ app.post('/api/auth/login', (req, res) => {
   });
 });
 
+app.get('/api/organization', (req, res) => {
+  res.json({
+    organization: {
+      id: 'demo-org',
+      name: 'Demo Organization',
+      accessState: 'active_subscription',
+      hasPremiumAccess: true,
+    },
+  });
+});
+
 app.post('/api/campaign-signal', async (req, res) => {
   const input = req.body || {};
 
@@ -151,6 +162,18 @@ app.post('/api/campaign-signal/api/auth/login', (req, res) => {
       role: 'organization_admin',
     },
     token: 'demo-token',
+  });
+});
+
+app.get('/api/campaign-signal/api/organization', (req, res) => {
+  res.json({
+    organization: {
+      id: 'demo-org',
+      name: 'Demo Organization',
+      accessState: 'active_subscription',
+      hasPremiumAccess: true,
+    },
+    compatibilityRoute: true,
   });
 });
 
