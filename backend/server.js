@@ -1,5 +1,6 @@
 require('dotenv').config();
 const path = require('path');
+const { pathToFileURL } = require('url');
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
@@ -166,12 +167,37 @@ inquiryHubApp.use(express.json({ limit: '10mb' }));
 registerInquiryHubRoutes(inquiryHubApp).catch(err => console.error('Inquiry Hub init error:', err));
 app.use('/iq', inquiryHubApp);
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    if (typeof waciController.startWaciRewardsScheduler === 'function') {
-        waciController.startWaciRewardsScheduler();
+async function mountCampaignSignalRoutes() {
+    const campaignSignalServerPath = path.join(__dirname, '..', 'Campaign Signal Studio', 'app', 'backend', 'server.js');
+    const campaignSignalModuleUrl = pathToFileURL(campaignSignalServerPath).href;
+    const campaignSignalModule = await import(campaignSignalModuleUrl);
+    const campaignSignalApp = campaignSignalModule.createCampaignSignalApp
+        ? campaignSignalModule.createCampaignSignalApp()
+        : campaignSignalModule.default;
+
+    if (!campaignSignalApp || typeof campaignSignalApp.use !== 'function') {
+        throw new Error('Campaign Signal app export is invalid. Expected an Express app instance.');
     }
-    if (typeof expeditionAmericaController.startExpeditionAmericaScheduler === 'function') {
-        expeditionAmericaController.startExpeditionAmericaScheduler();
-    }
+
+    app.use('/api/campaign-signal', campaignSignalApp);
+    console.log('Mounted Campaign Signal routes at /api/campaign-signal');
+}
+
+async function startServer() {
+    await mountCampaignSignalRoutes();
+
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+        if (typeof waciController.startWaciRewardsScheduler === 'function') {
+            waciController.startWaciRewardsScheduler();
+        }
+        if (typeof expeditionAmericaController.startExpeditionAmericaScheduler === 'function') {
+            expeditionAmericaController.startExpeditionAmericaScheduler();
+        }
+    });
+}
+
+startServer().catch((error) => {
+    console.error('Failed to start backend server:', error);
+    process.exit(1);
 });
