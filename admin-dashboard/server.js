@@ -11,6 +11,7 @@ Module._initPaths();
 const express = require('express');
 const cors = require('cors');
 const electionPredictorRoutes = require('../backend/routes/electionPredictor');
+const expeditionAmericaRoutes = require('../backend/routes/expeditionAmerica');
 
 const app = express();
 
@@ -18,7 +19,9 @@ app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://app-7mggnqfx6-felabayomis-projects.vercel.app',
-    'https://app-mu-liart-41.vercel.app'
+    'https://app-mu-liart-41.vercel.app',
+    'https://expeditionamerica.online',
+    'https://www.expeditionamerica.online'
   ],
   credentials: true
 }));
@@ -190,6 +193,9 @@ app.get('/api/campaign-signal/api/organization', (req, res) => {
 
 // Restore ElectionPredictor API surface for public and admin apps.
 app.use('/api/election-predictor', electionPredictorRoutes);
+
+// Restore Expedition America API surface used by admin and auto-generation.
+app.use('/api/expedition-america', expeditionAmericaRoutes);
 
 const PORT = process.env.PORT || 5000;
 
