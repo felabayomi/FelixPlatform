@@ -1,3 +1,13 @@
+const path = require('path');
+const Module = require('module');
+
+// Allow sibling backend modules to resolve packages installed for this service.
+const serviceNodeModules = path.join(__dirname, 'node_modules');
+process.env.NODE_PATH = process.env.NODE_PATH
+  ? `${serviceNodeModules}${path.delimiter}${process.env.NODE_PATH}`
+  : serviceNodeModules;
+Module._initPaths();
+
 const express = require('express');
 const cors = require('cors');
 const electionPredictorRoutes = require('../backend/routes/electionPredictor');
@@ -178,11 +188,11 @@ app.get('/api/campaign-signal/api/organization', (req, res) => {
   });
 });
 
+// Restore ElectionPredictor API surface for public and admin apps.
+app.use('/api/election-predictor', electionPredictorRoutes);
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-// Restore ElectionPredictor API surface for public and admin apps.
-app.use('/api/election-predictor', electionPredictorRoutes);
