@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
+import { pool } from "./db.js";
 import { generateArticleSchema, insertArticleSchema, US_STATES } from "../shared/schema.js";
 import OpenAI, { toFile } from "openai";
 import multer from "multer";
@@ -332,6 +333,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const providedSecret = String(req.headers["x-cron-secret"] || req.query?.secret || "").trim();
     return providedSecret === configuredSecret;
   };
+
+  app.get("/api/health", async (_req: Request, res: Response) => {
+    const missingEnv = ["DATABASE_URL", "AI_INTEGRATIONS_OPENAI_API_KEY"].filter(
+      (name) => !cleanEnv(process.env[name]),
+    );
+
+    let dbConnected = false;
+    let articlesTableExists = false;
+    let dbError: string | null = null;
+
+    try {
+      await pool.query("select 1");
+      dbConnected = true;
+      const tableCheck = await pool.query("select to_regclass('public.articles') as table_name");
+      articlesTableExists = Boolean(tableCheck.rows?.[0]?.table_name);
+    } catch (error: any) {
+      dbError = error?.message || "DB check failed";
+    }
+
+    const ok = missingEnv.length === 0 && dbConnected && articlesTableExists;
+    return res.status(ok ? 200 : 503).json({
+      ok,
+      service: "50usastates",
+      checks: {
+        env: { ok: missingEnv.length === 0, missing: missingEnv },
+        db: { ok: dbConnected, error: dbError },
+        schema: { ok: articlesTableExists, table: "articles" },
+      },
+      timestamp: new Date().toISOString(),
+    });
+  });
 
   app.get("/api/cron/auto-publish", async (req: any, res: Response) => {
     try {
