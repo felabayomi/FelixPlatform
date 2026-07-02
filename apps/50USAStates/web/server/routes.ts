@@ -86,8 +86,8 @@ function buildTravelPrompt(
 
   const sourcesText = searchResults.length > 0
     ? searchResults
-        .map((r, i) => `[${i + 1}] ${r.title}\n    URL: ${r.url}\n    Excerpt: ${r.snippet}`)
-        .join("\n\n")
+      .map((r, i) => `[${i + 1}] ${r.title}\n    URL: ${r.url}\n    Excerpt: ${r.snippet}`)
+      .join("\n\n")
     : "";
 
   return `You are a senior travel journalist for "Expedition America," a prestigious daily publication dedicated to rediscovering and understanding America through its travel and tourism experiences. Today is ${today}.
@@ -287,8 +287,8 @@ function startScheduler(): void {
       runDailyGeneration();
     }
 
-    // 9am ET — auto-publish today's unapproved drafts
-    if (hour >= 9 && lastAutoPublishDate !== today) {
+    // 12am ET (midnight) — auto-publish today's unapproved drafts
+    if (lastAutoPublishDate !== today) {
       lastAutoPublishDate = today;
       autoPublishDraftsForToday();
     }
@@ -305,6 +305,56 @@ let autoGenerationRunning = false;
 const generationQueue: string[] = [];
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const isCronAuthorized = (req: any) => {
+    const hasVercelCronHeader = Boolean(
+      req.headers["x-vercel-cron"] || req.headers["x-vercel-cron-schedule"],
+    );
+    const userAgent = String(req.headers["user-agent"] || "").toLowerCase();
+    const isVercelCronUserAgent = userAgent.includes("vercel-cron/");
+    if (hasVercelCronHeader || isVercelCronUserAgent) {
+      return true;
+    }
+
+    const configuredSecret = String(process.env.CRON_SECRET || "").trim();
+    if (!configuredSecret) {
+      return false;
+    }
+
+    const authHeader = String(req.headers["authorization"] || "").trim();
+    if (authHeader === `Bearer ${configuredSecret}`) {
+      return true;
+    }
+
+    const providedSecret = String(req.headers["x-cron-secret"] || req.query?.secret || "").trim();
+    return providedSecret === configuredSecret;
+  };
+
+  app.get("/api/cron/auto-publish", async (req: any, res: Response) => {
+    try {
+      if (!isCronAuthorized(req)) {
+        return res.status(401).json({ message: "Unauthorized cron invocation" });
+      }
+      await autoPublishDraftsForToday();
+      return res.json({ ok: true, message: "Auto-publish executed." });
+    } catch (error: any) {
+      console.error("[Cron] auto-publish failed:", error);
+      return res.status(500).json({ message: error?.message || "Cron auto-publish failed" });
+    }
+  });
+
+  app.get("/api/cron/generate-tomorrow", async (req: any, res: Response) => {
+    try {
+      if (!isCronAuthorized(req)) {
+        return res.status(401).json({ message: "Unauthorized cron invocation" });
+      }
+      await runDailyGeneration();
+      return res.json({ ok: true, message: "Tomorrow generation executed." });
+    } catch (error: any) {
+      console.error("[Cron] generate-tomorrow failed:", error);
+      return res.status(500).json({ message: error?.message || "Cron generation failed" });
+    }
+  });
+
   // Public: only published articles
   // Generate excerpt/summary from title + content
   app.post("/api/articles/generate-excerpt", async (req: Request, res: Response) => {
@@ -694,7 +744,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader("Connection", "keep-alive");
 
     const send = (data: object) => {
-      try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch {}
+      try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch { }
     };
 
     const tomorrow = getTomorrowDate();
@@ -803,7 +853,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.end();
   });
 
-  startScheduler();
+  if (!process.env.VERCEL) {
+    startScheduler();
+  }
 
   const httpServer = createServer(app);
   return httpServer;
