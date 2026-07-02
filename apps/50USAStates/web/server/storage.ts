@@ -1,6 +1,6 @@
 import { eq, desc, and, getTableColumns } from "drizzle-orm";
 import { db } from "./db";
-import { articles, type Article, type InsertArticle, type ArticleStatus } from "@shared/schema";
+import { articles, type Article, type InsertArticle, type ArticleStatus } from "../shared/schema";
 
 // Exclude heavy base64 / large-JSON columns from list queries for fast responses
 function listColumns() {

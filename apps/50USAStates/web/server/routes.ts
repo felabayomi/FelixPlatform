@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateArticleSchema, insertArticleSchema, US_STATES } from "@shared/schema";
+import { generateArticleSchema, insertArticleSchema, US_STATES } from "../shared/schema";
 import OpenAI, { toFile } from "openai";
 import multer from "multer";
 import crypto from "crypto";
