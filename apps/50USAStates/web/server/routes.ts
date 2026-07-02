@@ -7,6 +7,10 @@ import multer from "multer";
 import crypto from "crypto";
 import { textToSpeech } from "./replit_integrations/audio/client";
 
+function cleanEnv(value?: string): string {
+  return (value || "").replace(/\r?\n/g, "").trim();
+}
+
 function makeAdminToken(): string {
   const code = process.env.ADMIN_CODE || "";
   return crypto.createHash("sha256").update(`expedition-admin:${code}`).digest("hex");
@@ -22,7 +26,7 @@ const upload = multer({
 });
 
 const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  apiKey: cleanEnv(process.env.AI_INTEGRATIONS_OPENAI_API_KEY),
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
@@ -34,7 +38,7 @@ async function webSearch(query: string): Promise<{ title: string; url: string; s
         headers: {
           "Accept": "application/json",
           "Accept-Encoding": "gzip",
-          "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY || "",
+          "X-Subscription-Token": cleanEnv(process.env.BRAVE_SEARCH_API_KEY),
         },
       }
     );
