@@ -1,3 +1,3 @@
-import handler from "../server/vercel-handler.ts";
+import handler from "./_handler";
 
 export default handler;
