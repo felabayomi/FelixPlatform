@@ -1,11 +1,11 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { generateArticleSchema, insertArticleSchema, US_STATES } from "../shared/schema";
+import { storage } from "./storage.js";
+import { generateArticleSchema, insertArticleSchema, US_STATES } from "../shared/schema.js";
 import OpenAI, { toFile } from "openai";
 import multer from "multer";
 import crypto from "crypto";
-import { textToSpeech } from "./replit_integrations/audio/client";
+import { textToSpeech } from "./replit_integrations/audio/client.js";
 
 function cleanEnv(value?: string): string {
   return (value || "").replace(/\r?\n/g, "").trim();
