@@ -341,6 +341,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     let dbConnected = false;
     let articlesTableExists = false;
+    let cronReadinessOk = false;
+    let todayPublishedCount = 0;
+    let tomorrowDraftCount = 0;
     let dbError: string | null = null;
 
     try {
@@ -348,11 +351,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       dbConnected = true;
       const tableCheck = await pool.query("select to_regclass('public.articles') as table_name");
       articlesTableExists = Boolean(tableCheck.rows?.[0]?.table_name);
+
+      if (articlesTableExists) {
+        const todayEt = getTodayDate();
+        const tomorrowEt = getTomorrowDate();
+
+        const readiness = await pool.query(
+          `
+            select
+              count(*) filter (where status = 'published' and published_date = $1)::int as today_published,
+              count(*) filter (where status = 'draft' and published_date = $2)::int as tomorrow_drafts
+            from public.articles
+          `,
+          [todayEt, tomorrowEt],
+        );
+
+        todayPublishedCount = readiness.rows?.[0]?.today_published ?? 0;
+        tomorrowDraftCount = readiness.rows?.[0]?.tomorrow_drafts ?? 0;
+        cronReadinessOk = todayPublishedCount > 0 && tomorrowDraftCount > 0;
+      }
     } catch (error: any) {
       dbError = error?.message || "DB check failed";
     }
 
-    const ok = missingEnv.length === 0 && dbConnected && articlesTableExists;
+    const ok = missingEnv.length === 0 && dbConnected && articlesTableExists && cronReadinessOk;
     return res.status(ok ? 200 : 503).json({
       ok,
       service: "50usastates",
@@ -360,6 +382,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         env: { ok: missingEnv.length === 0, missing: missingEnv },
         db: { ok: dbConnected, error: dbError },
         schema: { ok: articlesTableExists, table: "articles" },
+        cronReadiness: {
+          ok: cronReadinessOk,
+          todayDate: getTodayDate(),
+          tomorrowDate: getTomorrowDate(),
+          todayPublishedCount,
+          tomorrowDraftCount,
+          expected: {
+            todayPublishedMin: 1,
+            tomorrowDraftMin: 1,
+          },
+        },
       },
       timestamp: new Date().toISOString(),
     });
