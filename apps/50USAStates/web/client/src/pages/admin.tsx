@@ -749,9 +749,7 @@ function ArticleManageRow({
 // ── Move past articles to today panel ────────────────────────────────
 function MoveToTodayPanel() {
   const todayET = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-  const [y, m, d] = todayET.split("-").map(Number);
-  const yesterday = [y, String(m).padStart(2, "0"), String(d - 1).padStart(2, "0")].join("-");
-  const [fromDate, setFromDate] = useState(yesterday);
+  const [fromDate, setFromDate] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -789,6 +787,7 @@ function MoveToTodayPanel() {
           max={todayET}
           onChange={e => setFromDate(e.target.value)}
           data-testid="input-move-from-date"
+          aria-label="Choose a date to move into today"
           className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <Button size="sm" onClick={handleMove} disabled={loading || !fromDate || fromDate === todayET} data-testid="button-move-to-today">
