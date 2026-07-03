@@ -1,8 +1,12 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 const EXPEDITION_ADMIN_TOKEN_KEY = "ea_admin_token";
-const API_HOST = (import.meta.env.VITE_API_URL || "https://felix-platform-backend.onrender.com").replace(/\/$/, "");
-const API_PREFIX = "/api/expedition-america";
+const configuredApiHost = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const configuredApiPrefix = (import.meta.env.VITE_API_PREFIX || "").replace(/\/$/, "");
+const API_HOST = configuredApiHost || (typeof window !== "undefined" ? window.location.origin : "");
+const API_PREFIX = configuredApiHost
+  ? (configuredApiPrefix || "/api/expedition-america")
+  : "";
 
 function getStoredAdminToken() {
   if (typeof window === "undefined") {
@@ -15,7 +19,11 @@ function getStoredAdminToken() {
 }
 
 export function buildApiUrl(path: string) {
-  const normalizedPath = String(path || "").replace(/^\/api/, "");
+  const rawPath = String(path || "");
+  const normalizedPath = API_PREFIX
+    ? rawPath.replace(/^\/api/, "")
+    : (rawPath.startsWith("/") ? rawPath : `/${rawPath}`);
+
   return `${API_HOST}${API_PREFIX}${normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`}`;
 }
 
