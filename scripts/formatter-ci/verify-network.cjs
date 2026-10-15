@@ -16,26 +16,57 @@ function assertMetadata({ platform, interfaces, routes, status, uid }) {
   assert.match(status, /^NoNewPrivs:\s*1$/m, 'Privilege escalation must be disabled');
 }
 
-async function assertBlockedConnection(connect = net.connect) {
-  // TEST-NET-2: no real external service or production endpoint is contacted.
+function assertSameNamespace(actual, expected) {
+  const valid = value => typeof value === 'string' && /^net:\[[0-9]+\]$/.test(value);
+  assert.ok(valid(actual) && valid(expected) && actual === expected, 'Network namespace mismatch');
+}
+
+function verifyNamespace() {
+  assertSameNamespace(fs.readlinkSync('/proc/self/ns/net'), process.env.FORMATTER_EXPECTED_NET_NAMESPACE);
+}
+
+async function assertBlockedConnection(connect = net.connect, timeoutMs = 2000) {
+  assert.ok(Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 2000, 'Invalid probe deadline');
+  // Numeric TEST-NET-2 address: no DNS lookup or production service is involved.
   await new Promise((resolve, reject) => {
-    const socket = connect({ host: '198.51.100.1', port: 443 });
-    socket.setTimeout(2000);
-    socket.once('connect', () => { socket.destroy(); reject(new Error('External connection succeeded')); });
-    socket.once('timeout', () => { socket.destroy(); reject(new Error('Timeout is not proof of isolation')); });
-    socket.once('error', error => {
-      socket.destroy();
-      if (['ENETUNREACH', 'EHOSTUNREACH'].includes(error.code)) resolve();
-      else reject(new Error('Isolation not established'));
-    });
+    let socket, settled = false;
+    const timer = setTimeout(() => finish(new Error('Timeout is not proof of isolation')), timeoutMs);
+    function finish(error) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket?.destroy();
+      if (error) reject(error); else resolve();
+    }
+    try {
+      socket = connect({ host: '198.51.100.1', port: 443 });
+      socket.once('connect', () => finish(new Error('External connection succeeded')));
+      socket.once('timeout', () => finish(new Error('Timeout is not proof of isolation')));
+      socket.once('close', () => finish(new Error('Probe closed without isolation evidence')));
+      socket.once('error', error => {
+        if (['ENETUNREACH', 'EHOSTUNREACH'].includes(error.code)) finish();
+        else finish(new Error('Isolation not established'));
+      });
+    } catch {
+      finish(new Error('Probe setup failed'));
+    }
   });
 }
 
 async function verifyNetwork() {
+  if (process.env.FORMATTER_REQUIRE_NET_ISOLATION === '1') verifyNamespace();
   assertMetadata({ platform: process.platform, interfaces: os.networkInterfaces(),
     routes: fs.readFileSync('/proc/net/route', 'utf8'),
     status: fs.readFileSync('/proc/self/status', 'utf8'), uid: process.getuid() });
   await assertBlockedConnection();
   console.log('PASS Linux isolation checks: loopback only, no capabilities, external route unavailable');
 }
-module.exports = { assertMetadata, assertBlockedConnection, verifyNetwork };
+// NODE_OPTIONS preloads this guard in the coordinator and every regression Node process.
+if (process.env.FORMATTER_REQUIRE_NET_ISOLATION === '1') {
+  try { verifyNamespace(); }
+  catch {
+    console.error('FAIL isolation stage=node-network-namespace');
+    process.exit(1);
+  }
+}
+module.exports = { assertMetadata, assertBlockedConnection, assertSameNamespace, verifyNetwork };
