@@ -21,27 +21,66 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-      - name: Read-only source checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          path: source
-          persist-credentials: false
-          fetch-depth: 1
-          sparse-checkout-cone-mode: false
-          sparse-checkout: |
-            /admin-dashboard/server.js
-            /admin-dashboard/package.json
-            /admin-dashboard/package-lock.json
-            /admin-dashboard/tests/
-            /backend/controllers/
-            /backend/middleware/
-            /backend/routes/
-            /backend/services/
-            /backend/tests/
-            /backend/db.js
-            /backend/documentFormatterServer.js
-            /scripts/formatter-ci/
-      - name: Export reviewed source and remove checkout before npm scripts
+      - name: Retrieve allowlisted source from exact public commit archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          archive="$RUNNER_TEMP/formatter-source.zip"
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 \
+            --connect-timeout 15 --max-time 300 --max-filesize 314572800 \
+            "https://codeload.github.com/felabayomi/FelixPlatform/zip/$GITHUB_SHA" \
+            --output "$archive"
+          python3 - "$archive" "$GITHUB_WORKSPACE/source" "$GITHUB_SHA" <<'PY'
+          import stat, sys, zipfile
+          from pathlib import Path, PurePosixPath
+          archive, destination, sha = sys.argv[1:]
+          root = Path(destination)
+          prefix = 'FelixPlatform-' + sha + '/'
+          exact = {'admin-dashboard/server.js', 'admin-dashboard/package.json',
+                   'admin-dashboard/package-lock.json', 'backend/db.js',
+                   'backend/documentFormatterServer.js'}
+          directories = ('admin-dashboard/tests/', 'backend/controllers/',
+                         'backend/middleware/', 'backend/routes/', 'backend/services/',
+                         'backend/tests/', 'scripts/formatter-ci/')
+          forbidden = {'node_modules', 'uploads', 'data', 'backups'}
+          selected, seen, total = [], set(), 0
+          with zipfile.ZipFile(archive) as source:
+              for item in source.infolist():
+                  name = item.orig_filename
+                  if (not name.startswith(prefix) or name.startswith('/')
+                      or chr(92) in name or any(p in ('.', '..') or ':' in p for p in name.split('/') if p)):
+                      raise RuntimeError('Unsafe archive path')
+                  relative = name[len(prefix):]
+                  if not relative or item.is_dir():
+                      continue
+                  allowed = relative in exact or (
+                      relative.startswith(directories)
+                      and PurePosixPath(relative).suffix in ('.js', '.cjs', '.sh')
+                      and not any(p.startswith('.') or p in forbidden for p in PurePosixPath(relative).parts))
+                  if not allowed:
+                      continue
+                  mode = item.external_attr >> 16
+                  if stat.S_IFMT(mode) not in (0, stat.S_IFREG) or relative in seen:
+                      raise RuntimeError('Nonregular or duplicate source rejected')
+                  total += item.file_size
+                  if item.file_size > 10485760 or total > 52428800:
+                      raise RuntimeError('Source size limit exceeded')
+                  seen.add(relative)
+                  selected.append((item, relative))
+              if not exact.issubset(seen):
+                  raise RuntimeError('Required source missing')
+              root.mkdir(mode=0o700, parents=False, exist_ok=False)
+              for item, relative in selected:
+                  target = root / relative
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  with source.open(item) as src, target.open('xb') as dst:
+                      while chunk := src.read(65536):
+                          dst.write(chunk)
+          print('Retrieved', len(selected), 'allowlisted source files at', sha)
+          PY
+          rm -- "$archive"
+      - name: Export reviewed source and remove archive source before npm scripts
         shell: bash
         run: |
           set -euo pipefail
