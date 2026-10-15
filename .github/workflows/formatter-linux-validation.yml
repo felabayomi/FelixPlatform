@@ -103,6 +103,14 @@ jobs:
       - name: Startup and regression tests in restricted Linux network namespace
         shell: bash
         run: |
-          sudo bash "$RUNNER_TEMP/formatter-validation/scripts/formatter-ci/run-isolated.sh" \
-            "$RUNNER_TEMP/formatter-validation" "$(command -v node)" \
-            "$(id -u)" "$(id -g)" "$RUNNER_TEMP/formatter-home"
+          set -euo pipefail
+          stage=resolve-node
+          trap 'status=$?; printf "FAIL isolation workflow stage=%s exit=%s\n" "$stage" "$status" >&2' ERR
+          node_bin="$(command -v node)"
+          stage=resolve-runner-identity
+          runner_uid="$(id -u)"
+          runner_gid="$(id -g)"
+          stage=sudo-or-launcher
+          sudo -n bash "$RUNNER_TEMP/formatter-validation/scripts/formatter-ci/run-isolated.sh" \
+            "$RUNNER_TEMP/formatter-validation" "$node_bin" \
+            "$runner_uid" "$runner_gid" "$RUNNER_TEMP/formatter-home"
