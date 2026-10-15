@@ -3,6 +3,7 @@ const multer = require('multer');
 const { authenticateToken, requireAdmin, requireDocumentFormatterAccess } = require('../middleware/authMiddleware');
 const documentFormatterController = require('../controllers/documentFormatterController');
 
+function createDocumentFormatterRoutes(authenticate = authenticateToken) {
 const router = express.Router();
 
 const upload = multer({
@@ -21,12 +22,12 @@ const upload = multer({
 });
 
 router.get('/health', documentFormatterController.healthCheck);
-router.get('/admin/overview', authenticateToken, requireAdmin, documentFormatterController.getAdminOverview);
+router.get('/admin/overview', authenticate, requireAdmin, documentFormatterController.getAdminOverview);
 router.post('/request-access', documentFormatterController.requestAccess);
-router.post('/format/txt', authenticateToken, requireDocumentFormatterAccess, documentFormatterController.formatTxt);
-router.post('/format/docx', authenticateToken, requireDocumentFormatterAccess, documentFormatterController.formatDocx);
-router.post('/format/pdf', authenticateToken, requireDocumentFormatterAccess, documentFormatterController.formatPdf);
-router.post('/format/extract', authenticateToken, requireDocumentFormatterAccess, (req, res) => {
+router.post('/format/txt', authenticate, requireDocumentFormatterAccess, documentFormatterController.formatTxt);
+router.post('/format/docx', authenticate, requireDocumentFormatterAccess, documentFormatterController.formatDocx);
+router.post('/format/pdf', authenticate, requireDocumentFormatterAccess, documentFormatterController.formatPdf);
+router.post('/format/extract', authenticate, requireDocumentFormatterAccess, (req, res) => {
     upload.single('file')(req, res, (error) => {
         if (error) {
             res.status(400).json({ error: 'upload_failed', message: error.message || 'File upload failed.' });
@@ -37,4 +38,8 @@ router.post('/format/extract', authenticateToken, requireDocumentFormatterAccess
     });
 });
 
-module.exports = router;
+return router;
+}
+
+module.exports = createDocumentFormatterRoutes();
+module.exports.createDocumentFormatterRoutes = createDocumentFormatterRoutes;

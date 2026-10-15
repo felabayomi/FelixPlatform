@@ -1,0 +1,69 @@
+name: Temporary Formatter Linux validation
+
+on:
+  push:
+    branches: [fix/document-formatter-backend-integration]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: formatter-linux-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    if: github.repository == 'felabayomi/FelixPlatform' && github.event_name == 'push' && github.ref == 'refs/heads/fix/document-formatter-backend-integration'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Set up Node 22 (no cache)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Read-only source checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: source
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /admin-dashboard/server.js
+            /admin-dashboard/package.json
+            /admin-dashboard/package-lock.json
+            /admin-dashboard/tests/
+            /backend/controllers/
+            /backend/middleware/
+            /backend/routes/
+            /backend/services/
+            /backend/tests/
+            /backend/db.js
+            /backend/documentFormatterServer.js
+            /scripts/formatter-ci/
+      - name: Export reviewed source and remove checkout before npm scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "$GITHUB_WORKSPACE/source/scripts/formatter-ci/export-snapshot.cjs" \
+            "$GITHUB_WORKSPACE/source" "$RUNNER_TEMP/formatter-validation"
+          test "$(realpath "$GITHUB_WORKSPACE/source")" = "$GITHUB_WORKSPACE/source"
+          rm -rf -- "$GITHUB_WORKSPACE/source"
+          mkdir -p "$RUNNER_TEMP/formatter-home"
+      - name: Clean Render-style dependency installation
+        working-directory: ${{ runner.temp }}/formatter-validation/admin-dashboard
+        shell: bash
+        run: |
+          env -i HOME="$RUNNER_TEMP/formatter-home" PATH="$PATH" CI=true \
+            NODE_OPTIONS=--max-old-space-size=256 npm install
+      - name: Require no high or critical audit findings
+        working-directory: ${{ runner.temp }}/formatter-validation/admin-dashboard
+        shell: bash
+        run: |
+          env -i HOME="$RUNNER_TEMP/formatter-home" PATH="$PATH" CI=true npm audit --audit-level=high
+      - name: Startup and regression tests in restricted Linux network namespace
+        shell: bash
+        run: |
+          sudo bash "$RUNNER_TEMP/formatter-validation/scripts/formatter-ci/run-isolated.sh" \
+            "$RUNNER_TEMP/formatter-validation" "$(command -v node)" \
+            "$(id -u)" "$(id -g)" "$RUNNER_TEMP/formatter-home"
