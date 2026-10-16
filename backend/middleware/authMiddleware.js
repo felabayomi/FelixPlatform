@@ -4,7 +4,7 @@ const { hasDocumentFormatterAccess } = require('../services/accessControl');
 
 const getJwtSecret = () => process.env.SECRET_KEY || 'secretkey';
 
-exports.authenticateToken = async (req, res, next) => {
+exports.createAuthenticateToken = ({ getSecret = getJwtSecret, verifyOptions } = {}) => async (req, res, next) => {
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -13,7 +13,7 @@ exports.authenticateToken = async (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, getJwtSecret());
+        const decoded = jwt.verify(token, getSecret(), verifyOptions);
         const result = await pool.query(
             'SELECT id, name, email, role, created_at FROM users WHERE id = $1 LIMIT 1',
             [decoded.id]
@@ -24,13 +24,15 @@ exports.authenticateToken = async (req, res, next) => {
         }
 
         req.user = result.rows[0];
-        req.user.document_formatter_access = await hasDocumentFormatterAccess(req.user);
+        req.user.document_formatter_access = await hasDocumentFormatterAccess(req.user, req);
         next();
     } catch (err) {
         console.error(err);
         res.status(401).send('Invalid or expired token');
     }
 };
+
+exports.authenticateToken = exports.createAuthenticateToken();
 
 exports.requireAdmin = (req, res, next) => {
     const role = req.user?.role;
@@ -44,7 +46,7 @@ exports.requireAdmin = (req, res, next) => {
 
 exports.requireDocumentFormatterAccess = async (req, res, next) => {
     try {
-        const hasAccess = req.user?.document_formatter_access ?? await hasDocumentFormatterAccess(req.user);
+        const hasAccess = req.user?.document_formatter_access ?? await hasDocumentFormatterAccess(req.user, req);
 
         if (!hasAccess) {
             return res.status(403).json({

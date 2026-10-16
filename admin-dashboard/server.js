@@ -15,6 +15,20 @@ const expeditionAmericaRoutes = require('../backend/routes/expeditionAmerica');
 
 const app = express();
 
+// Lazy and opt-in: disabled Formatter must not load its optional dependencies.
+let formatterIntegration;
+app.use('/document-formatter', (req, res, next) => {
+  if (process.env.DOCUMENT_FORMATTER_ENABLED !== 'true') {
+    return res.status(404).json({ error: 'not_found' });
+  }
+  try {
+    formatterIntegration ||= require('../backend/routes/formatterIntegration').createFormatterIntegration();
+  } catch {
+    return res.status(503).json({ error: 'formatter_unavailable' });
+  }
+  return formatterIntegration(req, res, next);
+});
+
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -199,6 +213,8 @@ app.use('/api/expedition-america', expeditionAmericaRoutes);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+if (require.main === module) app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+module.exports = app;

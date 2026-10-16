@@ -2,6 +2,7 @@ const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = re
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const mammoth = require('mammoth');
 const pool = require('../db');
+const { usesExistingSchema } = require('../services/schemaPolicy');
 const { sendDocumentFormatterAccessRequestNotification } = require('../services/resendEmail');
 
 const SUPPORTED_DOCUMENT_TYPES = new Set([
@@ -391,7 +392,8 @@ async function buildPdfDocument(options) {
     return pdfDoc.save();
 }
 
-const ensureJobsTable = async () => {
+const ensureJobsTable = async (req) => {
+    if (usesExistingSchema(req)) return;
     if (!ensureJobsTablePromise) {
         ensureJobsTablePromise = pool.query(`
             CREATE TABLE IF NOT EXISTS document_formatter_jobs (
@@ -414,7 +416,8 @@ const ensureJobsTable = async () => {
     return ensureJobsTablePromise;
 };
 
-const ensureAccessRequestsTable = async () => {
+const ensureAccessRequestsTable = async (req) => {
+    if (usesExistingSchema(req)) return;
     if (!ensureAccessRequestsTablePromise) {
         ensureAccessRequestsTablePromise = pool.query(`
             CREATE TABLE IF NOT EXISTS document_formatter_access_requests (
@@ -436,9 +439,9 @@ const ensureAccessRequestsTable = async () => {
     return ensureAccessRequestsTablePromise;
 };
 
-const logFormatterJob = async ({ userId, documentType, exportFormat, title, sourceType, inputFilename, contentLength }) => {
+const logFormatterJob = async ({ userId, documentType, exportFormat, title, sourceType, inputFilename, contentLength }, req) => {
     try {
-        await ensureJobsTable();
+        await ensureJobsTable(req);
         await pool.query(
             `INSERT INTO document_formatter_jobs (
                 user_id,
@@ -467,9 +470,9 @@ exports.healthCheck = async (_req, res) => {
     res.json({ status: 'ok', service: 'document-formatter' });
 };
 
-exports.getAdminOverview = async (_req, res) => {
+exports.getAdminOverview = async (req, res) => {
     try {
-        await Promise.all([ensureJobsTable(), ensureAccessRequestsTable()]);
+        await Promise.all([ensureJobsTable(req), ensureAccessRequestsTable(req)]);
 
         const [summaryResult, recentJobsResult, accessRequestsResult] = await Promise.all([
             pool.query(`
@@ -549,7 +552,7 @@ exports.requestAccess = async (req, res) => {
     }
 
     try {
-        await ensureAccessRequestsTable();
+        await ensureAccessRequestsTable(req);
 
         const insertResult = await pool.query(
             `INSERT INTO document_formatter_access_requests (user_id, name, email, organization, reason)
@@ -613,7 +616,7 @@ exports.formatTxt = async (req, res) => {
             title: options.title,
             sourceType: 'text',
             contentLength: options.text.length,
-        });
+        }, req);
 
         res.json({ formattedText });
     } catch (error) {
@@ -639,7 +642,7 @@ exports.formatDocx = async (req, res) => {
             title: options.title,
             sourceType: 'text',
             contentLength: options.text.length,
-        });
+        }, req);
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}.docx"`);
@@ -666,7 +669,7 @@ exports.formatPdf = async (req, res) => {
             title: options.title,
             sourceType: 'text',
             contentLength: options.text.length,
-        });
+        }, req);
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
@@ -721,7 +724,7 @@ exports.extractUploadedText = async (req, res) => {
             sourceType: fileType,
             inputFilename: originalname,
             contentLength: extractedText.length,
-        });
+        }, req);
 
         return res.json({ text: extractedText, filename: originalname, fileType });
     } catch (error) {

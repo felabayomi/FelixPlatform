@@ -3,12 +3,14 @@ const pool = require('../db');
 const ADMIN_ROLES = new Set(['admin', 'superadmin']);
 const ACTIVE_SUBSCRIPTION_STATUSES = ['active', 'paid', 'trialing', 'approved', 'current'];
 
-async function hasDocumentFormatterAccess(user = {}) {
+async function hasDocumentFormatterAccess(user = {}, req) {
     const role = String(user.role || '').toLowerCase();
 
     if (ADMIN_ROLES.has(role)) {
         return true;
     }
+
+    if (req?.formatterAdminOnly === true) return false;
 
     if (!user.id) {
         return false;

@@ -9,13 +9,13 @@ const getJwtSecret = () => process.env.SECRET_KEY || 'secretkey';
 
 let ensurePasswordResetTablePromise = null;
 
-const sanitizeUser = async (user) => ({
+const sanitizeUser = async (user, req) => ({
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
     created_at: user.created_at,
-    document_formatter_access: await hasDocumentFormatterAccess(user),
+    document_formatter_access: await hasDocumentFormatterAccess(user, req),
 });
 
 const ensurePasswordResetTable = async () => {
@@ -109,7 +109,7 @@ exports.register = async (req, res) => {
         );
 
         const user = result.rows[0];
-        const safeUser = await sanitizeUser(user);
+        const safeUser = await sanitizeUser(user, req);
         const token = jwt.sign({ id: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
 
         res.json({
@@ -125,7 +125,7 @@ exports.register = async (req, res) => {
     }
 };
 
-exports.login = async (req, res) => {
+exports.createLogin = ({ getSecret = getJwtSecret, signOptions = {} } = {}) => async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -146,8 +146,8 @@ exports.login = async (req, res) => {
             return res.status(401).send('Invalid password');
         }
 
-        const token = jwt.sign({ id: user.id, role: user.role }, getJwtSecret(), { expiresIn: '7d' });
-        const safeUser = await sanitizeUser(user);
+        const token = jwt.sign({ id: user.id, role: user.role }, getSecret(), { expiresIn: '7d', ...signOptions });
+        const safeUser = await sanitizeUser(user, req);
 
         res.json({ token, user: safeUser });
     } catch (err) {
@@ -155,6 +155,8 @@ exports.login = async (req, res) => {
         res.status(500).send('Error logging in');
     }
 };
+
+exports.login = exports.createLogin();
 
 exports.forgotPassword = async (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
